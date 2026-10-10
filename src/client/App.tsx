@@ -23,11 +23,13 @@ const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "versi
 const defaultBrand: Brand = { name: "Assistant", logoUrl: "", primaryColor: "#007aff", supportUrl: "" };
 
 // Route lives in the hash (#/assistant/sources) so reload and the back button keep the place.
-function readRoute(): { page: Page; tab: AssistantTab } {
-  const [page, tab] = window.location.hash.replace(/^#\/?/, "").split("/");
+function readRoute(): { page: Page; tab: AssistantTab; params: string[] } {
+  const [page, ...rest] = window.location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  const known = nav.some((item) => item.id === page);
   return {
-    page: nav.some((item) => item.id === page) ? (page as Page) : "assistant",
-    tab: assistantTabs.includes(tab as AssistantTab) ? (tab as AssistantTab) : "test",
+    page: known ? (page as Page) : "assistant",
+    tab: page === "assistant" && assistantTabs.includes(rest[0] as AssistantTab) ? (rest[0] as AssistantTab) : "test",
+    params: known && page !== "assistant" ? rest : [],
   };
 }
 
@@ -38,14 +40,14 @@ function useRoute() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  const go = (page: Page, tab?: AssistantTab) => {
-    window.location.hash = page === "assistant" ? `/assistant/${tab ?? route.tab}` : `/${page}`;
+  const go = (page: Page, tab?: AssistantTab, ...params: string[]) => {
+    window.location.hash = page === "assistant" ? `/assistant/${tab ?? route.tab}` : [`/${page}`, ...params.map(encodeURIComponent)].join("/");
   };
   return { ...route, go };
 }
 
 function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promise<void>; logout: () => void }) {
-  const { page, tab, go } = useRoute();
+  const { page, tab, params, go } = useRoute();
   // One assistant per workspace; the backend still stores agents generically.
   const agent = data.agents[0];
   useEffect(() => {
@@ -73,8 +75,17 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
         </div>
       </aside>
       <main className="content">
-        {page === "assistant" && <AssistantPage agentId={agent.id} collections={data.collections} tab={tab} onTab={(next) => go("assistant", next)} refresh={reload} openSettings={() => go("settings")} />}
-        {page === "data" && <DataPage collections={data.collections} reload={reload} />}
+        {page === "assistant" && (
+          <AssistantPage
+            agentId={agent.id}
+            collections={data.collections}
+            tab={tab}
+            onTab={(next) => go("assistant", next)}
+            refresh={reload}
+            navigate={(target, ...rest) => go(target, undefined, ...rest)}
+          />
+        )}
+        {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
         {page === "conversations" && <ConversationsPage />}
         {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} />}
         {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} />}

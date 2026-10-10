@@ -119,7 +119,7 @@ app.get("/api/admin/bootstrap", async (c) => {
     c.env.DB.prepare("SELECT value_json FROM settings WHERE key='brand'").first<{ value_json: string }>(),
     c.env.DB.prepare("SELECT value_json FROM settings WHERE key='model_defaults'").first<{ value_json: string }>(),
     c.env.DB.prepare("SELECT id,name,description,primary_language,status,active_version_id,updated_at FROM agents ORDER BY updated_at DESC").all(),
-    c.env.DB.prepare("SELECT id,name,slug,description,schema_json,updated_at FROM data_collections ORDER BY updated_at DESC").all(),
+    c.env.DB.prepare("SELECT id,name,slug,description,schema_json,updated_at,archived_at FROM data_collections ORDER BY archived_at IS NOT NULL, updated_at DESC").all(),
     c.env.DB.prepare("SELECT id,agent_id,type,name,status,callback_url,config_json,created_at FROM connections ORDER BY created_at DESC").all(),
   ]);
   return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: agents.results, collections: collections.results, connections: connections.results });
@@ -282,6 +282,19 @@ app.post("/api/admin/agents/:id/eval-cases", async (c) => {
   return c.json({ id: caseId, ...body }, 201);
 });
 
+app.patch("/api/admin/eval-cases/:caseId", async (c) => {
+  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional() }), critical: z.boolean() }).parse(await c.req.json());
+  const result = await c.env.DB.prepare("UPDATE eval_cases SET name=?,input=?,assertions_json=?,critical=? WHERE id=?").bind(body.name, body.input, JSON.stringify(body.assertions), body.critical ? 1 : 0, c.req.param("caseId")).run();
+  if (!result.meta.changes) return c.json({ error: "Scenario not found" }, 404);
+  return c.json({ id: c.req.param("caseId"), ...body });
+});
+
+app.delete("/api/admin/eval-cases/:caseId", async (c) => {
+  await c.env.DB.prepare("DELETE FROM eval_cases WHERE id=?").bind(c.req.param("caseId")).run();
+  await writeAudit(c.env.DB, "eval_case.delete", "eval_case", c.req.param("caseId"), c.get("adminId"));
+  return c.json({ ok: true });
+});
+
 app.post("/api/admin/agents/:id/knowledge/text", async (c) => {
   const body = z.object({ name: z.string().min(1), text: z.string().min(1).max(2_000_000) }).parse(await c.req.json());
   const sourceId = await createTextKnowledge(c.env, c.req.param("id"), body.name, body.text);
@@ -333,6 +346,28 @@ app.post("/api/admin/tools/:id/test", async (c) => {
   return c.json(output);
 });
 
+app.patch("/api/admin/knowledge/:id", async (c) => {
+  const body = z.object({ name: z.string().min(1).max(200).optional(), text: z.string().min(1).max(2_000_000).optional() }).parse(await c.req.json());
+  const source = await c.env.DB.prepare("SELECT id,type,name,r2_key FROM knowledge_sources WHERE id=?").bind(c.req.param("id")).first<{ id: string; type: string; name: string; r2_key: string | null }>();
+  if (!source) return c.json({ error: "Source not found" }, 404);
+  if (body.text !== undefined) {
+    if (source.type === "url" || !source.r2_key) return c.json({ error: "Web page sources are refreshed from their URL" }, 422);
+    await c.env.FILES.put(source.r2_key, body.text, { httpMetadata: { contentType: "text/markdown; charset=utf-8" } });
+  }
+  const reindex = body.text !== undefined || (body.name !== undefined && body.name !== source.name);
+  await c.env.DB.prepare(`UPDATE knowledge_sources SET name=?,${reindex ? "status='pending',error=NULL," : ""}updated_at=datetime('now') WHERE id=?`).bind(body.name ?? source.name, source.id).run();
+  if (reindex) await c.env.JOBS.send({ kind: "knowledge_ingest", sourceId: source.id });
+  await writeAudit(c.env.DB, "knowledge.update", "knowledge_source", source.id, c.get("adminId"));
+  return c.json({ id: source.id, status: reindex ? "pending" : "unchanged" });
+});
+
+app.get("/api/admin/knowledge/:id/content", async (c) => {
+  const source = await c.env.DB.prepare("SELECT r2_key FROM knowledge_sources WHERE id=?").bind(c.req.param("id")).first<{ r2_key: string | null }>();
+  if (!source?.r2_key) return c.json({ text: "" });
+  const object = await c.env.FILES.get(source.r2_key);
+  return c.json({ text: object ? await object.text() : "" });
+});
+
 app.post("/api/admin/knowledge/:id/retry", async (c) => {
   await c.env.DB.prepare("UPDATE knowledge_sources SET status='pending',error=NULL,updated_at=datetime('now') WHERE id=?").bind(c.req.param("id")).run();
   await c.env.JOBS.send({ kind: "knowledge_ingest", sourceId: c.req.param("id") });
@@ -377,12 +412,17 @@ app.patch("/api/admin/collections/:id/records/:recordId", async (c) => {
 
 // Renames only: field keys and types stay fixed so tools, imports and stored records keep working.
 app.patch("/api/admin/collections/:id", async (c) => {
-  const body = z.object({ name: z.string().min(1).max(120).optional(), labels: z.record(z.string(), z.string().min(1).max(120)).default({}) }).parse(await c.req.json());
+  const body = z.object({ name: z.string().min(1).max(120).optional(), labels: z.record(z.string(), z.string().min(1).max(120)).default({}), archived: z.boolean().optional() }).parse(await c.req.json());
   const collection = await c.env.DB.prepare("SELECT name,schema_json FROM data_collections WHERE id=?").bind(c.req.param("id")).first<{ name: string; schema_json: string }>();
   if (!collection) return c.json({ error: "Collection not found" }, 404);
+  if (body.archived) {
+    const inUse = await c.env.DB.prepare("SELECT a.id FROM agents a LEFT JOIN agent_versions v ON v.id=a.active_version_id WHERE instr(a.draft_json, ?) > 0 OR instr(COALESCE(v.snapshot_json,''), ?) > 0 LIMIT 1")
+      .bind(`"collectionId":"${c.req.param("id")}"`, `"collectionId":"${c.req.param("id")}"`).first();
+    if (inUse) return c.json({ error: "The assistant uses this table. Turn it off in Assistant → Sources and publish first." }, 409);
+  }
   const schema = collectionSchema.parse(JSON.parse(collection.schema_json));
   schema.fields = schema.fields.map((field) => ({ ...field, label: body.labels[field.key] ?? field.label }));
-  await c.env.DB.prepare("UPDATE data_collections SET name=?,schema_json=?,updated_at=datetime('now') WHERE id=?").bind(body.name ?? collection.name, JSON.stringify(schema), c.req.param("id")).run();
+  await c.env.DB.prepare(`UPDATE data_collections SET name=?,schema_json=?,${body.archived === undefined ? "" : body.archived ? "archived_at=datetime('now')," : "archived_at=NULL,"}updated_at=datetime('now') WHERE id=?`).bind(body.name ?? collection.name, JSON.stringify(schema), c.req.param("id")).run();
   return c.json({ id: c.req.param("id"), name: body.name ?? collection.name, schema });
 });
 
@@ -493,13 +533,14 @@ app.post("/api/admin/conversations/:id/takeover", async (c) => {
 });
 
 app.get("/api/admin/dashboard", async (c) => {
-  const [conversations, errors, latency, deliveries] = await Promise.all([
-    c.env.DB.prepare("SELECT COUNT(*) count FROM conversations WHERE last_activity_at >= datetime('now','-7 day')").first(),
-    c.env.DB.prepare("SELECT COUNT(*) count FROM runtime_events WHERE status='failed' AND created_at >= datetime('now','-7 day')").first(),
-    c.env.DB.prepare("SELECT CAST(AVG(latency_ms) AS INTEGER) value FROM runtime_events WHERE created_at >= datetime('now','-7 day')").first(),
-    c.env.DB.prepare("SELECT COUNT(*) count FROM deliveries WHERE status='failed'").first(),
+  const real = "connection_id NOT IN ('preview','eval')";
+  const [today, waiting, failed, week] = await Promise.all([
+    c.env.DB.prepare(`SELECT COUNT(*) AS count FROM conversations WHERE ${real} AND last_activity_at >= datetime('now','-1 day')`).first<{ count: number }>(),
+    c.env.DB.prepare(`SELECT COUNT(*) AS count FROM conversations WHERE ${real} AND human_takeover=1`).first<{ count: number }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS count FROM deliveries WHERE status='failed'").first<{ count: number }>(),
+    c.env.DB.prepare(`SELECT COUNT(*) AS count FROM conversations WHERE ${real} AND last_activity_at >= datetime('now','-7 day')`).first<{ count: number }>(),
   ]);
-  return c.json({ conversations, errors, latency, deliveries });
+  return c.json({ chats24h: today?.count ?? 0, waitingForTeam: waiting?.count ?? 0, failedDeliveries: failed?.count ?? 0, chats7d: week?.count ?? 0 });
 });
 
 app.get("/api/admin/deliveries", async (c) => c.json((await c.env.DB.prepare("SELECT * FROM deliveries ORDER BY updated_at DESC LIMIT 200").all()).results));

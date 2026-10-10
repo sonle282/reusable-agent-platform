@@ -142,6 +142,7 @@ export function Button({
   icon,
   busy,
   children,
+  className,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -151,7 +152,7 @@ export function Button({
 }) {
   return (
     <button
-      className={`btn btn-${variant} btn-${size}`}
+      className={`btn btn-${variant} btn-${size}${className ? ` ${className}` : ""}`}
       {...props}
       disabled={props.disabled || busy}
       aria-busy={busy || undefined}

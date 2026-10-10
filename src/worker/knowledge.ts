@@ -119,12 +119,17 @@ export async function retrieveKnowledge(env: Env, agentId: string, sourceIds: st
     query,
     ai_search_options: { retrieval: { max_num_results: 5, match_threshold: 0.35, filters: { agentid: { $eq: agentId } } } },
   });
-  return result.chunks
-    .filter((chunk) => sourceIds.includes(String(metadataValue(chunk.item.metadata, "sourceid") ?? "")))
-    .slice(0, 5)
+  const chunks = result.chunks.filter((chunk) => sourceIds.includes(String(metadataValue(chunk.item.metadata, "sourceid") ?? ""))).slice(0, 5);
+  const ids = [...new Set(chunks.map((chunk) => String(metadataValue(chunk.item.metadata, "sourceid"))))];
+  const names = new Map(
+    ids.length
+      ? (await env.DB.prepare(`SELECT id,name FROM knowledge_sources WHERE id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all<{ id: string; name: string }>()).results.map((row) => [row.id, row.name])
+      : [],
+  );
+  return chunks
     .map((chunk) => ({
       id: String(metadataValue(chunk.item.metadata, "sourceid") ?? chunk.id),
-      name: String(metadataValue(chunk.item.metadata, "name") ?? chunk.item.key),
+      name: names.get(String(metadataValue(chunk.item.metadata, "sourceid"))) ?? String(metadataValue(chunk.item.metadata, "name") ?? chunk.item.key),
       score: chunk.score,
       text: chunk.text,
     }));

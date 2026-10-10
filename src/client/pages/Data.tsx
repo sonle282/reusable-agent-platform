@@ -24,9 +24,24 @@ const shortDate = (value?: string | null) => (value ? new Date(`${value.slice(0,
 // Schedule and on/off are controlled by the row itself; imported columns that duplicate them are hidden in forms.
 const scheduleColumns = new Set(["bat_dau", "ket_thuc", "dang_chay", "valid_from", "valid_until", "start_date", "end_date", "active", "is_active", "status"]);
 
-export function DataPage({ collections, reload }: { collections: Collection[]; reload: () => Promise<void> }) {
+export function DataPage({
+  collections,
+  reload,
+  openCollectionId,
+  openRecordId,
+  onSelect,
+}: {
+  collections: Collection[];
+  reload: () => Promise<void>;
+  openCollectionId?: string;
+  openRecordId?: string;
+  onSelect: (id: string) => void;
+}) {
   const toast = useToast();
-  const [selectedId, setSelectedId] = useState(collections[0]?.id ?? "");
+  const visibleCollections = collections.filter((collection) => !collection.archived_at);
+  const hiddenCollections = collections.filter((collection) => collection.archived_at);
+  const selectedId = openCollectionId ?? visibleCollections[0]?.id ?? collections[0]?.id ?? "";
+  const setSelectedId = onSelect;
   const [records, setRecords] = useState<RecordRow[] | null>(null);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
@@ -44,6 +59,12 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
     setRecords(null);
     void loadRecords().catch((caught) => setError(errorMessage(caught)));
   }, [selected?.id]);
+  // Deep link from a Test reply: open the exact row once it is loaded.
+  useEffect(() => {
+    if (!openRecordId || !records) return;
+    const record = records.find((row) => row.id === openRecordId);
+    if (record) setEditing(record);
+  }, [openRecordId, records]);
 
   async function importCsv(file: File) {
     if (!selected) return;
@@ -88,10 +109,20 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
         <div className="master-detail stack">
           <nav className="master" aria-label="Tables">
             <Section>
-              {collections.map((collection) => (
+              {visibleCollections.map((collection) => (
                 <Row key={collection.id} icon="data" iconTint="var(--green)" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
               ))}
             </Section>
+            {hiddenCollections.length > 0 && (
+              <details className="advanced hidden-tables">
+                <summary>Hidden tables · {hiddenCollections.length}</summary>
+                <Section>
+                  {hiddenCollections.map((collection) => (
+                    <Row key={collection.id} icon="data" iconTint="var(--gray)" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
+                  ))}
+                </Section>
+              </details>
+            )}
           </nav>
           {selected && (
             <div className="detail">
@@ -113,6 +144,20 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
                   </Button>
                   <Button variant="plain" onClick={() => setRenaming(true)}>
                     Rename
+                  </Button>
+                  <Button
+                    variant="plain"
+                    onClick={async () => {
+                      try {
+                        await patch(`/api/admin/collections/${selected.id}`, { archived: !selected.archived_at });
+                        await reload();
+                        toast(selected.archived_at ? "Table shown" : "Table hidden");
+                      } catch (caught) {
+                        setError(errorMessage(caught));
+                      }
+                    }}
+                  >
+                    {selected.archived_at ? "Show table" : "Hide table"}
                   </Button>
                   <input ref={fileInput} hidden type="file" accept=".csv,text/csv" onChange={(event) => event.target.files?.[0] && void importCsv(event.target.files[0])} />
                 </div>
@@ -169,9 +214,13 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
           collection={selected}
           existingKeys={(records ?? []).map((row) => row.external_key ?? "").filter(Boolean)}
           record={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null);
+            if (openRecordId) setSelectedId(selected.id);
+          }}
           onDone={async (message) => {
             setEditing(null);
+            if (openRecordId) setSelectedId(selected.id);
             toast(message);
             await loadRecords();
           }}

@@ -19,6 +19,10 @@ export function post<T>(path: string, body?: unknown) {
   return api<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 }
 
+export function del<T>(path: string) {
+  return api<T>(path, { method: "DELETE" });
+}
+
 export function patch<T>(path: string, body: unknown) {
   return api<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 }

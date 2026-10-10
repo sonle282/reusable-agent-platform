@@ -43,7 +43,7 @@ export async function searchRecords(env: Env, collectionId: string, query: strin
   const params = terms.map((term) => `%${term.replaceAll("%", "").replaceAll("_", "")}%`);
   const result = await env.DB.prepare(`SELECT id, data_json, valid_from, valid_until FROM data_records WHERE collection_id = ? AND status = 'active' AND (valid_from IS NULL OR valid_from <= datetime('now')) AND (valid_until IS NULL OR valid_until >= datetime('now')) AND (${where}) ORDER BY updated_at DESC LIMIT ?`)
     .bind(collectionId, ...params, safeLimit).all<{ id: string; data_json: string; valid_from: string | null; valid_until: string | null }>();
-  return result.results.map((row) => ({ id: row.id, ...JSON.parse(row.data_json) as object, valid_from: row.valid_from, valid_until: row.valid_until }));
+  return result.results.map((row) => ({ id: row.id, ...JSON.parse(row.data_json) as object, record_id: row.id, valid_from: row.valid_from, valid_until: row.valid_until }));
 }
 
 export async function getRecord(env: Env, collectionId: string, recordId: string) {

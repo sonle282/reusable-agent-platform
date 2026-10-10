@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, patch, post } from "../api";
+import { api, del, patch, post } from "../api";
 import { modelSupportsTemperature, type AnthropicModel } from "../../shared/models";
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
 import { RichBubbles } from "../RichMessage";
-import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalRun } from "../types";
+import type { AgentDetail, AgentDraft, AgentResult, Collection, Dashboard, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import {
   Badge,
   Banner,
@@ -26,6 +26,7 @@ import {
 } from "../ui";
 
 export type AssistantTab = "test" | "instructions" | "sources" | "versions";
+type Navigate = (page: "data" | "conversations" | "connections" | "settings", ...params: string[]) => void;
 
 export const modelOptions: Array<{ value: AnthropicModel; label: string; note: string }> = [
   { value: "claude-haiku-5-5", label: "Claude Haiku 5.5", note: "Fast, low cost" },
@@ -45,14 +46,14 @@ export function AssistantPage({
   tab,
   onTab,
   refresh,
-  openSettings,
+  navigate,
 }: {
   agentId: string;
   collections: Collection[];
   tab: AssistantTab;
   onTab: (tab: AssistantTab) => void;
   refresh: () => Promise<void>;
-  openSettings: () => void;
+  navigate: Navigate;
 }) {
   const toast = useToast();
   const [agent, setAgent] = useState<AgentDetail | null>(null);
@@ -135,7 +136,7 @@ export function AssistantPage({
   const live = agent.versions.find((version) => version.id === agent.active_version_id);
   const upToDate = Boolean(live) && agent.draftMatchesLive && !editedSinceLoad && saveState === "saved";
   const missing = [
-    !agent.draft.modelConfig.credentialId && { text: "No Anthropic API key yet.", action: "Open Settings", go: openSettings },
+    !agent.draft.modelConfig.credentialId && { text: "No Anthropic API key yet.", action: "Open Settings", go: () => navigate("settings") },
     !agent.draft.instructions.trim() && !hasProfile(agent.draft) && { text: "Tell the assistant what its job is.", action: "Write instructions", go: () => onTab("instructions") },
     agent.sources.some((source) => source.status === "failed") && { text: "A knowledge source failed to process.", action: "View sources", go: () => onTab("sources") },
   ].filter(Boolean) as Array<{ text: string; action: string; go: () => void }>;
@@ -157,6 +158,7 @@ export function AssistantPage({
           </Button>
         }
       />
+      <TodaySummary navigate={navigate} />
       {missing.length > 0 && (
         <Banner tone="orange">
           {missing.map((item) => (
@@ -189,12 +191,12 @@ export function AssistantPage({
           ))}
         </Banner>
       )}
-      {tab === "test" && <TestTab agent={agent} collections={collections} flush={flush} reload={load} run={evalRun} setRun={setEvalRun} />}
+      {tab === "test" && <TestTab agent={agent} collections={collections} flush={flush} reload={load} run={evalRun} setRun={setEvalRun} navigate={navigate} />}
       {tab === "instructions" && <InstructionsTab agent={agent} mutate={mutate} rename={rename} />}
       {tab === "sources" && (
         <>
           <KnowledgeTab agent={agent} mutate={mutate} reload={load} />
-          <ToolsTab agent={agent} collections={collections} mutate={mutate} reload={load} />
+          <ToolsTab agent={agent} collections={collections.filter((collection) => !collection.archived_at || agent.draft.collectionBindings.some((item) => item.collectionId === collection.id))} mutate={mutate} reload={load} />
         </>
       )}
       {tab === "versions" && <VersionsTab agent={agent} reload={async () => { await load(); await refresh(); }} />}
@@ -337,6 +339,7 @@ function InstructionsTab({
 function KnowledgeTab({ agent, mutate, reload }: { agent: AgentDetail; mutate: (fn: (draft: AgentDraft) => AgentDraft) => void; reload: () => Promise<void> }) {
   const toast = useToast();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<KnowledgeSource | null>(null);
   const pending = agent.sources.some((source) => source.status === "pending" || source.status === "processing");
   useEffect(() => {
     if (!pending) return;
@@ -384,12 +387,26 @@ function KnowledgeTab({ agent, mutate, reload }: { agent: AgentDetail; mutate: (
                     }}
                   />
                 )}
+                <Button variant="plain" size="small" onClick={() => setEditing(source)}>
+                  Edit
+                </Button>
                 <Toggle label={`Use ${source.name}`} checked={agent.draft.knowledgeSourceIds.includes(source.id)} onChange={(on) => toggle(source.id, on)} />
               </>
             }
           />
         ))}
       </Section>
+      {editing && (
+        <EditKnowledgeSheet
+          source={editing}
+          onClose={() => setEditing(null)}
+          onDone={async (message) => {
+            setEditing(null);
+            toast(message);
+            await reload();
+          }}
+        />
+      )}
       {adding && (
         <AddKnowledgeSheet
           agentId={agent.id}
@@ -603,6 +620,7 @@ function TestTab({
   reload,
   run,
   setRun,
+  navigate,
 }: {
   agent: AgentDetail;
   collections: Collection[];
@@ -610,7 +628,12 @@ function TestTab({
   reload: () => Promise<void>;
   run: EvalRun | null;
   setRun: (run: EvalRun) => void;
+  navigate: Navigate;
 }) {
+  const collectionFor = (name: string) => {
+    const binding = agent.draft.collectionBindings.find((item) => item.toolName === name);
+    return binding && collections.find((item) => item.id === binding.collectionId);
+  };
   const toolLabel = (name: string) => {
     const binding = agent.draft.collectionBindings.find((item) => item.toolName === name);
     const collection = binding && collections.find((item) => item.id === binding.collectionId);
@@ -622,6 +645,8 @@ function TestTab({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conversationId, setConversationId] = useState(() => crypto.randomUUID());
+  const [editingSource, setEditingSource] = useState<KnowledgeSource | null>(null);
+  const toast = useToast();
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
@@ -712,19 +737,54 @@ function TestTab({
             </button>
           </form>
         </div>
-        <TraceInspector result={selected} toolLabel={toolLabel} />
+        <TraceInspector
+          result={selected}
+          toolLabel={toolLabel}
+          openRecord={(toolName, recordId) => {
+            const collection = collectionFor(toolName);
+            if (collection) navigate("data", collection.id, recordId);
+          }}
+          openSource={(sourceId) => setEditingSource(agent.sources.find((source) => source.id === sourceId) ?? null)}
+        />
       </div>
       <Evaluations agent={agent} flush={flush} reload={reload} run={run} setRun={setRun} />
+      {editingSource && (
+        <EditKnowledgeSheet
+          source={editingSource}
+          onClose={() => setEditingSource(null)}
+          onDone={async (message) => {
+            setEditingSource(null);
+            toast(message);
+            await reload();
+          }}
+        />
+      )}
     </>
   );
 }
 
-function TraceInspector({ result, toolLabel }: { result: AgentResult | null; toolLabel: (name: string) => string }) {
+type TracedRecord = { record_id?: string; id?: string } & Record<string, unknown>;
+
+// A readable label for a looked-up row: its first short text value that is not an identifier.
+const recordTitle = (record: TracedRecord) =>
+  String(Object.entries(record).find(([key, value]) => !["id", "record_id", "valid_from", "valid_until"].includes(key) && typeof value === "string" && value.length > 0 && value.length < 90 && !/^https?:/.test(value))?.[1] ?? record.id ?? "Row");
+
+function TraceInspector({
+  result,
+  toolLabel,
+  openRecord,
+  openSource,
+}: {
+  result: AgentResult | null;
+  toolLabel: (name: string) => string;
+  openRecord: (toolName: string, recordId: string) => void;
+  openSource: (sourceId: string) => void;
+}) {
   if (!result?.trace)
     return (
       <aside className="inspector">
         <h3>Details</h3>
-        <p className="text-secondary">Tap a reply to see what the assistant based it on.</p>
+        <p className="text-secondary">Tap a reply to see what the assistant based it on, then tap a row or source to fix it.</p>
       </aside>
     );
   const { trace } = result;
@@ -738,22 +798,34 @@ function TraceInspector({ result, toolLabel }: { result: AgentResult | null; too
       </Section>
       <Section title="Knowledge read">
         {trace.sources.length ? (
-          trace.sources.map((source, index) => <Row key={index} icon="doc" iconTint="var(--indigo)" title={source.name} detail={source.score ? `${Math.round(source.score * 100)}%` : undefined} />)
+          trace.sources.map((source, index) => (
+            <Row
+              key={index}
+              icon="doc"
+              iconTint="var(--indigo)"
+              title={source.name}
+              detail={source.score ? `${Math.round(source.score * 100)}%` : undefined}
+              chevron
+              onClick={() => (source as { id?: string }).id && openSource(String((source as { id?: string }).id))}
+            />
+          ))
         ) : (
           <Row title={<span className="text-secondary">No knowledge read</span>} />
         )}
       </Section>
       <Section title="Data looked up">
         {trace.toolCalls.length ? (
-          trace.toolCalls.map((tool, index) => (
-            <details className="disclosure" key={index}>
-              <summary>
-                <span>{toolLabel(tool.name)}</span>
-                <span className="text-secondary">{Array.isArray(tool.output) ? `${tool.output.length} results` : ""}</span>
-              </summary>
-              <pre>{JSON.stringify({ input: tool.input, output: tool.output }, null, 2)}</pre>
-            </details>
-          ))
+          trace.toolCalls.map((tool, index) => {
+            const rows = Array.isArray(tool.output) ? (tool.output as TracedRecord[]) : [];
+            return (
+              <div key={index} className="trace-group">
+                <Row title={toolLabel(tool.name)} detail={rows.length ? `${rows.length} found` : "Nothing found"} />
+                {rows.slice(0, 8).map((record, rowIndex) => (
+                  <Row key={rowIndex} title={recordTitle(record)} subtitle={record.id && record.id !== record.record_id ? String(record.id) : undefined} chevron onClick={() => record.record_id && openRecord(tool.name, String(record.record_id))} />
+                ))}
+              </div>
+            );
+          })
         ) : (
           <Row title={<span className="text-secondary">No data looked up</span>} />
         )}
@@ -780,6 +852,7 @@ function Evaluations({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<EvalCase | null>(null);
   async function evaluate() {
     if (!(await flush())) return;
     setBusy(true);
@@ -836,17 +909,24 @@ function Evaluations({
                 </>
               }
               accessory={result ? <StatusBadge value={result.passed ? "passed" : "failed"} /> : undefined}
+              chevron
+              onClick={() => setEditing(testCase)}
             />
           );
         })}
       </Section>
       {error && <Banner onClose={() => setError("")}>{error}</Banner>}
-      {adding && (
+      {(adding || editing) && (
         <AddEvalSheet
           agentId={agent.id}
-          onClose={() => setAdding(false)}
+          existing={editing}
+          onClose={() => {
+            setAdding(false);
+            setEditing(null);
+          }}
           onDone={async () => {
             setAdding(false);
+            setEditing(null);
             await reload();
           }}
         />
@@ -855,8 +935,20 @@ function Evaluations({
   );
 }
 
-function AddEvalSheet({ agentId, onClose, onDone }: { agentId: string; onClose: () => void; onDone: () => void }) {
-  const [form, setForm] = useState({ name: "", input: "", expectedTool: "", mustInclude: "", mustNotInclude: "", maxLength: "", critical: true });
+function AddEvalSheet({ agentId, existing, onClose, onDone }: { agentId: string; existing: EvalCase | null; onClose: () => void; onDone: () => void }) {
+  const [form, setForm] = useState(() => {
+    const assertions = JSON.parse(existing?.assertions_json || "{}") as { expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number };
+    return {
+      name: existing?.name ?? "",
+      input: existing?.input ?? "",
+      expectedTool: assertions.expectedTool ?? "",
+      mustInclude: (assertions.mustInclude ?? []).join(", "),
+      mustNotInclude: (assertions.mustNotInclude ?? []).join(", "),
+      maxLength: assertions.maxLength ? String(assertions.maxLength) : "",
+      critical: existing ? Boolean(existing.critical) : true,
+    };
+  });
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const list = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
@@ -865,7 +957,7 @@ function AddEvalSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
     setBusy(true);
     setError("");
     try {
-      await post(`/api/admin/agents/${agentId}/eval-cases`, {
+      await (existing ? (body: unknown) => patch(`/api/admin/eval-cases/${existing.id}`, body) : (body: unknown) => post(`/api/admin/agents/${agentId}/eval-cases`, body))({
         name: form.name,
         input: form.input,
         critical: form.critical,
@@ -885,12 +977,25 @@ function AddEvalSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
   }
   return (
     <Sheet
-      title="Add test scenario"
+      title={existing ? "Edit test scenario" : "Add test scenario"}
       onClose={onClose}
       footer={
         <>
+          {existing && (
+            <Button
+              variant={confirmDelete ? "destructive" : "plain"}
+              className="footer-leading"
+              onClick={async () => {
+                if (!confirmDelete) return setConfirmDelete(true);
+                await del(`/api/admin/eval-cases/${existing.id}`);
+                onDone();
+              }}
+            >
+              {confirmDelete ? "Delete scenario" : "Delete"}
+            </Button>
+          )}
           <Button variant="gray" onClick={onClose}>Cancel</Button>
-          <Button form="add-eval" busy={busy} disabled={!form.name || !form.input}>Add</Button>
+          <Button form="add-eval" busy={busy} disabled={!form.name || !form.input}>{existing ? "Save" : "Add"}</Button>
         </>
       }
     >
@@ -986,5 +1091,100 @@ function VersionsTab({ agent, reload }: { agent: AgentDetail; reload: () => Prom
         </Sheet>
       )}
     </>
+  );
+}
+
+function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSource; onClose: () => void; onDone: (message: string) => void }) {
+  const isUrl = source.type === "url";
+  const [name, setName] = useState(source.name);
+  const [text, setText] = useState<string | null>(isUrl ? "" : null);
+  const [original, setOriginal] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (isUrl) return;
+    void api<{ text: string }>(`/api/admin/knowledge/${source.id}/content`)
+      .then((result) => {
+        setText(result.text);
+        setOriginal(result.text);
+      })
+      .catch((caught) => setError(errorMessage(caught)));
+  }, [source.id]);
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const contentChanged = !isUrl && text !== null && text !== original;
+      await patch(`/api/admin/knowledge/${source.id}`, { name, text: contentChanged ? text : undefined });
+      onDone(contentChanged ? "Saved — the assistant will use it in a minute" : "Saved");
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Sheet
+      title="Edit knowledge"
+      onClose={onClose}
+      footer={
+        <>
+          {isUrl && (
+            <Button
+              variant="plain"
+              className="footer-leading"
+              onClick={async () => {
+                await post(`/api/admin/knowledge/${source.id}/retry`);
+                onDone("Fetching the page again");
+              }}
+            >
+              Fetch page again
+            </Button>
+          )}
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="edit-knowledge" busy={busy} disabled={!name.trim() || text === null}>Save</Button>
+        </>
+      }
+    >
+      <form id="edit-knowledge" className="sheet-form" onSubmit={save}>
+        <Section footer={isUrl ? "Web page sources update when you fetch the page again." : "Saving new text re-indexes this source; customers see the change after it is ready."}>
+          <FieldRow label="Title">
+            <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
+          </FieldRow>
+          {!isUrl && (
+            <FieldRow label="Content" stacked>
+              {text === null ? <Spinner small /> : <textarea className="text-area" rows={14} value={text} onChange={(event) => setText(event.target.value)} />}
+            </FieldRow>
+          )}
+        </Section>
+        {error && <Banner>{error}</Banner>}
+      </form>
+    </Sheet>
+  );
+}
+
+// Three numbers an owner checks every morning; each opens the place to act.
+function TodaySummary({ navigate }: { navigate: Navigate }) {
+  const [summary, setSummary] = useState<Dashboard | null>(null);
+  useEffect(() => {
+    void api<Dashboard>("/api/admin/dashboard").then(setSummary).catch(() => undefined);
+  }, []);
+  if (!summary) return null;
+  const tiles = [
+    { label: "Chats in the last 24 hours", value: summary.chats24h, hint: `${summary.chats7d} this week`, go: () => navigate("conversations"), tone: "" },
+    { label: "Waiting for your team", value: summary.waitingForTeam, hint: summary.waitingForTeam ? "Reply in Conversations" : "All handled", go: () => navigate("conversations"), tone: summary.waitingForTeam ? "orange" : "" },
+    { label: "Replies not delivered", value: summary.failedDeliveries, hint: summary.failedDeliveries ? "Retry in Channels" : "All delivered", go: () => navigate("connections"), tone: summary.failedDeliveries ? "red" : "" },
+  ];
+  return (
+    <div className="summary">
+      {tiles.map((tile) => (
+        <button key={tile.label} className={`summary-tile ${tile.tone}`} onClick={tile.go}>
+          <span className="summary-value">{tile.value}</span>
+          <span className="summary-label">{tile.label}</span>
+          <span className="summary-hint">{tile.hint}</span>
+        </button>
+      ))}
+    </div>
   );
 }

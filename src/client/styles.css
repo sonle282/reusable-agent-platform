@@ -1725,3 +1725,72 @@ tr.clickable:focus-visible {
 .split-side > .advanced {
   margin-bottom: 28px;
 }
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.summary-tile {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  text-align: left;
+  transition: background 120ms var(--ease);
+}
+
+.summary-tile:hover {
+  background: color-mix(in srgb, var(--bg-secondary) 85%, var(--fill-strong));
+}
+
+.summary-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.summary-hint {
+  color: var(--label-secondary);
+  font-size: 12px;
+}
+
+.summary-tile.orange .summary-value {
+  color: var(--orange);
+}
+
+.summary-tile.red .summary-value {
+  color: var(--red);
+}
+
+.trace-group + .trace-group {
+  border-top: 0.5px solid var(--separator);
+}
+
+.trace-group > .row + .row {
+  padding-left: 28px;
+}
+
+.footer-leading {
+  margin-right: auto;
+}
+
+.hidden-tables {
+  margin-top: 12px;
+}
+
+@media (max-width: 860px) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

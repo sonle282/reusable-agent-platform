@@ -79,6 +79,7 @@ export type Collection = {
   description: string;
   schema_json: string;
   updated_at?: string;
+  archived_at?: string | null;
 };
 
 export type Connection = {
@@ -147,9 +148,4 @@ export type Delivery = {
   updated_at: string;
 };
 
-export type Dashboard = {
-  conversations: { count: number } | null;
-  errors: { count: number } | null;
-  latency: { value: number | null } | null;
-  deliveries: { count: number } | null;
-};
+export type Dashboard = { chats24h: number; waitingForTeam: number; failedDeliveries: number; chats7d: number };
