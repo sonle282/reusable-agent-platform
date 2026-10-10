@@ -97,7 +97,7 @@ export function ConversationsPage() {
                   ) : (
                     detail.messages.map((message) => (
                       <div className={`message-row ${message.role === "user" ? "user" : "assistant"}`} key={message.id}>
-                        <RichBubbles role={message.role === "user" ? "user" : "assistant"} text={message.content} />
+                        <RichBubbles side={message.role === "user" ? "in" : "out"} text={message.content} />
                         <time>{formatDate(message.created_at)}</time>
                       </div>
                     ))

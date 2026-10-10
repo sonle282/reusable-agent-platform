@@ -629,7 +629,7 @@ export function Banner({
         {children && <div className="banner-text banner-children">{children}</div>}
         {actions && <div className="banner-actions">{actions}</div>}
       </div>
-      {onClose && <Button variant="plain" size="small" icon="xmark" aria-label="Dismiss" onClick={onClose} />}
+      {onClose && <Button type="button" variant="plain" size="small" icon="xmark" aria-label="Dismiss" onClick={onClose} />}
     </div>
   );
 }
@@ -706,7 +706,7 @@ export function Sheet({
             </h2>
             {subtitle && <p className="sheet-sub">{subtitle}</p>}
           </div>
-          <Button variant="gray" size="small" icon="xmark" aria-label="Close" onClick={onClose} />
+          <Button type="button" variant="gray" size="small" icon="xmark" aria-label="Close" onClick={onClose} />
         </div>
         <div className="sheet-body">{children}</div>
         {footer && <div className="sheet-footer">{footer}</div>}
@@ -746,10 +746,10 @@ export function Alert({
         </h2>
         {text && <p className="alert-text">{text}</p>}
         <div className="alert-actions">
-          <Button variant="gray" onClick={onCancel}>
+          <Button type="button" variant="gray" onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={destructive ? "destructive" : "filled"} busy={busy} onClick={onConfirm}>
+          <Button type="button" variant={destructive ? "destructive" : "filled"} busy={busy} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </div>
@@ -1045,6 +1045,7 @@ export function CopyField({ label, value }: { label: string; value: string }) {
       <div>
         <code>{value}</code>
         <Button
+          type="button"
           variant="gray"
           size="small"
           icon="copy"

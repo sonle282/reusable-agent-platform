@@ -127,7 +127,7 @@ export type AgentResult = {
   trace?: {
     model?: string;
     latencyMs: number;
-    sources: Array<{ name: string; score?: number }>;
+    sources: Array<{ id?: string; name: string; score?: number }>;
     toolCalls: Array<{ name: string; input: unknown; output: unknown }>;
     error?: string;
   };

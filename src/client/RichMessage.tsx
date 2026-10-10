@@ -30,15 +30,15 @@ const safeUrl = (value?: string) => {
   }
 };
 
-export function RichBubbles({ text, role }: { text: string; role: "user" | "assistant" }) {
-  if (role === "user") return <div className="bubble user">{text}</div>;
+// side "out" = right/blue, "in" = left/gray. Preview: the owner (as customer) is out; Conversations: the customer is in.
+export function RichBubbles({ text, side, selected }: { text: string; side: "out" | "in"; selected?: boolean }) {
   return (
     <>
       {parseRichMessage(text).map((part, index) => {
         const buttons = (part.buttons ?? []).filter((button) => safeUrl(button.url));
         const image = part.type === "image" ? safeUrl(part.url) : undefined;
         return (
-          <div className={`bubble assistant ${image ? "media" : ""}`} key={index}>
+          <div className={`bubble bubble-${side}${image ? " media" : ""}${selected ? " is-selected" : ""}`} key={index}>
             {image && <img src={image} alt="" loading="lazy" />}
             {part.text && <p>{part.text}</p>}
             {buttons.length > 0 && (
