@@ -27,7 +27,7 @@ export const emptyProfile: AssistantProfile = {
   collectDetails: [],
 };
 
-type PromptSource = { profile?: Partial<AssistantProfile>; instructions?: string };
+type PromptSource = { profile?: Partial<AssistantProfile>; instructions?: string; correctedAnswers?: Array<{ question: string; answer: string }> };
 
 const list = (items?: string[]) => (items ?? []).map((item) => item.trim()).filter(Boolean);
 
@@ -57,6 +57,11 @@ export function composeSystemPrompt(source: PromptSource) {
     sections.push(`# HAND OFF TO A PERSON WHEN\n${handoff.map((item) => `- ${item}`).join("\n")}\nWhen handing off: acknowledge the customer, ask for their contact details if you do not have them, and say a staff member will follow up.`);
   const details = list(profile.collectDetails);
   if (details.length) sections.push(`# CONTACT DETAILS TO COLLECT\nWhen the customer is ready to buy, asks for a quote, or needs a person, politely ask for: ${details.join(", ")}. Never insist and never ask for what you already have.`);
+  const corrected = (source.correctedAnswers ?? []).filter((item) => item.question.trim() && item.answer.trim());
+  if (corrected.length)
+    sections.push(
+      `# CORRECTED ANSWERS\nThe owner corrected these answers. When a customer asks something with the same meaning, give the same facts, in the customer's language and your own words. These facts count as checked.\n${corrected.map((item) => `Q: ${item.question.trim()}\nA: ${item.answer.trim()}`).join("\n\n")}`,
+    );
   const playbook = source.instructions?.trim();
   if (playbook) {
     if (sections.length) sections.push(`# DETAILED PLAYBOOK\nThe rules above were written by the business owner and win whenever the playbook below disagrees with them.\n\n${playbook}`);

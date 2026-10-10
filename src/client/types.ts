@@ -47,6 +47,7 @@ export type AgentDraft = {
   };
   responsePolicy: { fallbackMessage: string; maxLength: number };
   knowledgeSourceIds: string[];
+  correctedAnswers?: Array<{ question: string; answer: string; fixId?: string }>;
   collectionBindings: Array<{ collectionId: string; toolName: string; purpose: string }>;
   toolBindings: string[];
   customerFieldSchema: unknown[];
@@ -151,3 +152,15 @@ export type Delivery = {
 };
 
 export type Dashboard = { chats24h: number; waitingForTeam: number; failedDeliveries: number; chats7d: number };
+
+export type AttentionItem = {
+  key: string;
+  type: "team" | "lead" | "backup" | "price" | "fix_pending" | "fix_failing";
+  at: string;
+  conversationId?: string;
+  requestId?: string;
+  fixId?: string;
+  person?: { display_name: string | null; phone: string | null; external_user_id: string | null };
+  message?: string;
+  waitingDays?: number;
+};

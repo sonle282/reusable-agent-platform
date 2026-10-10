@@ -68,6 +68,8 @@ export const agentDraftSchema = z.object({
     maxLength: z.number().int().min(100).max(8000).default(2500),
   }).default({ fallbackMessage, maxLength: 2500 }),
   knowledgeSourceIds: z.array(z.string()).default([]),
+  // Answers the owner fixed with "Fix this answer"; part of the draft so they are tested before customers see them.
+  correctedAnswers: z.array(z.object({ question: z.string().max(4000), answer: z.string().max(4000), fixId: z.string().optional() })).max(200).default([]),
   collectionBindings: z.array(collectionBindingSchema).default([]),
   toolBindings: z.array(z.string()).default([]),
   customerFieldSchema: z.array(z.object({

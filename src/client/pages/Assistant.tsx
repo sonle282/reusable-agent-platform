@@ -3,7 +3,8 @@ import { api, del, patch, post } from "../api";
 import { modelSupportsTemperature, type AnthropicModel } from "../../shared/models";
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
 import { formatDate, timeSeparator, titleField } from "../format";
-import { RichBubbles } from "../RichMessage";
+import { useFixAnswer } from "../FixSheet";
+import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import {
   Alert,
@@ -539,6 +540,8 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
   const [adding, setAdding] = useState(false);
   const [addingTool, setAddingTool] = useState(false);
   const [editing, setEditing] = useState<KnowledgeSource | null>(null);
+  const [showCorrected, setShowCorrected] = useState(false);
+  const corrected = agent.draft.correctedAnswers ?? [];
   const pending = agent.sources.some((source) => source.status === "pending" || source.status === "processing");
   useEffect(() => {
     if (!pending) return;
@@ -565,15 +568,29 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
       <Section
         title="Knowledge"
         action={
-          agent.sources.length > 0 ? (
+          agent.sources.length > 0 || corrected.length > 0 ? (
             <Button variant="plain" icon="plus" onClick={() => setAdding(true)}>
               Add
             </Button>
           ) : undefined
         }
-        footer="For explanations that rarely change: policies, guides, FAQs."
+        footer="For explanations that rarely change: policies, guides, FAQs. Answers you fix land in Corrected answers."
       >
-        {agent.sources.length === 0 ? (
+        {corrected.length > 0 && (
+          <button type="button" className="row" onClick={() => setShowCorrected(true)}>
+            <span className="tile tile-soft-green" aria-hidden="true">
+              <Icon name="check-bubble" size={18} />
+            </span>
+            <span className="row-body">
+              <span className="row-text">
+                <span className="row-title">Corrected answers</span>
+                <span className="row-subtitle">{plural(corrected.length, "answer")} you fixed</span>
+              </span>
+              <Icon name="chevron-right" className="row-chevron" size={14} />
+            </span>
+          </button>
+        )}
+        {agent.sources.length === 0 && corrected.length === 0 ? (
           <EmptyState
             icon="doc"
             title="No knowledge yet"
@@ -680,6 +697,34 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
         </Disclosure>
       </Section>
 
+      {showCorrected && (
+        <Sheet title="Corrected answers" subtitle="Part of the draft · publish to send changes to customers" onClose={() => setShowCorrected(false)} footer={<Button onClick={() => setShowCorrected(false)}>Done</Button>}>
+          {corrected.length === 0 ? (
+            <EmptyState icon="check-bubble" title="No corrected answers" text="Answers you fix with Fix this answer show up here." />
+          ) : (
+            <Section footer="Removing one also removes it from the draft; its test scenario stays until you delete it.">
+              {corrected.map((item, index) => (
+                <div className="row top" key={item.fixId ?? index}>
+                  <div className="row-body">
+                    <span className="row-text">
+                      <span className="row-title strong">{item.question}</span>
+                      <span className="row-subtitle">{item.answer}</span>
+                    </span>
+                    <Button
+                      variant="plain"
+                      size="small"
+                      destructive
+                      onClick={() => mutate((current) => ({ ...current, correctedAnswers: (current.correctedAnswers ?? []).filter((_, i) => i !== index) }))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </Section>
+          )}
+        </Sheet>
+      )}
       {editing && (
         <EditKnowledgeSheet
           source={editing}
@@ -964,9 +1009,24 @@ function PreviewPane({
   const [editingSource, setEditingSource] = useState<KnowledgeSource | null>(null);
   const toast = useToast();
   const scroller = useRef<HTMLDivElement>(null);
+  const { startFix, fixSheet } = useFixAnswer({ agentId: agent.id, onChanged: reload, onOpenSettings: () => navigate("settings") });
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [turns, busy, openId]);
+  // The reply being fixed is every message of that result; the question is the customer turn before it.
+  async function fixTurn(index: number) {
+    const result = turns[index].result;
+    if (!result || !(await flush())) return;
+    const question = [...turns.slice(0, index)].reverse().find((turn) => turn.role === "user")?.text ?? "";
+    const reply = turns
+      .filter((turn) => turn.result === result)
+      .flatMap((turn) => parseRichMessage(turn.text).map((part) => part.text ?? ""))
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    const lookups = (result.trace?.toolCalls ?? []).flatMap((call) => (Array.isArray(call.output) ? (call.output as TracedRecord[]) : []).filter((row) => row.record_id).map((row) => ({ toolName: call.name, recordId: String(row.record_id) })));
+    startFix({ origin: "test", customerMessage: question, badReply: reply, lookups });
+  }
 
   const collectionFor = (toolName: string) => {
     const binding = agent.draft.collectionBindings.find((item) => item.toolName === toolName);
@@ -1066,6 +1126,7 @@ function PreviewPane({
                         const collection = collectionFor(toolName);
                         if (collection) navigate("data", collection.id, recordId);
                       }}
+                      onFix={() => void fixTurn(index)}
                     />
                   )}
                 </ChatGroup>
@@ -1111,6 +1172,7 @@ function PreviewPane({
           }}
         />
       )}
+      {fixSheet}
     </section>
   );
 }
@@ -1132,6 +1194,7 @@ function ReplyDetails({
   titleKeyFor,
   openSource,
   openRecord,
+  onFix,
 }: {
   trace: NonNullable<AgentResult["trace"]>;
   open: boolean;
@@ -1140,6 +1203,7 @@ function ReplyDetails({
   titleKeyFor: (toolName: string) => string | undefined;
   openSource: (id: string) => void;
   openRecord: (toolName: string, recordId: string) => void;
+  onFix: () => void;
 }) {
   const sources = trace.sources.filter((source, index, all) => all.findIndex((item) => item.name === source.name) === index);
   const lookups = trace.toolCalls.map((call) => ({ call, rows: Array.isArray(call.output) ? (call.output as TracedRecord[]) : [] }));
@@ -1184,6 +1248,9 @@ function ReplyDetails({
             />
           ))}
           {trace.error && <p className="details-sub text-red">{trace.error}</p>}
+          <Button variant="tinted" icon="wrench" block onClick={onFix}>
+            Fix this answer
+          </Button>
         </DetailsCard>
       )}
     </>
@@ -1192,7 +1259,7 @@ function ReplyDetails({
 
 // ---------- Test scenarios (bottom of the Preview) ----------
 
-type Assertions = { expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number };
+type Assertions = { expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; fromFix?: string };
 
 function ScenarioBar({
   agent,
@@ -1279,6 +1346,7 @@ function ScenarioBar({
                   <span className="scen-name">
                     <span>{testCase.name}</span>
                     {Boolean(testCase.critical) && <Badge tone="outline">Required</Badge>}
+                    {assertions.fromFix && <Badge tone="neutral">From a fix</Badge>}
                   </span>
                   <span className="truncate muted scen-msg">{[`“${testCase.input}”`, ...rules].join(" · ")}</span>
                   {result && !result.passed && <span className="scen-msg text-red">{result.failures.join(", ") || "Didn't pass"}</span>}
@@ -1318,6 +1386,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
       mustNotInclude: (assertions.mustNotInclude ?? []).join(", "),
       maxLength: assertions.maxLength ? String(assertions.maxLength) : "",
       critical: existing ? Boolean(existing.critical) : true,
+      fromFix: assertions.fromFix,
     };
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1338,6 +1407,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
           mustInclude: list(form.mustInclude).length ? list(form.mustInclude) : undefined,
           mustNotInclude: list(form.mustNotInclude).length ? list(form.mustNotInclude) : undefined,
           maxLength: form.maxLength ? Number(form.maxLength) : undefined,
+          fromFix: form.fromFix,
         },
       };
       await (existing ? patch(`/api/admin/eval-cases/${existing.id}`, body) : post(`/api/admin/agents/${agentId}/eval-cases`, body));

@@ -33,3 +33,12 @@ describe("composeSystemPrompt", () => {
     }
   });
 });
+
+describe("corrected answers", () => {
+  it("adds owner-corrected Q&A as checked facts and skips empty pairs", () => {
+    const prompt = composeSystemPrompt({ correctedAnswers: [{ question: "Có ưu đãi 8 ghế không?", answer: "Free giao hàng từ 6 ghế." }, { question: " ", answer: "x" }] });
+    expect(prompt).toContain("# CORRECTED ANSWERS");
+    expect(prompt).toContain("Q: Có ưu đãi 8 ghế không?\nA: Free giao hàng từ 6 ghế.");
+    expect(prompt).not.toContain("A: x");
+  });
+});

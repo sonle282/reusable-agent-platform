@@ -795,6 +795,27 @@ button.scen-item { width: 100%; border: 0; border-top: 1px solid var(--color-sep
 .signout-row .row-body { justify-content: center; padding: 11px 16px; }
 .signout-row .row-title { color: var(--color-red); }
 
+/* Fix this answer */
+.fix-quotes { display: flex; flex-direction: column; gap: 8px; }
+.fix-quotes .mini-label { padding: 0; }
+.quote.fix-customer { align-self: flex-end; max-width: 85%; }
+.quote.fix-reply { align-self: flex-start; max-width: 92%; display: flex; flex-direction: column; align-items: flex-start; }
+.btn.fix-more { height: 22px; margin-top: 2px; padding: 0; }
+.fix-card { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; }
+.fix-card-head { display: flex; align-items: center; gap: 12px; }
+.fix-reason { margin: 0; font: var(--text-subhead); color: var(--color-label-2); }
+.fix-note { margin: 0; }
+.fix-other { color: var(--color-link); }
+.diff-line > :last-child { flex: 1; min-width: 0; }
+.field-textarea.diff-input { min-height: 20px; font: var(--text-callout); }
+.fix-qa { display: flex; flex-direction: column; gap: 4px; }
+.result.fix-running { padding: 40px 0; }
+.fix-running .spinner { color: var(--color-link); margin-bottom: 12px; }
+.result-icon.result-pass { background: var(--color-green-soft); color: var(--color-green); }
+.result-icon.result-fail { background: var(--color-red-soft); color: var(--color-red); }
+.quote.fix-new { max-width: 100%; }
+.btn.fix-button { margin-top: 2px; }
+
 /* Conversations page */
 .conversations-page { gap: 20px; }
 .conversation-time { font: var(--text-footnote); }
@@ -804,7 +825,7 @@ button.scen-item { width: 100%; border: 0; border-top: 1px solid var(--color-sep
 .takeover { display: flex; align-items: center; gap: 10px; font: var(--text-callout); cursor: pointer; }
 .banner.takeover-banner { border-radius: 0; padding: 10px 16px; }
 .takeover-banner .banner-text { color: var(--color-label); }
-.reply-meta { align-self: flex-end; font: var(--text-footnote); color: var(--color-label-2); }
+.reply-meta { align-self: flex-end; display: flex; align-items: center; gap: 8px; font: var(--text-footnote); color: var(--color-label-2); }
 .transcript-foot { padding: 10px 16px; border-top: 1px solid var(--color-separator); font: var(--text-footnote); color: var(--color-label-2); }
 .pane-banner-top { padding-top: 12px; }
 

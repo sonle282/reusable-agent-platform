@@ -9,6 +9,7 @@ import { CloudflareAgentRuntime } from "./runtime";
 import { generateWithAnthropic } from "./model/anthropic";
 import { hasProfile } from "../shared/prompt";
 import { executeTool } from "./tools";
+import { markFixesPublished, registerFixRoutes, runCase } from "./fixes";
 import { clearSessionCookies, createSession, requireAdmin, setSessionCookies, type AuthVariables } from "./security/auth";
 import { constantTimeEqual, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
 
@@ -104,6 +105,7 @@ app.post("/api/auth/login", async (c) => {
 });
 
 app.use("/api/admin/*", requireAdmin);
+registerFixRoutes(app);
 
 app.get("/api/admin/session", (c) => c.json({ authenticated: true, csrfToken: c.get("csrfToken") }));
 
@@ -237,6 +239,7 @@ app.post("/api/admin/agents/:id/publish", async (c) => {
     c.env.DB.prepare("INSERT INTO agent_versions(id,agent_id,version,snapshot_json) VALUES(?,?,?,?)").bind(versionId, agent.id, versionNumber, JSON.stringify(draft)),
     c.env.DB.prepare("UPDATE agents SET active_version_id=?,status='active',updated_at=datetime('now') WHERE id=?").bind(versionId, agent.id),
   ]);
+  await markFixesPublished(c.env, agent.id, versionId);
   await writeAudit(c.env.DB, "agent.publish", "agent", agent.id, c.get("adminId"), { versionId, versionNumber });
   return c.json({ versionId, version: versionNumber, status: "active" }, 201);
 });
@@ -266,17 +269,8 @@ app.post("/api/admin/agents/:id/evaluate", async (c) => {
   const draft = agentDraftSchema.parse(JSON.parse(agent.draft_json));
   const results = [];
   for (const testCase of cases) {
-    const assertions = parseJson(testCase.assertions_json, {} as { mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; expectedTool?: string });
-    const input: NormalizedMessage = { eventId: id("evalevt"), connectionId: "eval", agentId: agent.id, conversationId: crypto.randomUUID(), externalUserId: "eval", content: { text: testCase.input }, receivedAt: now() };
-    const output = await new CloudflareAgentRuntime(c.env).handleMessage(input, { versionId: "draft", snapshotOverride: draft });
-    const text = output.messages.map((message) => message.text).join("\n");
-    const failures = [
-      ...(assertions.mustInclude ?? []).filter((needle) => !text.toLowerCase().includes(needle.toLowerCase())).map((needle) => `Missing: ${needle}`),
-      ...(assertions.mustNotInclude ?? []).filter((needle) => text.toLowerCase().includes(needle.toLowerCase())).map((needle) => `Forbidden: ${needle}`),
-      ...(assertions.maxLength && text.length > assertions.maxLength ? [`Longer than ${assertions.maxLength}`] : []),
-      ...(assertions.expectedTool && !output.trace?.toolCalls.some((tool) => tool.name === assertions.expectedTool) ? [`Tool not called: ${assertions.expectedTool}`] : []),
-    ];
-    results.push({ caseId: testCase.id, passed: failures.length === 0 && output.status === "completed", failures, output });
+    const { caseId, passed, failures, output } = await runCase(c.env, agent.id, draft, testCase);
+    results.push({ caseId, passed, failures, output });
   }
   const passed = results.every((result) => result.passed);
   const runId = id("eval");
@@ -285,7 +279,7 @@ app.post("/api/admin/agents/:id/evaluate", async (c) => {
 });
 
 app.post("/api/admin/agents/:id/eval-cases", async (c) => {
-  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional() }), critical: z.boolean().default(false) }).parse(await c.req.json());
+  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional(), fromFix: z.string().optional() }), critical: z.boolean().default(false) }).parse(await c.req.json());
   const caseId = id("case");
   await c.env.DB.prepare("INSERT INTO eval_cases(id,agent_id,name,input,assertions_json,critical) VALUES(?,?,?,?,?,?)")
     .bind(caseId, c.req.param("id"), body.name, body.input, JSON.stringify(body.assertions), body.critical ? 1 : 0).run();
@@ -293,7 +287,7 @@ app.post("/api/admin/agents/:id/eval-cases", async (c) => {
 });
 
 app.patch("/api/admin/eval-cases/:caseId", async (c) => {
-  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional() }), critical: z.boolean() }).parse(await c.req.json());
+  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional(), fromFix: z.string().optional() }), critical: z.boolean() }).parse(await c.req.json());
   const result = await c.env.DB.prepare("UPDATE eval_cases SET name=?,input=?,assertions_json=?,critical=? WHERE id=?").bind(body.name, body.input, JSON.stringify(body.assertions), body.critical ? 1 : 0, c.req.param("caseId")).run();
   if (!result.meta.changes) return c.json({ error: "Scenario not found" }, 404);
   return c.json({ id: c.req.param("caseId"), ...body });

@@ -107,7 +107,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
         })}
       </nav>
       <main className="content">
-        {page === "home" && <HomePage agent={agent} connections={data.connections} liveVersion={data.attention?.liveVersion ?? null} unpublished={unpublished} go={(target, ...rest) => go(target, undefined, ...rest)} />}
+        {page === "home" && <HomePage agent={agent} connections={data.connections} liveVersion={data.attention?.liveVersion ?? null} unpublished={unpublished} refresh={reload} go={(target, ...rest) => go(target, undefined, ...rest)} />}
         {page === "assistant" && (
           <AssistantPage
             agentId={agent.id}
@@ -120,7 +120,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
           />
         )}
         {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
-        {page === "conversations" && <ConversationsPage connections={data.connections} openId={params[0]} onOpen={(id) => go("conversations", undefined, id)} />}
+        {page === "conversations" && <ConversationsPage agentId={agent.id} connections={data.connections} openId={params[0]} onOpen={(id) => go("conversations", undefined, id)} onOpenSettings={() => go("settings")} />}
         {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} onOpenAssistant={() => go("assistant")} />}
         {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
       </main>

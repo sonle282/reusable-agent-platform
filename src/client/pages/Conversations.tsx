@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, post } from "../api";
 import { displayName, formatDate, previewSnippet, timeSeparator } from "../format";
+import { useFixAnswer } from "../FixSheet";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { Connection, Conversation, TranscriptMessage } from "../types";
 import { Avatar, Badge, Banner, Button, EmptyState, Icon, PageHeader, SearchField, Skeleton, SkeletonLine, Toggle, errorMessage, useToast } from "../ui";
@@ -10,8 +11,9 @@ const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 type Detail = { conversation: Conversation & { custom_json?: string | null }; messages: TranscriptMessage[] };
 
 // Split view: chats on the left, the transcript on the right (customer left, assistant and team right).
-export function ConversationsPage({ connections, openId, onOpen }: { connections: Connection[]; openId?: string; onOpen: (id: string) => void }) {
+export function ConversationsPage({ agentId, connections, openId, onOpen, onOpenSettings }: { agentId: string; connections: Connection[]; openId?: string; onOpen: (id: string) => void; onOpenSettings: () => void }) {
   const toast = useToast();
+  const { startFix, fixSheet } = useFixAnswer({ agentId, onOpenSettings });
   const [items, setItems] = useState<Conversation[] | null>(null);
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -195,7 +197,26 @@ export function ConversationsPage({ connections, openId, onOpen }: { connections
                                 <div className="reply has-trace" onClick={() => setOpenMessage(open ? null : message.id)}>
                                   <RichBubbles side="out" text={message.content} selected={open} />
                                 </div>
-                                {open && <span className="reply-meta">Sent by the assistant · {formatDate(message.created_at)}</span>}
+                                {open && (
+                                  <span className="reply-meta">
+                                    <span>Sent by the assistant · {formatDate(message.created_at)}</span>
+                                    <Button
+                                      variant="tinted"
+                                      size="small"
+                                      icon="wrench"
+                                      onClick={() =>
+                                        startFix({
+                                          origin: "conversation",
+                                          conversationId: selected.id,
+                                          customerMessage: plainText([...detail.messages.slice(0, index)].reverse().find((item) => item.role === "user")?.content ?? ""),
+                                          badReply: plainText(message.content),
+                                        })
+                                      }
+                                    >
+                                      Fix this answer
+                                    </Button>
+                                  </span>
+                                )}
                               </>
                             )}
                           </MessageGroup>
@@ -216,9 +237,16 @@ export function ConversationsPage({ connections, openId, onOpen }: { connections
           </div>
         </div>
       )}
+      {fixSheet}
     </div>
   );
 }
+
+const plainText = (value: string) =>
+  parseRichMessage(value)
+    .map((part) => part.text ?? "")
+    .filter(Boolean)
+    .join("\n");
 
 function MessageGroup({ separator, children }: { separator: string | null; children: ReactNode }) {
   return (
