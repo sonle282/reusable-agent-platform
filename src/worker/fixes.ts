@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 import { agentDraftSchema, type AgentVersionSnapshot, type NormalizedMessage } from "../shared/contracts";
+import { channelParts } from "../shared/channel-parts";
 import { fallbackChecks } from "../shared/checks";
 import { maskContact } from "../shared/mask";
 import { getAgent, id, parseJson, validateCollectionData, writeAudit } from "./db";
@@ -9,7 +10,7 @@ import { CloudflareAgentRuntime } from "./runtime";
 import type { AuthVariables } from "./security/auth";
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
-type Assertions = { mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; expectedTool?: string; fromFix?: string };
+type Assertions = { criteria?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; expectedTool?: string; fromFix?: string };
 type TestCase = { id: string; input: string; assertions_json: string; critical?: number };
 type RuleSection = "alwaysDo" | "neverDo" | "handoffWhen";
 
@@ -28,7 +29,36 @@ export async function runCase(env: Env, agentId: string, draft: AgentVersionSnap
     ...(assertions.expectedTool && !output.trace?.toolCalls.some((tool) => tool.name === assertions.expectedTool) ? [`Tool not called: ${assertions.expectedTool}`] : []),
   ];
   if (output.status !== "completed") failures.unshift("The assistant couldn't answer");
+  else if (assertions.criteria?.trim()) {
+    const verdict = await judge(env, draft, testCase.input, readableReply(text), assertions.criteria.trim());
+    if (verdict.checked === false) failures.push(`Not checked: ${verdict.reason}`);
+    else if (!verdict.pass) failures.push(`Didn't meet: ${verdict.reason}`);
+  }
   return { caseId: testCase.id, passed: failures.length === 0 && output.status === "completed", failures, output, text };
+}
+
+// What a customer would read, so the judge never grades the structured payload or its meta.
+const readableReply = (text: string) =>
+  channelParts(text)
+    .map((part) => (part.kind === "text" ? part.text : `[image ${part.url}]`))
+    .join("\n");
+
+// "Pass when…" in the owner's words, judged by the model. A judge that can't answer is "Not checked" and blocks Publish.
+export async function judge(env: Env, draft: AgentVersionSnapshot, question: string, reply: string, criteria: string): Promise<{ checked: boolean; pass: boolean; reason: string }> {
+  if (!draft.modelConfig.credentialId) return { checked: false, pass: false, reason: "no AI key" };
+  const system = `You check one reply from a business's customer assistant against the owner's requirement.
+Judge only what the requirement asks; ignore style unless it asks about style. Paraphrases and translations count.
+Reply with JSON only: {"pass": true|false, "reason": "one short sentence in the requirement's language"}`;
+  const user = `Requirement: ${criteria}\n\nCustomer asked: ${question}\n\nAssistant replied: ${reply}`;
+  try {
+    const result = await generateWithAnthropic(env, { ...draft.modelConfig, maxTokens: 300, temperature: 0, timeoutMs: 30_000 }, system, [{ role: "user", content: user }], [], id("judge"));
+    const json = result.text.match(/\{[\s\S]*\}/)?.[0];
+    const verdict = json ? (JSON.parse(json) as { pass?: unknown; reason?: unknown }) : null;
+    if (!verdict || typeof verdict.pass !== "boolean") return { checked: false, pass: false, reason: "the AI gave no verdict" };
+    return { checked: true, pass: verdict.pass, reason: clip(String(verdict.reason ?? ""), 200) };
+  } catch {
+    return { checked: false, pass: false, reason: "the AI didn't respond" };
+  }
 }
 
 // ---------- Suggestion ----------
