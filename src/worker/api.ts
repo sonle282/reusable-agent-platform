@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
 import { agentDraftSchema, anthropicModelSchema, collectionSchema, genericMessageSchema, starterDraft, type AgentResult, type NormalizedMessage } from "../shared/contracts";
-import { normalizeZernio, verifyZernio } from "./connectors";
+import { parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
 import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
 import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
 import { CloudflareAgentRuntime } from "./runtime";
@@ -11,7 +11,7 @@ import { hasProfile } from "../shared/prompt";
 import { executeTool } from "./tools";
 import { markFixesPublished, registerFixRoutes, runCase } from "./fixes";
 import { clearSessionCookies, createSession, requireAdmin, setSessionCookies, type AuthVariables } from "./security/auth";
-import { constantTimeEqual, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
+import { constantTimeEqual, decryptCredential, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
 export const app = new Hono<AppEnv>();
@@ -469,13 +469,39 @@ app.post("/api/admin/collections/:id/import", async (c) => {
   return c.json({ imported: prepared.length });
 });
 
+// The Zernio key only lives encrypted on its channel; these helpers use it server-side.
+async function zernioKey(env: Env, connection: ConnectionRow) {
+  const row = connection.credential_id ? await env.DB.prepare("SELECT ciphertext, iv FROM credentials WHERE id=?").bind(connection.credential_id).first<{ ciphertext: string; iv: string }>() : null;
+  if (!row) throw new Error("Zernio key not found");
+  return decryptCredential(row.ciphertext, row.iv, env.CREDENTIAL_ENCRYPTION_KEY);
+}
+
+async function setZernioWebhook(env: Env, connection: ConnectionRow, change: { url?: string; isActive?: boolean }) {
+  const config = parseJson(connection.config_json, {} as Record<string, unknown>);
+  if (!config.webhookId) return;
+  await zernioRequest(await zernioKey(env, connection), "/webhooks/settings", { method: "PUT", body: JSON.stringify({ webhookId: config.webhookId, ...change }) });
+}
+
+// Lists the accounts a Zernio key can reach so the owner picks a page instead of typing ids. The key is not stored here.
+app.post("/api/admin/zernio/accounts", async (c) => {
+  const body = z.object({ apiKey: z.string().trim().regex(/^sk_[A-Za-z0-9]{20,}$/, "That doesn't look like a Zernio API key (it starts with sk_)") }).parse(await c.req.json());
+  try {
+    const listed = await zernioRequest<{ accounts?: Array<{ _id: string; platform: string; username?: string; displayName?: string; profilePicture?: string | null; isActive?: boolean }> }>(body.apiKey, "/accounts?status=connected");
+    return c.json((listed.accounts ?? []).filter((account) => account.isActive !== false).map((account) => ({ id: account._id, platform: account.platform, name: account.displayName || account.username || account.platform, username: account.username ?? null, picture: account.profilePicture ?? null })));
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "Couldn't reach Zernio" }, 502);
+  }
+});
+
 app.get("/api/admin/connections", async (c) => c.json((await c.env.DB.prepare("SELECT id,agent_id,type,name,status,callback_url,config_json,created_at FROM connections ORDER BY created_at DESC").all()).results));
 
 app.post("/api/admin/connections", async (c) => {
   const body = z.object({ agentId: z.string(), type: z.enum(["generic_api", "generic_webhook", "zernio"]), name: z.string().min(1), callbackUrl: z.string().url().nullable().optional(), config: z.record(z.string(), z.unknown()).default({}), apiCredential: z.string().optional(), webhookSecret: z.string().optional() }).parse(await c.req.json());
   if (!await getAgent(c.env.DB, body.agentId)) return c.json({ error: "Agent not found" }, 404);
   if (body.callbackUrl) assertSafeHttpsUrl(body.callbackUrl);
-  if (body.config.inboxApiUrl) assertSafeHttpsUrl(String(body.config.inboxApiUrl));
+  if (body.type === "zernio" && (!body.apiCredential || !body.config.accountId)) return c.json({ error: "Choose the Zernio account to connect" }, 422);
+  // Zernio lets us choose the webhook secret, so the server makes one and registers the webhook itself.
+  if (body.type === "zernio") body.webhookSecret = randomToken(32);
   const connectionId = id("conn");
   const connectionToken = randomToken(24);
   const apiKey = randomToken(32);
@@ -497,7 +523,25 @@ app.post("/api/admin/connections", async (c) => {
   statements.push(c.env.DB.prepare("INSERT INTO connections(id,agent_id,type,name,status,token_hash,api_key_hash,callback_url,config_json,credential_id) VALUES(?,?,?,?,'draft',?,?,?,?,?)")
     .bind(connectionId, body.agentId, body.type, body.name, await sha256(connectionToken), await sha256(apiKey), body.callbackUrl ?? null, JSON.stringify(config), credentialId));
   await c.env.DB.batch(statements);
-  return c.json({ id: connectionId, status: "draft", apiKey, webhookToken: connectionToken, webhookPath: `/api/v1/webhooks/${body.type === "zernio" ? "zernio" : "generic"}/${connectionToken}` }, 201);
+  if (body.type === "zernio") {
+    try {
+      const created = await zernioRequest<{ webhook?: { _id?: string } }>(body.apiCredential!, "/webhooks/settings", {
+        method: "POST",
+        body: JSON.stringify({ name: `Agent · ${body.name}`.slice(0, 50), url: `${new URL(c.req.url).origin}/api/v1/webhooks/zernio/${connectionToken}`, events: ["message.received"], secret: body.webhookSecret, accountIds: [String(body.config.accountId)] }),
+      });
+      config.webhookId = created.webhook?._id;
+      await c.env.DB.prepare("UPDATE connections SET config_json=? WHERE id=?").bind(JSON.stringify(config), connectionId).run();
+    } catch (error) {
+      await c.env.DB.batch([
+        c.env.DB.prepare("DELETE FROM connections WHERE id=?").bind(connectionId),
+        c.env.DB.prepare("DELETE FROM credentials WHERE id IN (?,?)").bind(credentialId, String(config.webhookSecretCredentialId ?? "")),
+      ]);
+      return c.json({ error: `Couldn't set up Zernio — ${error instanceof Error ? error.message : "unknown error"}. Nothing was saved.` }, 502);
+    }
+    await writeAudit(c.env.DB, "connection.create", "connection", connectionId, c.get("adminId"), { type: body.type });
+    return c.json({ id: connectionId, status: "draft" }, 201);
+  }
+  return c.json({ id: connectionId, status: "draft", apiKey, webhookToken: connectionToken, webhookPath: `/api/v1/webhooks/generic/${connectionToken}` }, 201);
 });
 
 app.post("/api/admin/connections/:id/activate", async (c) => {
@@ -507,7 +551,8 @@ app.post("/api/admin/connections/:id/activate", async (c) => {
   if (!agent?.active_version_id) return c.json({ error: "Publish the agent before activating this connection" }, 422);
   if (connection.type === "zernio") {
     const config = parseJson(connection.config_json, {} as Record<string, unknown>);
-    if (!connection.credential_id || !config.webhookSecretCredentialId || !config.inboxApiUrl) return c.json({ error: "Zernio API URL, API credential, and webhook secret are required" }, 422);
+    if (!connection.credential_id || !config.webhookSecretCredentialId || !config.accountId) return c.json({ error: "This Zernio channel is missing its account or key; add it again" }, 422);
+    await setZernioWebhook(c.env, connection, { isActive: true }).catch(() => undefined);
   }
   await c.env.DB.prepare("UPDATE connections SET status='active',updated_at=datetime('now') WHERE id=?").bind(connection.id).run();
   return c.json({ id: connection.id, status: "active" });
@@ -520,15 +565,20 @@ app.post("/api/admin/connections/:id/rotate", async (c) => {
   const webhookToken = randomToken(24);
   const config = { ...parseJson(connection.config_json, {} as Record<string, unknown>), ...(connection.type === "generic_api" ? { keyHint: apiKey.slice(-4) } : {}) };
   await c.env.DB.prepare("UPDATE connections SET api_key_hash=?,token_hash=?,config_json=?,updated_at=datetime('now') WHERE id=?").bind(await sha256(apiKey), await sha256(webhookToken), JSON.stringify(config), c.req.param("id")).run();
+  if (connection.type === "zernio") {
+    const full = await c.env.DB.prepare("SELECT * FROM connections WHERE id=?").bind(connection.id).first<ConnectionRow>();
+    if (full) await setZernioWebhook(c.env, full, { url: `${new URL(c.req.url).origin}/api/v1/webhooks/zernio/${webhookToken}` });
+  }
   await writeAudit(c.env.DB, "connection.rotate", "connection", connection.id, c.get("adminId"));
   return c.json({ apiKey, webhookToken });
 });
 
 // Turning a channel off makes its key and webhook URL stop working until it is turned on again.
 app.post("/api/admin/connections/:id/deactivate", async (c) => {
-  const connection = await c.env.DB.prepare("SELECT id FROM connections WHERE id=?").bind(c.req.param("id")).first<{ id: string }>();
+  const connection = await c.env.DB.prepare("SELECT * FROM connections WHERE id=?").bind(c.req.param("id")).first<ConnectionRow>();
   if (!connection) return c.json({ error: "Connection not found" }, 404);
   await c.env.DB.prepare("UPDATE connections SET status='paused',updated_at=datetime('now') WHERE id=?").bind(connection.id).run();
+  if (connection.type === "zernio") await setZernioWebhook(c.env, connection, { isActive: false }).catch(() => undefined);
   await writeAudit(c.env.DB, "connection.deactivate", "connection", connection.id, c.get("adminId"));
   return c.json({ id: connection.id, status: "paused" });
 });
@@ -649,7 +699,10 @@ app.post("/api/v1/webhooks/:adapter/:token", async (c) => {
   if (c.req.param("adapter") === "zernio" && connection.type === "zernio") {
     const signature = c.req.header("X-Zernio-Signature") ?? "";
     if (!await verifyZernio(c.env, rawBody, signature, connection)) return c.json({ error: "Invalid signature" }, 401);
-    input = normalizeZernio(JSON.parse(rawBody) as Record<string, unknown>, connection, c.req.header("X-Zernio-Event-Id"));
+    const parsed = parseZernioEvent(JSON.parse(rawBody) as Record<string, unknown>, connection, c.req.header("X-Zernio-Event-Id"));
+    // Tests, our own sends and other events are acknowledged so Zernio does not retry them.
+    if (parsed.kind === "ignore") return c.json({ status: "ignored", reason: parsed.reason }, 200);
+    input = parsed.input;
   } else if (c.req.param("adapter") === "generic" && connection.type === "generic_webhook") {
     const signature = c.req.header("X-Webhook-Signature") ?? "";
     if (!await verifyZernio(c.env, rawBody, signature, connection)) return c.json({ error: "Invalid signature" }, 401);

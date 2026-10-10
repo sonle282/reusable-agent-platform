@@ -23,7 +23,7 @@ const typeInfo: Record<
     icon: "inbox",
     tone: "green",
     sub: "Reply in your Zernio inbox",
-    help: "Connect a Zernio inbox so the assistant replies to customer messages there.",
+    help: "Paste your Zernio API key, pick the page, and the assistant answers its messages.",
   },
   generic_webhook: {
     label: "Webhook",
@@ -49,6 +49,15 @@ const keyHintOf = (connection: Connection) => {
     return (JSON.parse(connection.config_json || "{}") as { keyHint?: string }).keyHint;
   } catch {
     return undefined;
+  }
+};
+
+const zernioPage = (connection: Connection) => {
+  try {
+    const config = JSON.parse(connection.config_json || "{}") as { accountName?: string; platform?: string };
+    return [config.accountName, config.platform ? platformLabel(config.platform) : undefined].filter(Boolean).join(" · ") || "Zernio";
+  } catch {
+    return "Zernio";
   }
 };
 
@@ -227,6 +236,7 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
           onDone={async (value) => {
             setCreating(null);
             setSecrets(value);
+            if (!value) toast(agent.active_version_id ? "Connected · the assistant answers this page now" : "Connected · publish the assistant to turn it on");
             await reload();
           }}
         />
@@ -257,50 +267,59 @@ function plainError(value?: string | null) {
   return value.length > 120 ? `${value.slice(0, 117)}…` : value;
 }
 
-function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent: AgentSummary; initialType: ConnectionType; onClose: () => void; onDone: (secrets: Secrets) => void }) {
+type ZernioAccount = { id: string; platform: string; name: string; username: string | null; picture: string | null };
+const platformLabel = (value: string) => ({ facebook: "Facebook page", instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", tiktok: "TikTok" })[value] ?? value;
+
+function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent: AgentSummary; initialType: ConnectionType; onClose: () => void; onDone: (secrets: Secrets | null) => void }) {
   const [type, setType] = useState<ConnectionType>(initialType);
-  const [form, setForm] = useState({
-    name: "",
-    callbackUrl: "",
-    inboxApiUrl: "",
-    apiCredential: "",
-    webhookSecret: "",
-  });
-  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ name: "", callbackUrl: "", apiCredential: "", webhookSecret: "" });
+  const [accounts, setAccounts] = useState<ZernioAccount[] | null>(null);
+  const [accountId, setAccountId] = useState("");
+  const [busy, setBusy] = useState<"" | "find" | "add">("");
   const [error, setError] = useState("");
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
+  const chosen = accounts?.find((account) => account.id === accountId);
+
+  // The key is sent once to list the pages it can reach; it is saved only when the channel is added.
+  async function findAccounts() {
+    setBusy("find");
     setError("");
     try {
-      const result = await post<{
-        id: string;
-        apiKey: string;
-        webhookToken: string;
-        webhookPath: string;
-      }>("/api/admin/connections", {
+      const list = await post<ZernioAccount[]>("/api/admin/zernio/accounts", { apiKey: form.apiCredential.trim() });
+      setAccounts(list);
+      const first = list.find((account) => account.platform === "facebook") ?? list[0];
+      setAccountId(first?.id ?? "");
+    } catch (caught) {
+      setAccounts(null);
+      setError(errorMessage(caught));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy("add");
+    setError("");
+    try {
+      const result = await post<{ id: string; apiKey?: string; webhookToken?: string; webhookPath?: string }>("/api/admin/connections", {
         agentId: agent.id,
         type,
-        name: form.name || typeInfo[type].name,
+        name: form.name || (type === "zernio" && chosen ? chosen.name : typeInfo[type].name),
         callbackUrl: type === "zernio" ? null : form.callbackUrl || null,
-        config: type === "zernio" ? { inboxApiUrl: form.inboxApiUrl } : {},
-        apiCredential: type === "zernio" ? form.apiCredential : undefined,
-        webhookSecret: type !== "generic_api" ? form.webhookSecret || undefined : undefined,
+        config: type === "zernio" && chosen ? { accountId: chosen.id, accountName: chosen.name, platform: chosen.platform } : {},
+        apiCredential: type === "zernio" ? form.apiCredential.trim() : undefined,
+        webhookSecret: type === "generic_webhook" ? form.webhookSecret || undefined : undefined,
       });
       // Turn it on right away when the assistant is live; otherwise it waits for the first publish.
       if (agent.active_version_id) await post(`/api/admin/connections/${result.id}/activate`).catch(() => undefined);
-      onDone({
-        type,
-        apiKey: type === "generic_api" ? result.apiKey : undefined,
-        webhookPath: type === "generic_api" ? undefined : result.webhookPath,
-      });
+      onDone(type === "zernio" ? null : { type, apiKey: type === "generic_api" ? result.apiKey : undefined, webhookPath: type === "generic_api" ? undefined : result.webhookPath });
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }
-  const valid = type !== "zernio" || (form.inboxApiUrl && form.apiCredential && form.webhookSecret);
+  const valid = type !== "zernio" || Boolean(chosen);
   return (
     <Sheet
       title="Add channel"
@@ -310,49 +329,60 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
           <Button variant="gray" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="create-connection" busy={busy} disabled={!valid}>
-            Add
-          </Button>
+          {valid && (
+            <Button type="submit" form="create-connection" busy={busy === "add"}>
+              Add
+            </Button>
+          )}
         </>
       }
     >
       <form id="create-connection" className="sheet-form" onSubmit={submit}>
-        <Segmented<ConnectionType>
-          full
-          label="Channel type"
-          value={type}
-          onChange={setType}
-          options={order.map((value) => ({
-            value,
-            label: typeInfo[value].label,
-          }))}
-        />
-        <Section footer={typeInfo[type].help}>
-          <FieldRow label="Name">
-            <TextInput value={form.name} placeholder={typeInfo[type].name} onChange={(event) => setForm({ ...form, name: event.target.value })} data-autofocus />
-          </FieldRow>
-          {type !== "zernio" && (
+        <Segmented<ConnectionType> full label="Channel type" value={type} onChange={setType} options={order.map((value) => ({ value, label: typeInfo[value].label }))} />
+        {type === "zernio" ? (
+          <>
+            <Section footer="Find it in Zernio › API keys. It's encrypted when saved and never shown again. We set up the Zernio webhook for you.">
+              <FieldRow label="Zernio API key">
+                <TextInput type="password" autoComplete="off" value={form.apiCredential} placeholder="sk_…" onChange={(event) => setForm({ ...form, apiCredential: event.target.value })} data-autofocus />
+              </FieldRow>
+              <div className="row row-actions">
+                <Button type="button" variant="gray" size="small" busy={busy === "find"} disabled={form.apiCredential.trim().length < 20} onClick={() => void findAccounts()}>
+                  Find my pages
+                </Button>
+              </div>
+            </Section>
+            {accounts && (
+              <Section title="Which page should it answer?" footer={accounts.length ? "The assistant answers new messages on this page with its live version." : "No connected pages. Connect one in Zernio › Connections, then try again."}>
+                {accounts.map((account) => (
+                  <button type="button" key={account.id} className="row" role="radio" aria-checked={account.id === accountId} onClick={() => setAccountId(account.id)}>
+                    <span className="tile tile-soft-blue" aria-hidden="true">
+                      <Icon name={account.platform === "whatsapp" ? "bubbles" : "inbox"} size={18} />
+                    </span>
+                    <span className="row-body">
+                      <span className="row-text">
+                        <span className="row-title">{account.name}</span>
+                        <span className="row-subtitle">{platformLabel(account.platform)}</span>
+                      </span>
+                      {account.id === accountId && <Icon name="check" className="choice-check" size={18} />}
+                    </span>
+                  </button>
+                ))}
+              </Section>
+            )}
+          </>
+        ) : (
+          <Section footer={typeInfo[type].help}>
+            <FieldRow label="Name">
+              <TextInput value={form.name} placeholder={typeInfo[type].name} onChange={(event) => setForm({ ...form, name: event.target.value })} data-autofocus />
+            </FieldRow>
             <FieldRow label="Send replies to" hint={type === "generic_api" ? "Optional" : undefined}>
               <TextInput type="url" value={form.callbackUrl} placeholder="https://" onChange={(event) => setForm({ ...form, callbackUrl: event.target.value })} />
             </FieldRow>
-          )}
-          {type === "generic_webhook" && (
-            <FieldRow label="Signing secret">
-              <TextInput type="password" autoComplete="off" value={form.webhookSecret} onChange={(event) => setForm({ ...form, webhookSecret: event.target.value })} />
-            </FieldRow>
-          )}
-        </Section>
-        {type === "zernio" && (
-          <Section title="Zernio details" footer="The token and signing secret are encrypted when saved and never shown again.">
-            <FieldRow label="Inbox address">
-              <TextInput type="url" value={form.inboxApiUrl} placeholder="https://" onChange={(event) => setForm({ ...form, inboxApiUrl: event.target.value })} required />
-            </FieldRow>
-            <FieldRow label="Access token">
-              <TextInput type="password" autoComplete="off" value={form.apiCredential} onChange={(event) => setForm({ ...form, apiCredential: event.target.value })} required />
-            </FieldRow>
-            <FieldRow label="Signing secret">
-              <TextInput type="password" autoComplete="off" value={form.webhookSecret} onChange={(event) => setForm({ ...form, webhookSecret: event.target.value })} required />
-            </FieldRow>
+            {type === "generic_webhook" && (
+              <FieldRow label="Signing secret">
+                <TextInput type="password" autoComplete="off" value={form.webhookSecret} onChange={(event) => setForm({ ...form, webhookSecret: event.target.value })} />
+              </FieldRow>
+            )}
           </Section>
         )}
         {error && <Banner tone="error" title="Couldn't add the channel" text={error} />}
@@ -483,6 +513,11 @@ function ConnectionSheet({
                 </Button>
               </div>
             </>
+          ) : type === "zernio" ? (
+            <div className="field">
+              <span className="field-label">Page</span>
+              <span className="field-value truncate">{zernioPage(connection)}</span>
+            </div>
           ) : (
             <div className="field">
               <span className="field-label">Webhook address</span>

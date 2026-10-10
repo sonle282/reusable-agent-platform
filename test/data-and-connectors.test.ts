@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeZernio } from "../src/worker/connectors";
+import { parseZernioEvent } from "../src/worker/connectors";
 import { validateCollectionData, type ConnectionRow } from "../src/worker/db";
 import { assertSafeHttpsUrl } from "../src/worker/knowledge";
 
@@ -27,10 +27,30 @@ describe("SSRF boundaries", () => {
   it("allows public HTTPS URLs", () => expect(assertSafeHttpsUrl("https://example.com/policy").hostname).toBe("example.com"));
 });
 
-describe("Zernio normalization", () => {
-  it("maps provider payload to the shared runtime contract", () => {
-    const message = normalizeZernio({ id: "evt_1", data: { conversation_id: "chat_1", message: { text: "Xin chào" }, contact: { id: "user_1", name: "An", locale: "vi" } } }, connection);
-    expect(message).toMatchObject({ eventId: "evt_1", connectionId: "conn_1", agentId: "agent_1", conversationId: "chat_1", externalUserId: "user_1", content: { text: "Xin chào" } });
+describe("Zernio events", () => {
+  const event = (overrides: Record<string, unknown> = {}, message: Record<string, unknown> = {}) => ({
+    id: "evt_1",
+    event: "message.received",
+    message: { id: "m1", conversationId: "conv_1", platform: "facebook", direction: "incoming", text: "Xin chào", sender: { id: "psid_1", name: "An" }, ...message },
+    conversation: { id: "conv_1" },
+    account: { accountId: "acc_1" },
+    metadata: null,
+    ...overrides,
+  });
+  it("maps message.received to the shared runtime contract", () => {
+    const parsed = parseZernioEvent(event(), connection, "hdr_evt");
+    expect(parsed.kind).toBe("message");
+    if (parsed.kind !== "message") return;
+    expect(parsed.accountId).toBe("acc_1");
+    expect(parsed.input).toMatchObject({ eventId: "hdr_evt", connectionId: "conn_1", agentId: "agent_1", conversationId: "conv_1", externalUserId: "psid_1", content: { text: "Xin chào" }, customer: { name: "An" } });
+  });
+  it("ignores tests, our own sends and threads owned by another app", () => {
+    expect(parseZernioEvent({ event: "webhook.test" }, connection).kind).toBe("ignore");
+    expect(parseZernioEvent(event({}, { direction: "outgoing" }), connection).kind).toBe("ignore");
+    expect(parseZernioEvent(event({ metadata: { standby: true } }), connection).kind).toBe("ignore");
+  });
+  it("turns a photo-only message into a short note plus the image", () => {
+    const parsed = parseZernioEvent(event({}, { text: "", attachments: [{ type: "image", url: "https://cdn.example.com/a.jpg", mimeType: "image/jpeg" }] }), connection);
+    expect(parsed.kind === "message" && parsed.input.content).toMatchObject({ text: "(sent a photo)", images: [{ url: "https://cdn.example.com/a.jpg" }] });
   });
 });
-

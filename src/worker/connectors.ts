@@ -21,27 +21,62 @@ export async function verifyZernio(env: Env, rawBody: string, signature: string,
   return constantTimeEqual(signature.replace(/^sha256=/i, "").toLowerCase(), expected.toLowerCase());
 }
 
-export function normalizeZernio(payload: ZernioPayload, connection: ConnectionRow, eventIdHeader?: string): NormalizedMessage {
-  const data = (payload.data && typeof payload.data === "object" ? payload.data : payload) as Record<string, unknown>;
-  const message = (data.message && typeof data.message === "object" ? data.message : data) as Record<string, unknown>;
-  const contact = (data.contact && typeof data.contact === "object" ? data.contact : {}) as Record<string, unknown>;
-  const eventId = eventIdHeader || String(payload.id ?? data.id ?? crypto.randomUUID());
-  const conversationId = String(data.conversation_id ?? data.conversationId ?? objectAt(data, "conversation", "id") ?? contact.id ?? eventId);
-  const userId = String(contact.id ?? data.user_id ?? data.userId ?? objectAt(data, "sender", "id") ?? conversationId);
+export const ZERNIO_API = "https://zernio.com/api/v1";
+
+type ZernioEvent = { kind: "message"; input: NormalizedMessage; accountId?: string } | { kind: "ignore"; reason: string };
+
+// Zernio sends one webhook shape for every platform (docs.zernio.com/webhooks/inbox):
+// { id, event, message: { conversationId, direction, text, attachments, sender }, conversation, account: { accountId }, metadata }.
+export function parseZernioEvent(payload: ZernioPayload, connection: ConnectionRow, eventIdHeader?: string): ZernioEvent {
+  const event = String(payload.event ?? "");
+  if (event !== "message.received") return { kind: "ignore", reason: event || "unknown event" };
+  const message = (payload.message && typeof payload.message === "object" ? payload.message : {}) as Record<string, unknown>;
+  if (message.direction && message.direction !== "incoming") return { kind: "ignore", reason: "outgoing message" };
+  if (objectAt(payload, "metadata", "standby") === true) return { kind: "ignore", reason: "another app owns this thread" };
+  const sender = (message.sender && typeof message.sender === "object" ? message.sender : {}) as Record<string, unknown>;
+  const conversationId = String(message.conversationId ?? objectAt(payload, "conversation", "id") ?? "");
+  if (!conversationId) return { kind: "ignore", reason: "no conversation id" };
+  const attachments = Array.isArray(message.attachments) ? (message.attachments as Array<Record<string, unknown>>) : [];
+  const images = attachments
+    .filter((item) => item.type === "image" && typeof item.url === "string")
+    .slice(0, 4)
+    .map((item, index) => ({ url: String(item.url), mimeType: String(item.mimeType ?? "image/jpeg"), name: `image-${index + 1}` }));
+  const text = String(message.text ?? "").trim();
+  const accountId = String(objectAt(payload, "account", "accountId") ?? objectAt(payload, "account", "id") ?? "") || undefined;
   return {
-    eventId,
-    connectionId: connection.id,
-    agentId: connection.agent_id,
-    conversationId,
-    externalUserId: userId,
-    content: { text: String(message.text ?? message.content ?? data.text ?? "") },
-    customer: {
-      name: typeof contact.name === "string" ? contact.name : undefined,
-      locale: typeof contact.locale === "string" ? contact.locale : undefined,
-      metadata: { zernio: { contactId: contact.id, inboxId: objectAt(data, "inbox", "id") } },
+    kind: "message",
+    accountId,
+    input: {
+      eventId: eventIdHeader || String(payload.id ?? message.id ?? crypto.randomUUID()),
+      connectionId: connection.id,
+      agentId: connection.agent_id,
+      conversationId,
+      externalUserId: String(sender.id ?? sender.contactId ?? conversationId),
+      content: { text: text || (images.length ? "(sent a photo)" : ""), images: images.length ? images : undefined },
+      customer: {
+        name: typeof sender.name === "string" ? sender.name : undefined,
+        metadata: { zernio: { accountId, platform: message.platform, contactId: sender.contactId } },
+      },
+      receivedAt: new Date().toISOString(),
     },
-    receivedAt: new Date().toISOString(),
   };
+}
+
+// Kept for older callers and tests; returns the normalized message or throws for events we ignore.
+export function normalizeZernio(payload: ZernioPayload, connection: ConnectionRow, eventIdHeader?: string): NormalizedMessage {
+  const parsed = parseZernioEvent(payload, connection, eventIdHeader);
+  if (parsed.kind === "ignore") throw new Error(`Ignored Zernio event: ${parsed.reason}`);
+  return parsed.input;
+}
+
+export async function zernioRequest<T>(apiKey: string, path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("authorization", `Bearer ${apiKey}`);
+  if (init.body) headers.set("content-type", "application/json");
+  const response = await fetch(`${ZERNIO_API}${path}`, { ...init, headers });
+  const body = (await response.json().catch(() => ({}))) as T & { error?: string; message?: string };
+  if (!response.ok) throw new Error(`Zernio returned ${response.status}${body?.error || body?.message ? `: ${String(body.error ?? body.message).slice(0, 200)}` : ""}`);
+  return body;
 }
 
 export async function sendOutbound(env: Env, connection: ConnectionRow, result: AgentResult) {
@@ -63,23 +98,19 @@ export async function sendOutbound(env: Env, connection: ConnectionRow, result: 
     const credential = await env.DB.prepare("SELECT ciphertext, iv FROM credentials WHERE id = ?").bind(connection.credential_id).first<{ ciphertext: string; iv: string }>();
     if (!credential) throw new Error("Zernio API credential not found");
     const token = await decryptCredential(credential.ciphertext, credential.iv, env.CREDENTIAL_ENCRYPTION_KEY);
-    const endpoint = String(config.inboxApiUrl ?? "");
-    assertZernioEndpoint(endpoint);
+    const accountId = String(config.accountId ?? "");
+    if (!accountId) throw new Error("Zernio account is not set on this channel");
     const statuses: number[] = [];
     for (let index = 0; index < result.messages.length; index++) {
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${ZERNIO_API}/inbox/conversations/${encodeURIComponent(result.conversationId ?? "")}/messages`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "idempotency-key": `${result.requestId}:${index}` },
-        body: JSON.stringify({ conversation_id: result.conversationId, type: "text", text: result.messages[index].text }),
+        body: JSON.stringify({ accountId, message: result.messages[index].text.slice(0, 9999), messagingType: "RESPONSE" }),
       });
-      if (!response.ok) throw new Error(`Zernio delivery returned ${response.status}`);
+      if (!response.ok) throw new Error(`Zernio delivery returned ${response.status}: ${(await response.text()).slice(0, 200)}`);
       statuses.push(response.status);
     }
     return { statuses };
   }
   throw new Error("Unsupported connection type");
-}
-
-function assertZernioEndpoint(value: string) {
-  assertSafeHttpsUrl(value);
 }
