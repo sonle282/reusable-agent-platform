@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, post } from "../api";
+import { previewSnippet } from "../format";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { Conversation, TranscriptMessage } from "../types";
 import { Banner, EmptyState, PageHeader, Row, SearchField, Section, Spinner, StatusBadge, Toggle, errorMessage, formatDate, useToast } from "../ui";
 
-const previewText = (value?: string) => (value ? parseRichMessage(value).find((part) => part.text)?.text ?? "Đã gửi hình ảnh" : "—");
+const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 
 type Detail = { conversation: Conversation & { custom_json?: string | null }; messages: TranscriptMessage[] };
 

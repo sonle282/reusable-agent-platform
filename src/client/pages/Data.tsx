@@ -1,6 +1,7 @@
 import Papa from "papaparse";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, patch, post } from "../api";
+import { nextKey } from "../format";
 import type { Collection } from "../types";
 import { Badge, Banner, Button, EmptyState, FieldRow, Icon, PageHeader, Row, Section, Sheet, Spinner, StatusBadge, TextInput, Toggle, errorMessage, formatDate, useToast } from "../ui";
 
@@ -18,6 +19,10 @@ const fieldsOf = (collection: Collection): FieldDef[] => {
 // Re-importing the same CSV must update rows, not duplicate them.
 const upsertKey = (fields: FieldDef[]) => fields.find((field) => field.unique)?.key ?? fields.find((field) => field.key === "id")?.key;
 const day = (value?: string | null) => (value ? value.slice(0, 10) : "");
+
+// Schedule and on/off are controlled by the record itself; imported columns that duplicate them are hidden in forms.
+const scheduleColumns = new Set(["bat_dau", "ket_thuc", "dang_chay", "valid_from", "valid_until", "start_date", "end_date", "active", "is_active", "status"]);
+
 
 export function DataPage({ collections, reload }: { collections: Collection[]; reload: () => Promise<void> }) {
   const toast = useToast();
@@ -162,6 +167,7 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
       {editing && selected && (
         <RecordSheet
           collection={selected}
+          existingKeys={(records ?? []).map((row) => row.external_key ?? "").filter(Boolean)}
           record={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
           onDone={async (message) => {
@@ -186,9 +192,25 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
   );
 }
 
-function RecordSheet({ collection, record, onClose, onDone }: { collection: Collection; record: RecordRow | null; onClose: () => void; onDone: (message: string) => void }) {
-  const fields = fieldsOf(collection);
-  const [data, setData] = useState<Record<string, unknown>>(() => (record ? (JSON.parse(record.data_json || "{}") as Record<string, unknown>) : {}));
+function RecordSheet({
+  collection,
+  existingKeys,
+  record,
+  onClose,
+  onDone,
+}: {
+  collection: Collection;
+  existingKeys: string[];
+  record: RecordRow | null;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const allFields = fieldsOf(collection);
+  const key = upsertKey(allFields);
+  const fields = allFields.filter((field) => field.key !== key && !scheduleColumns.has(field.key));
+  const [data, setData] = useState<Record<string, unknown>>(() =>
+    record ? (JSON.parse(record.data_json || "{}") as Record<string, unknown>) : key ? { [key]: nextKey(existingKeys) } : {},
+  );
   const [active, setActive] = useState(record ? record.status === "active" : true);
   const [from, setFrom] = useState(day(record?.valid_from));
   const [until, setUntil] = useState(day(record?.valid_until));
@@ -202,10 +224,7 @@ function RecordSheet({ collection, record, onClose, onDone }: { collection: Coll
     const body = { data, status: active ? "active" : "archived", validFrom: from || null, validUntil: until || null };
     try {
       if (record) await patch(`/api/admin/collections/${collection.id}/records/${record.id}`, body);
-      else {
-        const key = upsertKey(fields);
-        await post(`/api/admin/collections/${collection.id}/records`, { ...body, externalKey: key && data[key] ? String(data[key]) : undefined });
-      }
+      else await post(`/api/admin/collections/${collection.id}/records`, { ...body, externalKey: key && data[key] ? String(data[key]) : undefined });
       onDone(record ? "Đã lưu — trợ lý dùng ngay" : "Đã thêm — trợ lý dùng ngay");
     } catch (caught) {
       setError(errorMessage(caught));
@@ -215,7 +234,7 @@ function RecordSheet({ collection, record, onClose, onDone }: { collection: Coll
   }
   return (
     <Sheet
-      title={record ? "Sửa" : `Thêm vào ${collection.name}`}
+      title={record ? `Sửa ${key && data[key] ? String(data[key]) : ""}`.trim() : `Thêm vào ${collection.name}`}
       onClose={onClose}
       footer={
         <>
@@ -248,7 +267,6 @@ function RecordSheet({ collection, record, onClose, onDone }: { collection: Coll
                     step={field.type === "number" ? "any" : undefined}
                     value={String(value ?? "")}
                     onChange={(event) => set(field.key, event.target.value)}
-                    disabled={Boolean(record) && field.key === upsertKey(fields)}
                     {...common}
                   />
                 )}
