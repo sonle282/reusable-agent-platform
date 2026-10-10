@@ -126,12 +126,12 @@ app.get("/api/admin/bootstrap", async (c) => {
   const first = agents.results[0] as { id: string } | undefined;
   const [drafts, failed] = await Promise.all([
     first
-      ? c.env.DB.prepare("SELECT a.draft_json, v.snapshot_json FROM agents a LEFT JOIN agent_versions v ON v.id=a.active_version_id WHERE a.id=?").bind(first.id).first<{ draft_json: string; snapshot_json: string | null }>()
+      ? c.env.DB.prepare("SELECT a.draft_json, v.snapshot_json, v.version FROM agents a LEFT JOIN agent_versions v ON v.id=a.active_version_id WHERE a.id=?").bind(first.id).first<{ draft_json: string; snapshot_json: string | null; version: number | null }>()
       : null,
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM deliveries WHERE status='failed'").first<{ count: number }>(),
   ]);
   const unpublished = Boolean(drafts) && (!drafts!.snapshot_json || JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.draft_json))));
-  return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: agents.results, collections: collections.results, connections: connections.results, attention: { unpublished, failedDeliveries: failed?.count ?? 0 } });
+  return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: agents.results, collections: collections.results, connections: connections.results, attention: { unpublished, liveVersion: drafts?.version ?? null, failedDeliveries: failed?.count ?? 0 } });
 });
 
 app.patch("/api/admin/settings/brand", async (c) => {

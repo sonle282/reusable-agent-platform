@@ -107,7 +107,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
         })}
       </nav>
       <main className="content">
-        {page === "home" && <HomePage agent={agent} go={(target) => go(target)} />}
+        {page === "home" && <HomePage agent={agent} connections={data.connections} liveVersion={data.attention?.liveVersion ?? null} unpublished={unpublished} go={(target, ...rest) => go(target, undefined, ...rest)} />}
         {page === "assistant" && (
           <AssistantPage
             agentId={agent.id}

@@ -303,8 +303,8 @@ html, body, #root { min-height: 100%; }
 body { margin: 0; color: var(--color-label); font: var(--text-body); }
 .app { font: var(--text-body); letter-spacing: var(--track-body); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .page-host { min-width: 0; }
-.app button, .app input, .app textarea, .app select { font: inherit; color: inherit; letter-spacing: inherit; }
-.app a { color: var(--color-link); text-decoration: none; }
+.app :where(button, input, textarea, select) { font: inherit; color: inherit; letter-spacing: inherit; }
+.app :where(a) { color: var(--color-link); text-decoration: none; }
 .app :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: 6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .icon { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -638,6 +638,22 @@ button.mini-item { width: calc(100% + 12px); border: 0; background: transparent;
 }
 
 .tab-bar { display: none; }
+
+/* ---------- Home (design §19) ---------- */
+.status-card { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.status-card-title { font: var(--text-headline); letter-spacing: var(--track-headline); }
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.metric { padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.metric + .metric { border-left: 1px solid var(--color-separator); }
+.metric-value { font: var(--text-metric); letter-spacing: var(--track-metric); font-variant-numeric: tabular-nums; }
+.metric-value.is-zero { color: var(--color-label-2); }
+.metric-label { font: 600 13px/18px var(--font-sans); }
+.metric-sub { font: var(--text-subhead); color: var(--color-label-2); }
+.attn-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.recent-body { align-items: flex-start; }
+.recent-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.recent-preview { font: var(--text-callout); margin-top: 2px; }
 
 /* ---------- Auth ---------- */
 
@@ -1224,58 +1240,6 @@ tr.clickable:focus-visible {
   margin-bottom: 28px;
 }
 
-.summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0 0 20px;
-}
-
-.summary-tile {
-  display: grid;
-  gap: 2px;
-  padding: 14px 16px;
-  border: 0;
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  text-align: left;
-  transition: background 120ms var(--ease);
-}
-
-.summary-tile:hover {
-  background: color-mix(in srgb, var(--bg-secondary) 85%, var(--fill-strong));
-}
-
-.summary-value {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.summary-label {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.summary-hint {
-  color: var(--label-secondary);
-  font-size: 12px;
-}
-
-.summary-tile.placeholder {
-  min-height: 94px;
-  background: var(--fill);
-}
-
-.summary-tile.orange .summary-value {
-  color: var(--orange);
-}
-
-.summary-tile.red .summary-value {
-  color: var(--red);
-}
-
 .trace-group + .trace-group {
   border-top: 0.5px solid var(--separator);
 }
@@ -1292,11 +1256,6 @@ tr.clickable:focus-visible {
   margin-top: 12px;
 }
 
-@container app (max-width: 859px) {
-  .summary {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 
 /* ---------- Primitives on phone (design §24) ---------- */
 @container app (max-width: 859px) {

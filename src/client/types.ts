@@ -94,7 +94,7 @@ export type Connection = {
 };
 
 export type Bootstrap = {
-  attention?: { unpublished: boolean; failedDeliveries: number };
+  attention?: { unpublished: boolean; liveVersion: number | null; failedDeliveries: number };
   brand: Brand;
   modelDefaults: Record<string, unknown>;
   agents: AgentSummary[];
