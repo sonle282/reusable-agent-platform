@@ -493,6 +493,11 @@ app.get("/api/admin/export", async (c) => {
   return c.json({ formatVersion: 1, exportedAt: now(), settings: settings.results, agents: agents.results, versions: versions.results, collections: collections.results, records: records.results, sources: sources.results, tools: tools.results, evalCases: evalCases.results });
 });
 
+// Client-facing shape; traces, tool output and version IDs stay internal, including on idempotent replays.
+function publicMessageResult(result: AgentResult) {
+  return { request_id: result.requestId, conversation_id: result.conversationId, messages: result.messages, status: result.status };
+}
+
 app.post("/api/v1/messages", async (c) => {
   const bearer = c.req.header("Authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!bearer) return c.json({ error: "Missing API key" }, 401);
@@ -516,7 +521,7 @@ app.post("/api/v1/messages", async (c) => {
   const inserted = await c.env.DB.prepare("INSERT OR IGNORE INTO idempotency_events(event_id,connection_id,status,expires_at) VALUES(?,?,'accepted',datetime('now','+7 day'))").bind(eventId, connection.id).run();
   if (!inserted.meta.changes) {
     const existing = await c.env.DB.prepare("SELECT status,result_json FROM idempotency_events WHERE event_id=? AND connection_id=?").bind(eventId, connection.id).first<{ status: string; result_json: string | null }>();
-    return c.json(existing?.result_json ? JSON.parse(existing.result_json) : { request_id: eventId, status: existing?.status ?? "accepted" }, existing?.result_json ? 200 : 202);
+    return c.json(existing?.result_json ? publicMessageResult(JSON.parse(existing.result_json) as AgentResult) : { request_id: eventId, status: existing?.status ?? "accepted" }, existing?.result_json ? 200 : 202);
   }
   if (body.response_mode === "async") {
     await c.env.JOBS.send({ kind: "message", requestId: eventId, input, callbackUrl: connection.callback_url ?? undefined });
@@ -524,7 +529,7 @@ app.post("/api/v1/messages", async (c) => {
   }
   const result = await new CloudflareAgentRuntime(c.env).handleMessage(input);
   await c.env.DB.prepare("UPDATE idempotency_events SET status=?,result_json=? WHERE event_id=? AND connection_id=?").bind(result.status, JSON.stringify(result), eventId, connection.id).run();
-  return c.json({ request_id: result.requestId, conversation_id: result.conversationId, messages: result.messages, status: result.status });
+  return c.json(publicMessageResult(result));
 });
 
 app.post("/api/v1/webhooks/:adapter/:token", async (c) => {
