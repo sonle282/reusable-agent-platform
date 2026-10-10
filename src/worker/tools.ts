@@ -55,7 +55,7 @@ export async function getRecord(env: Env, collectionId: string, recordId: string
 export function modelTools(snapshot: AgentVersionSnapshot, externalTools: Array<{ name: string; description: string; input_schema_json: string }>) {
   const collections = snapshot.collectionBindings.map((binding) => ({
     name: binding.toolName,
-    description: `${binding.purpose}. Chỉ trả về record đang active và còn hiệu lực.`,
+    description: `${binding.purpose}. Returns only records that are active and currently valid.`,
     input_schema: { type: "object", properties: { query: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 10 } }, required: ["query"] },
   }));
   const external = externalTools.map((tool) => ({ name: tool.name, description: tool.description, input_schema: JSON.parse(tool.input_schema_json) as Record<string, unknown> }));

@@ -6,9 +6,9 @@ import { Banner, Button, CopyField, EmptyState, FieldRow, PageHeader, Row, Secti
 type ConnectionType = "generic_api" | "generic_webhook" | "zernio";
 
 const typeInfo: Record<ConnectionType, { label: string; icon: string; tint: string; description: string }> = {
-  generic_api: { label: "API", icon: "bolt", tint: "var(--blue)", description: "Hệ thống của bạn gọi trợ lý qua HTTP và nhận câu trả lời ngay hoặc qua callback." },
-  generic_webhook: { label: "Webhook", icon: "connections", tint: "var(--purple)", description: "Nhận sự kiện có chữ ký HMAC từ hệ thống khác; trả lời qua callback." },
-  zernio: { label: "Zernio", icon: "conversations", tint: "var(--green)", description: "Kết nối hộp thư Zernio: nhận tin nhắn khách và tự trả lời." },
+  generic_api: { label: "API", icon: "bolt", tint: "var(--blue)", description: "Your website, app or CRM sends customer messages over HTTP and gets replies instantly or by callback." },
+  generic_webhook: { label: "Webhook", icon: "connections", tint: "var(--purple)", description: "Receive HMAC-signed events from another system; replies go to your callback URL." },
+  zernio: { label: "Zernio", icon: "conversations", tint: "var(--green)", description: "Connect a Zernio inbox so the assistant replies to customer messages there." },
 };
 
 type Secrets = { apiKey?: string; webhookToken?: string; webhookPath?: string; type: ConnectionType };
@@ -30,25 +30,25 @@ export function ConnectionsPage({ agent, connections, reload }: { agent: AgentSu
   return (
     <div className="page">
       <PageHeader
-        title="Kết nối"
-        subtitle="Đưa trợ lý vào các kênh. Mọi kênh dùng chung một trợ lý và cùng phiên bản đang chạy."
+        title="Channels"
+        subtitle="Where customers reach your assistant. Every channel uses the same assistant and the live version."
         actions={
           <Button icon="plus" onClick={() => setCreating(true)}>
-            Thêm kết nối
+            Add channel
           </Button>
         }
       />
-      {!agent.active_version_id && <Banner tone="orange">Xuất bản trợ lý trước để kết nối có thể hoạt động.</Banner>}
+      {!agent.active_version_id && <Banner tone="orange">Publish the assistant first so channels can reply.</Banner>}
       {error && <Banner onClose={() => setError("")}>{error}</Banner>}
       {failed.length > 0 && (
-        <Section title={`Gửi không thành công · ${failed.length}`} footer="Thử lại an toàn: mỗi tin dùng cùng khoá idempotency nên kênh nhận không bị trùng.">
+        <Section title={`Replies not delivered · ${failed.length}`} footer="Retrying is safe: each reply keeps the same idempotency key, so customers never get duplicates.">
           {failed.map((delivery) => (
             <Row
               key={delivery.id}
               icon="warning"
               iconTint="var(--red)"
-              title={connections.find((connection) => connection.id === delivery.connection_id)?.name ?? "Kết nối"}
-              subtitle={`${delivery.last_error ?? "Lỗi không rõ"} · ${delivery.attempts} lần · ${formatDate(delivery.updated_at)}`}
+              title={connections.find((connection) => connection.id === delivery.connection_id)?.name ?? "Channel"}
+              subtitle={`${delivery.last_error ?? "Unknown error"} · ${delivery.attempts} attempts · ${formatDate(delivery.updated_at)}`}
               accessory={
                 <Button
                   variant="gray"
@@ -57,14 +57,14 @@ export function ConnectionsPage({ agent, connections, reload }: { agent: AgentSu
                   onClick={async () => {
                     try {
                       await post(`/api/admin/deliveries/${delivery.id}/retry`);
-                      toast("Đã đưa vào hàng đợi gửi lại");
+                      toast("Queued to send again");
                       await loadDeliveries();
                     } catch (caught) {
                       setError(errorMessage(caught));
                     }
                   }}
                 >
-                  Thử lại
+                  Retry
                 </Button>
               }
             />
@@ -72,7 +72,7 @@ export function ConnectionsPage({ agent, connections, reload }: { agent: AgentSu
         </Section>
       )}
       {connections.length === 0 ? (
-        <EmptyState icon="connections" title="Chưa có kết nối" text="Thêm API cho hệ thống của bạn hoặc kết nối Zernio để trả lời khách." action={<Button onClick={() => setCreating(true)}>Thêm kết nối</Button>} />
+        <EmptyState icon="connections" title="No channels yet" text="Connect your website or app through the API, or connect a Zernio inbox." action={<Button onClick={() => setCreating(true)}>Add channel</Button>} />
       ) : (
         <Section>
           {connections.map((connection) => {
@@ -141,7 +141,7 @@ function CreateConnectionSheet({ agent, onClose, onDone }: { agent: AgentSummary
         apiCredential: type === "zernio" ? form.apiCredential : undefined,
         webhookSecret: type !== "generic_api" ? form.webhookSecret || undefined : undefined,
       });
-      // Activate right away when the assistant is live; otherwise it stays a draft until publish.
+      // Activate right away when the assistant is live; otherwise it waits for the first publish.
       if (agent.active_version_id) await post(`/api/admin/connections/${result.id}/activate`).catch(() => undefined);
       onDone({ type, apiKey: type === "generic_api" ? result.apiKey : undefined, webhookToken: type === "generic_api" ? undefined : result.webhookToken, webhookPath: type === "generic_api" ? undefined : result.webhookPath });
     } catch (caught) {
@@ -153,18 +153,18 @@ function CreateConnectionSheet({ agent, onClose, onDone }: { agent: AgentSummary
   const valid = type !== "zernio" || (form.inboxApiUrl && form.apiCredential && form.webhookSecret);
   return (
     <Sheet
-      title="Thêm kết nối"
+      title="Add channel"
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Huỷ</Button>
-          <Button form="create-connection" busy={busy} disabled={!valid}>Tạo</Button>
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="create-connection" busy={busy} disabled={!valid}>Add</Button>
         </>
       }
     >
       <form id="create-connection" className="sheet-form" onSubmit={submit}>
         <Segmented<ConnectionType>
-          label="Loại kết nối"
+          label="Channel type"
           value={type}
           onChange={setType}
           options={[
@@ -175,29 +175,29 @@ function CreateConnectionSheet({ agent, onClose, onDone }: { agent: AgentSummary
         />
         <p className="sheet-text">{typeInfo[type].description}</p>
         <Section>
-          <FieldRow label="Tên">
+          <FieldRow label="Name">
             <TextInput value={form.name} placeholder={typeInfo[type].label} onChange={(event) => setForm({ ...form, name: event.target.value })} />
           </FieldRow>
           {type !== "zernio" && (
-            <FieldRow label="Callback URL" hint={type === "generic_api" ? "Tuỳ chọn, cho chế độ async" : undefined}>
+            <FieldRow label="Callback URL" hint={type === "generic_api" ? "Optional, for async replies" : undefined}>
               <TextInput type="url" value={form.callbackUrl} placeholder="https://" onChange={(event) => setForm({ ...form, callbackUrl: event.target.value })} />
             </FieldRow>
           )}
           {type === "generic_webhook" && (
-            <FieldRow label="Khoá ký HMAC">
+            <FieldRow label="Signing secret">
               <TextInput type="password" autoComplete="off" value={form.webhookSecret} onChange={(event) => setForm({ ...form, webhookSecret: event.target.value })} />
             </FieldRow>
           )}
         </Section>
         {type === "zernio" && (
-          <Section footer="Token và khoá ký được mã hoá khi lưu và không hiển thị lại.">
+          <Section footer="The token and signing secret are encrypted when saved and never shown again.">
             <FieldRow label="Inbox API URL">
               <TextInput type="url" value={form.inboxApiUrl} placeholder="https://" onChange={(event) => setForm({ ...form, inboxApiUrl: event.target.value })} required />
             </FieldRow>
             <FieldRow label="API token">
               <TextInput type="password" autoComplete="off" value={form.apiCredential} onChange={(event) => setForm({ ...form, apiCredential: event.target.value })} required />
             </FieldRow>
-            <FieldRow label="Khoá ký webhook">
+            <FieldRow label="Webhook signing secret">
               <TextInput type="password" autoComplete="off" value={form.webhookSecret} onChange={(event) => setForm({ ...form, webhookSecret: event.target.value })} required />
             </FieldRow>
           </Section>
@@ -211,8 +211,8 @@ function CreateConnectionSheet({ agent, onClose, onDone }: { agent: AgentSummary
 function SecretsSheet({ secrets, onClose }: { secrets: Secrets; onClose: () => void }) {
   const origin = window.location.origin;
   return (
-    <Sheet title="Lưu thông tin kết nối" onClose={onClose} footer={<Button onClick={onClose}>Đã lưu</Button>}>
-      <Banner tone="orange">Khoá chỉ hiển thị một lần. Lưu ngay vào hệ thống tích hợp hoặc trình quản lý mật khẩu.</Banner>
+    <Sheet title="Save these details" onClose={onClose} footer={<Button onClick={onClose}>Done</Button>}>
+      <Banner tone="orange">The key is shown only once. Save it now in your integration or password manager.</Banner>
       {secrets.apiKey && (
         <>
           <CopyField label="Endpoint" value={`${origin}/api/v1/messages`} />
@@ -234,20 +234,20 @@ function ConnectionSheet({ connection, onClose, onSecrets, reload }: { connectio
   return (
     <Sheet title={connection.name} onClose={onClose}>
       <Section>
-        <Row title="Loại" detail={typeInfo[type].label} />
-        <Row title="Trạng thái" accessory={<StatusBadge value={connection.status} />} />
+        <Row title="Type" detail={typeInfo[type].label} />
+        <Row title="Status" accessory={<StatusBadge value={connection.status} />} />
         {connection.callback_url && <Row title="Callback" subtitle={connection.callback_url} />}
-        <Row title="Tạo lúc" detail={formatDate(connection.created_at)} />
+        <Row title="Created" detail={formatDate(connection.created_at)} />
       </Section>
       {type === "generic_api" && (
-        <Section title="Cách gọi" plain>
+        <Section title="How to call it" plain>
           <pre className="code-block">{`POST ${origin}/api/v1/messages
 Authorization: Bearer <API key>
-Idempotency-Key: <mã duy nhất mỗi tin>
+Idempotency-Key: <unique id per message>
 
-{ "conversation_id": "khach-123",
-  "user_id": "khach-123",
-  "message": { "text": "Xin chào" } }`}</pre>
+{ "conversation_id": "customer-123",
+  "user_id": "customer-123",
+  "message": { "text": "Hello" } }`}</pre>
         </Section>
       )}
       {error && <Banner>{error}</Banner>}
@@ -259,7 +259,7 @@ Idempotency-Key: <mã duy nhất mỗi tin>
               setBusy(true);
               try {
                 await post(`/api/admin/connections/${connection.id}/activate`);
-                toast("Đã kích hoạt");
+                toast("Channel turned on");
                 await reload();
               } catch (caught) {
                 setError(errorMessage(caught));
@@ -268,12 +268,12 @@ Idempotency-Key: <mã duy nhất mỗi tin>
               }
             }}
           >
-            Kích hoạt
+            Turn on
           </Button>
         )}
         {confirmRotate ? (
           <>
-            <p className="sheet-text">Khoá cũ ngừng hoạt động ngay. Hệ thống đang dùng khoá cũ sẽ bị từ chối cho đến khi cập nhật khoá mới.</p>
+            <p className="sheet-text">The current key stops working immediately. Anything using it is rejected until you update it with the new key.</p>
             <Button
               variant="destructive"
               busy={busy}
@@ -293,12 +293,12 @@ Idempotency-Key: <mã duy nhất mỗi tin>
                 }
               }}
             >
-              Tạo khoá mới
+              Create new key
             </Button>
           </>
         ) : (
           <Button variant="gray" onClick={() => setConfirmRotate(true)}>
-            {type === "generic_api" ? "Đổi API key" : "Đổi webhook URL"}
+            {type === "generic_api" ? "Replace API key" : "Replace webhook URL"}
           </Button>
         )}
       </div>

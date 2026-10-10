@@ -41,18 +41,15 @@ export function SettingsPage({
   }
   return (
     <div className="page narrow">
-      <PageHeader title="Cài đặt" />
+      <PageHeader title="Settings" />
       {error && <Banner onClose={() => setError("")}>{error}</Banner>}
-      <Section
-        title="Trí tuệ nhân tạo"
-        footer="API key Anthropic được mã hoá khi lưu và không hiển thị lại. Sau khi đổi khoá, bấm Xuất bản ở trang Trợ lý để khách dùng khoá mới."
-      >
-        <Row title="Trạng thái" detail={hasKey ? "Đã có API key" : "Chưa có API key"} />
-        <FieldRow label={hasKey ? "API key mới" : "API key"}>
+      <Section title="AI" footer="Your Anthropic API key is encrypted when saved and never shown again. After changing it, publish the assistant so customers use the new key.">
+        <Row title="Status" detail={hasKey ? "API key saved" : "No API key yet"} />
+        <FieldRow label={hasKey ? "New API key" : "API key"}>
           <TextInput type="password" autoComplete="off" value={credential.apiKey} placeholder="sk-ant-…" onChange={(event) => setCredential({ ...credential, apiKey: event.target.value })} />
         </FieldRow>
         <details className="advanced in-group">
-          <summary>Nâng cao</summary>
+          <summary>Advanced</summary>
           <FieldRow label="Cloudflare account ID">
             <TextInput value={credential.accountId} onChange={(event) => setCredential({ ...credential, accountId: event.target.value })} />
           </FieldRow>
@@ -69,11 +66,11 @@ export function SettingsPage({
             onClick={() =>
               void run("test", async () => {
                 const result = await post<{ connected: boolean; model: string }>("/api/admin/settings/anthropic/test", model ? { model } : {});
-                toast(result.connected ? `Kết nối tốt · ${modelLabel(result.model)}` : "Không kết nối được", result.connected ? "default" : "error");
+                toast(result.connected ? `Connected · ${modelLabel(result.model)}` : "Couldn't connect", result.connected ? "default" : "error");
               })
             }
           >
-            Kiểm tra kết nối
+            Test connection
           </Button>
           <Button
             size="small"
@@ -84,30 +81,30 @@ export function SettingsPage({
                 await post("/api/admin/settings/anthropic", credential);
                 setCredential({ ...credential, apiKey: "" });
                 await reload();
-                toast("Đã lưu API key");
+                toast("API key saved");
               })
             }
           >
-            Lưu
+            Save
           </Button>
         </div>
       </Section>
-      <Section title="Thương hiệu" footer="Hiển thị ở trang đăng nhập và thanh bên. Thay đổi có hiệu lực ngay.">
-        <FieldRow label="Tên">
+      <Section title="Brand" footer="Shown on the sign-in screen and the sidebar. Changes apply immediately.">
+        <FieldRow label="Name">
           <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
         </FieldRow>
-        <FieldRow label="Màu chủ đạo">
+        <FieldRow label="Accent color">
           <input className="color-input" type="color" value={form.primaryColor} onChange={(event) => setForm({ ...form, primaryColor: event.target.value })} />
         </FieldRow>
         <FieldRow label="Logo URL">
           <TextInput type="url" value={form.logoUrl} onChange={(event) => setForm({ ...form, logoUrl: event.target.value })} placeholder="https://" />
         </FieldRow>
-        <FieldRow label="Trang hỗ trợ">
+        <FieldRow label="Support page">
           <TextInput type="url" value={form.supportUrl} onChange={(event) => setForm({ ...form, supportUrl: event.target.value })} placeholder="https://" />
         </FieldRow>
         {brandChanged && (
           <div className="row row-actions">
-            <Button variant="gray" size="small" onClick={() => setForm(brand)}>Huỷ</Button>
+            <Button variant="gray" size="small" onClick={() => setForm(brand)}>Cancel</Button>
             <Button
               size="small"
               busy={busy === "brand"}
@@ -115,26 +112,26 @@ export function SettingsPage({
                 void run("brand", async () => {
                   await patch("/api/admin/settings/brand", form);
                   await reload();
-                  toast("Đã lưu thương hiệu");
+                  toast("Brand saved");
                 })
               }
             >
-              Lưu
+              Save
             </Button>
           </div>
         )}
       </Section>
-      <Section title="Sao lưu" footer="Gồm cấu hình trợ lý, các phiên bản, dữ liệu và tình huống đánh giá. Không bao gồm khoá hay mật khẩu.">
+      <Section title="Backup" footer="Includes the assistant setup, versions, data and test scenarios. Never includes keys or passwords.">
         <a className="row row-button" href="/api/admin/export" download>
           <span className="row-text">
-            <span className="row-title text-tint">Tải bản sao lưu (JSON)</span>
+            <span className="row-title text-tint">Download backup (JSON)</span>
           </span>
         </a>
       </Section>
       <Section>
         <button className="row row-button" onClick={logout}>
           <span className="row-text">
-            <span className="row-title text-red">Đăng xuất</span>
+            <span className="row-title text-red">Sign out</span>
           </span>
         </button>
       </Section>

@@ -1705,3 +1705,23 @@ tr.clickable:focus-visible {
   padding: 10px 16px;
   border-top: 0.5px solid var(--separator);
 }
+
+.text-area.plain {
+  display: block;
+  padding: 12px 16px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.rule-list {
+  display: block;
+  padding: 12px 16px;
+  border-radius: 0;
+  background: transparent;
+  line-height: 1.7;
+}
+
+.split-main > .advanced,
+.split-side > .advanced {
+  margin-bottom: 28px;
+}

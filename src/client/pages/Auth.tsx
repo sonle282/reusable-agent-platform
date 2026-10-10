@@ -45,7 +45,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
       setCsrf(result.csrfToken);
       onDone();
     } catch (caught) {
-      setError(errorMessage(caught, "Không thể hoàn tất thiết lập"));
+      setError(errorMessage(caught, "Couldn't finish setup"));
     } finally {
       setBusy(false);
     }
@@ -55,42 +55,40 @@ export function Setup({ onDone }: { onDone: () => void }) {
     <main className="auth-screen">
       <form className="auth-panel wide" onSubmit={submit}>
         <AppIcon brand={brand} />
-        <p className="step-label">Bước {step + 1} / 2</p>
-        <h1>{step === 0 ? "Thiết lập quản trị" : "Thương hiệu và mô hình AI"}</h1>
+        <p className="step-label">Step {step + 1} of 2</p>
+        <h1>{step === 0 ? "Create your admin account" : "Brand and AI"}</h1>
         <p className="auth-lead">
-          {step === 0
-            ? "Dùng mã khởi tạo một lần để tạo tài khoản quản trị duy nhất cho hệ thống này."
-            : "Bạn có thể thay đổi các thông tin này sau trong Cài đặt."}
+          {step === 0 ? "Use the one-time setup code to create the single admin account for this workspace." : "You can change all of this later in Settings."}
         </p>
         {step === 0 ? (
-          <Section footer="Mật khẩu tối thiểu 12 ký tự. Hãy lưu vào trình quản lý mật khẩu.">
-            <FieldRow label="Mã khởi tạo">
+          <Section footer="At least 12 characters. Save it in your password manager.">
+            <FieldRow label="Setup code">
               <TextInput type="password" autoComplete="off" value={form.bootstrapToken} onChange={(e) => update("bootstrapToken", e.target.value)} required />
             </FieldRow>
             <FieldRow label="Email">
               <TextInput type="email" autoComplete="username" value={form.email} onChange={(e) => update("email", e.target.value)} required />
             </FieldRow>
-            <FieldRow label="Mật khẩu">
+            <FieldRow label="Password">
               <TextInput type="password" autoComplete="new-password" minLength={12} value={form.password} onChange={(e) => update("password", e.target.value)} required />
             </FieldRow>
           </Section>
         ) : (
           <>
-            <Section title="Thương hiệu">
-              <FieldRow label="Tên">
-                <TextInput value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Mr Spa AI" required />
+            <Section title="Brand">
+              <FieldRow label="Name">
+                <TextInput value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Your business" required />
               </FieldRow>
-              <FieldRow label="Màu chủ đạo">
+              <FieldRow label="Accent color">
                 <input className="color-input" type="color" value={form.primaryColor} onChange={(e) => update("primaryColor", e.target.value)} />
               </FieldRow>
               <FieldRow label="Logo URL">
                 <TextInput type="url" value={form.logoUrl} onChange={(e) => update("logoUrl", e.target.value)} placeholder="https://" />
               </FieldRow>
-              <FieldRow label="Trang hỗ trợ">
+              <FieldRow label="Support page">
                 <TextInput type="url" value={form.supportUrl} onChange={(e) => update("supportUrl", e.target.value)} placeholder="https://" />
               </FieldRow>
             </Section>
-            <Section title="Anthropic qua AI Gateway" footer="API key được mã hoá trước khi lưu và không bao giờ hiển thị lại.">
+            <Section title="Anthropic" footer="The API key is encrypted before it is stored and is never shown again.">
               <FieldRow label="API key">
                 <TextInput type="password" autoComplete="off" value={form.anthropicApiKey} onChange={(e) => update("anthropicApiKey", e.target.value)} placeholder="sk-ant-…" />
               </FieldRow>
@@ -107,16 +105,16 @@ export function Setup({ onDone }: { onDone: () => void }) {
         <div className="auth-actions">
           {step === 1 && (
             <Button type="button" variant="gray" size="large" onClick={() => setStep(0)}>
-              Quay lại
+              Back
             </Button>
           )}
           {step === 0 ? (
             <Button type="button" size="large" onClick={() => setStep(1)} disabled={!form.bootstrapToken || !form.email || form.password.length < 12}>
-              Tiếp tục
+              Continue
             </Button>
           ) : (
             <Button size="large" busy={busy}>
-              Hoàn tất
+              Finish
             </Button>
           )}
         </div>
@@ -139,7 +137,7 @@ export function Login({ brand, onDone }: { brand: Brand; onDone: () => void }) {
       setCsrf(result.csrfToken);
       onDone();
     } catch (caught) {
-      setError(errorMessage(caught, "Không thể đăng nhập"));
+      setError(errorMessage(caught, "Couldn't sign in"));
     } finally {
       setBusy(false);
     }
@@ -149,19 +147,19 @@ export function Login({ brand, onDone }: { brand: Brand; onDone: () => void }) {
       <form className="auth-panel" onSubmit={submit}>
         <AppIcon brand={brand} />
         <h1>{brand.name}</h1>
-        <p className="auth-lead">Đăng nhập để quản lý trợ lý AI.</p>
+        <p className="auth-lead">Sign in to manage your AI assistant.</p>
         <Section>
           <FieldRow label="Email">
             <TextInput type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </FieldRow>
-          <FieldRow label="Mật khẩu">
+          <FieldRow label="Password">
             <TextInput type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </FieldRow>
         </Section>
         {error && <Banner>{error}</Banner>}
         <div className="auth-actions">
           <Button size="large" busy={busy}>
-            Đăng nhập
+            Sign in
           </Button>
         </div>
       </form>

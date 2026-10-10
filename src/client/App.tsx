@@ -12,15 +12,15 @@ import { Banner, Button, FieldRow, Icon, Section, Segmented, Spinner, TextInput,
 type Page = "assistant" | "data" | "conversations" | "connections" | "settings";
 
 const nav: Array<{ id: Page; label: string; icon: string }> = [
-  { id: "assistant", label: "Trợ lý", icon: "assistant" },
-  { id: "data", label: "Dữ liệu", icon: "data" },
-  { id: "conversations", label: "Hội thoại", icon: "conversations" },
-  { id: "connections", label: "Kết nối", icon: "connections" },
-  { id: "settings", label: "Cài đặt", icon: "settings" },
+  { id: "assistant", label: "Assistant", icon: "assistant" },
+  { id: "data", label: "Data", icon: "data" },
+  { id: "conversations", label: "Conversations", icon: "conversations" },
+  { id: "connections", label: "Channels", icon: "connections" },
+  { id: "settings", label: "Settings", icon: "settings" },
 ];
 const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "versions"];
 
-const defaultBrand: Brand = { name: "Agent Platform", logoUrl: "", primaryColor: "#007aff", supportUrl: "" };
+const defaultBrand: Brand = { name: "Assistant", logoUrl: "", primaryColor: "#007aff", supportUrl: "" };
 
 // Route lives in the hash (#/assistant/sources) so reload and the back button keep the place.
 function readRoute(): { page: Page; tab: AssistantTab } {
@@ -46,7 +46,7 @@ function useRoute() {
 
 function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promise<void>; logout: () => void }) {
   const { page, tab, go } = useRoute();
-  // One assistant per deployment; the backend still stores agents generically.
+  // One assistant per workspace; the backend still stores agents generically.
   const agent = data.agents[0];
   useEffect(() => {
     document.title = `${nav.find((item) => item.id === page)?.label ?? ""} · ${data.brand.name}`;
@@ -59,7 +59,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
           <AppIcon brand={data.brand} size={30} />
           <b>{data.brand.name}</b>
         </div>
-        <nav aria-label="Điều hướng chính">
+        <nav aria-label="Main">
           {nav.map((item) => (
             <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => go(item.id)}>
               <Icon name={item.icon} size={18} />
@@ -69,7 +69,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
         </nav>
         <div className="sidebar-footer">
           <span className={`live-dot ${agent.active_version_id ? "on" : ""}`} />
-          {agent.active_version_id ? "Trợ lý đang chạy" : "Chưa xuất bản"}
+          {agent.active_version_id ? "Assistant is live" : "Not live yet"}
         </div>
       </aside>
       <main className="content">
@@ -79,7 +79,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
         {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} />}
         {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} />}
       </main>
-      <nav className="tab-bar" aria-label="Điều hướng chính">
+      <nav className="tab-bar" aria-label="Main">
         {nav.map((item) => (
           <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => go(item.id)}>
             <Icon name={item.icon} size={22} />
@@ -91,8 +91,9 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
   );
 }
 
+// First run: three answers give a working customer assistant; everything else can be refined later.
 function CreateAssistant({ brand, onDone }: { brand: Brand; onDone: () => Promise<void> }) {
-  const [form, setForm] = useState({ name: "", description: "", template: "sales" as "sales" | "support" | "blank", primaryLanguage: "vi" });
+  const [form, setForm] = useState({ businessName: brand.name, offering: "", template: "sales" as "sales" | "support" | "blank" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
@@ -100,7 +101,14 @@ function CreateAssistant({ brand, onDone }: { brand: Brand; onDone: () => Promis
     setBusy(true);
     setError("");
     try {
-      await post("/api/admin/agents", form);
+      await post("/api/admin/agents", {
+        name: `${form.businessName} Assistant`,
+        description: form.template === "support" ? "Customer support" : form.template === "sales" ? "Sales and customer questions" : "",
+        primaryLanguage: "en",
+        template: form.template,
+        businessName: form.businessName,
+        offering: form.offering,
+      });
       await onDone();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -111,30 +119,30 @@ function CreateAssistant({ brand, onDone }: { brand: Brand; onDone: () => Promis
     <main className="auth-screen">
       <form className="auth-panel" onSubmit={submit}>
         <AppIcon brand={brand} />
-        <h1>Tạo trợ lý</h1>
-        <p className="auth-lead">Chọn mẫu khởi đầu. Bạn có thể chỉnh hướng dẫn, thêm kiến thức và dữ liệu ngay sau đó.</p>
+        <h1>Create your assistant</h1>
+        <p className="auth-lead">It answers your customers like a trained team member — on your website, inbox or any channel you connect.</p>
         <Segmented
-          label="Mẫu"
+          label="Assistant type"
           value={form.template}
           onChange={(template) => setForm({ ...form, template })}
           options={[
-            { value: "sales", label: "Tư vấn bán hàng" },
-            { value: "support", label: "Chăm sóc khách" },
-            { value: "blank", label: "Trống" },
+            { value: "sales", label: "Sales" },
+            { value: "support", label: "Support" },
+            { value: "blank", label: "Blank" },
           ]}
         />
         <Section>
-          <FieldRow label="Tên">
-            <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={`${brand.name} Assistant`} required />
+          <FieldRow label="Business name">
+            <TextInput value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} required />
           </FieldRow>
-          <FieldRow label="Giúp khách việc gì" stacked>
-            <TextInput value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Tư vấn sản phẩm, ưu đãi và chính sách" />
+          <FieldRow label="What do you offer?" stacked>
+            <TextInput value={form.offering} onChange={(event) => setForm({ ...form, offering: event.target.value })} placeholder="e.g. Handmade furniture for homes and offices" />
           </FieldRow>
         </Section>
         {error && <Banner>{error}</Banner>}
         <div className="auth-actions">
-          <Button size="large" busy={busy}>
-            Tạo trợ lý
+          <Button size="large" busy={busy} disabled={!form.businessName.trim()}>
+            Create assistant
           </Button>
         </div>
       </form>

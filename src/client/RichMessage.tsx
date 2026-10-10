@@ -45,7 +45,7 @@ export function RichBubbles({ text, role }: { text: string; role: "user" | "assi
               <div className="bubble-buttons">
                 {buttons.map((button, buttonIndex) => (
                   <a href={safeUrl(button.url)} target="_blank" rel="noreferrer noopener" key={buttonIndex}>
-                    {button.caption || "Mở liên kết"}
+                    {button.caption || "Open link"}
                   </a>
                 ))}
               </div>

@@ -4,7 +4,7 @@ import { agentDraftSchema, genericMessageSchema, starterDraft } from "../src/sha
 describe("agent contracts", () => {
   it("creates complete immutable snapshot defaults", () => {
     const draft = starterDraft("sales");
-    expect(draft.instructions).toContain("tư vấn");
+    expect(draft.profile.job).toContain("recommend");
     expect(draft.modelConfig.provider).toBe("anthropic");
     expect(agentDraftSchema.parse(JSON.parse(JSON.stringify(draft)))).toEqual(draft);
   });

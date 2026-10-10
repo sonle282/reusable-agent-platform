@@ -18,5 +18,5 @@ export function previewSnippet(value: string | null | undefined, parse: (text: s
   if (!value) return "—";
   const quoted = value.trimStart().startsWith("{") ? value.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)/)?.[1] : undefined;
   if (quoted) return quoted.replace(/\\n/g, " ").replace(/\\"/g, '"');
-  return parse(value).find((part) => part.text)?.text ?? "Đã gửi hình ảnh";
+  return parse(value).find((part) => part.text)?.text ?? "Sent an image";
 }

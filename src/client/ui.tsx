@@ -163,7 +163,7 @@ export function Button({
 }
 
 export function Spinner({ small = false }: { small?: boolean }) {
-  return <span className={`spinner ${small ? "small" : ""}`} role="status" aria-label="Đang tải" />;
+  return <span className={`spinner ${small ? "small" : ""}`} role="status" aria-label="Loading" />;
 }
 
 export function PageHeader({
@@ -184,7 +184,7 @@ export function PageHeader({
       {onBack && (
         <button className="back-link" onClick={onBack}>
           <Icon name="back" size={18} />
-          {backLabel ?? "Quay lại"}
+          {backLabel ?? "Back"}
         </button>
       )}
       <div className="page-header-row">
@@ -390,20 +390,20 @@ export function Badge({ tone = "gray", children }: { tone?: "green" | "orange" |
 }
 
 const statusMap: Record<string, { tone: "green" | "orange" | "red" | "blue" | "gray"; label: string }> = {
-  active: { tone: "green", label: "Đang chạy" },
-  ready: { tone: "green", label: "Sẵn sàng" },
-  completed: { tone: "green", label: "Hoàn tất" },
-  delivered: { tone: "green", label: "Đã gửi" },
-  passed: { tone: "green", label: "Đạt" },
-  draft: { tone: "gray", label: "Bản nháp" },
-  archived: { tone: "gray", label: "Lưu trữ" },
-  pending: { tone: "orange", label: "Đang chờ" },
-  processing: { tone: "orange", label: "Đang xử lý" },
-  accepted: { tone: "orange", label: "Đã nhận" },
-  engaged: { tone: "blue", label: "Đang tư vấn" },
-  lead_captured: { tone: "green", label: "Có liên hệ" },
-  human_handoff: { tone: "orange", label: "Nhân viên xử lý" },
-  failed: { tone: "red", label: "Lỗi" },
+  active: { tone: "green", label: "Active" },
+  ready: { tone: "green", label: "Ready" },
+  completed: { tone: "green", label: "Completed" },
+  delivered: { tone: "green", label: "Delivered" },
+  passed: { tone: "green", label: "Passed" },
+  draft: { tone: "gray", label: "Draft" },
+  archived: { tone: "gray", label: "Off" },
+  pending: { tone: "orange", label: "Pending" },
+  processing: { tone: "orange", label: "Processing" },
+  accepted: { tone: "orange", label: "Received" },
+  engaged: { tone: "blue", label: "In conversation" },
+  lead_captured: { tone: "green", label: "Lead captured" },
+  human_handoff: { tone: "orange", label: "With your team" },
+  failed: { tone: "red", label: "Failed" },
 };
 
 export function StatusBadge({ value }: { value: string }) {
@@ -438,7 +438,7 @@ export function Sheet({
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="sheet-header">
           <h2>{title}</h2>
-          <button className="icon-button" onClick={onClose} aria-label="Đóng">
+          <button className="icon-button" onClick={onClose} aria-label="Close">
             <Icon name="close" size={16} />
           </button>
         </div>
@@ -468,7 +468,7 @@ export function Banner({ tone = "red", children, onClose }: { tone?: "red" | "or
       <Icon name={tone === "green" ? "check" : "warning"} size={17} />
       <div>{children}</div>
       {onClose && (
-        <button className="icon-button" onClick={onClose} aria-label="Đóng">
+        <button className="icon-button" onClick={onClose} aria-label="Close">
           <Icon name="close" size={14} />
         </button>
       )}
@@ -503,7 +503,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 export const useToast = () => useContext(ToastContext);
 
-export function errorMessage(error: unknown, fallback = "Đã có lỗi xảy ra") {
+export function errorMessage(error: unknown, fallback = "Something went wrong") {
   return error instanceof Error ? error.message : fallback;
 }
 
@@ -513,7 +513,7 @@ export function formatDate(value?: string | null) {
   const date = new Date(normalized);
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    : date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 export function CopyField({ label, value }: { label: string; value: string }) {
@@ -529,10 +529,10 @@ export function CopyField({ label, value }: { label: string; value: string }) {
           icon="copy"
           onClick={async () => {
             await navigator.clipboard.writeText(value);
-            toast("Đã sao chép");
+            toast("Copied");
           }}
         >
-          Sao chép
+          Copy
         </Button>
       </div>
     </div>

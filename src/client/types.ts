@@ -1,4 +1,5 @@
 import type { AnthropicModel } from "../shared/models";
+import type { AssistantProfile } from "../shared/prompt";
 
 export type Brand = {
   name: string;
@@ -33,6 +34,7 @@ export type EvalCase = {
 };
 
 export type AgentDraft = {
+  profile?: Partial<AssistantProfile>;
   instructions: string;
   modelConfig: {
     model: AnthropicModel;

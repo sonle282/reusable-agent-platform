@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, patch, post } from "../api";
 import { modelSupportsTemperature, type AnthropicModel } from "../../shared/models";
+import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
 import { RichBubbles } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalRun } from "../types";
 import {
@@ -27,13 +28,13 @@ import {
 export type AssistantTab = "test" | "instructions" | "sources" | "versions";
 
 export const modelOptions: Array<{ value: AnthropicModel; label: string; note: string }> = [
-  { value: "claude-haiku-5-5", label: "Claude Haiku 5.5", note: "Nhanh, chi phí thấp" },
-  { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Cân bằng" },
-  { value: "claude-opus-5-5", label: "Claude Opus 5.5", note: "Mạnh nhất" },
-  { value: "claude-sonnet-5", label: "Claude Sonnet 5", note: "Thế hệ trước" },
-  { value: "claude-opus-5", label: "Claude Opus 5", note: "Thế hệ trước" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", note: "Thế hệ trước" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", note: "Thế hệ trước" },
+  { value: "claude-haiku-5-5", label: "Claude Haiku 5.5", note: "Fast, low cost" },
+  { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", note: "Balanced" },
+  { value: "claude-opus-5-5", label: "Claude Opus 5.5", note: "Most capable" },
+  { value: "claude-sonnet-5", label: "Claude Sonnet 5", note: "Previous generation" },
+  { value: "claude-opus-5", label: "Claude Opus 5", note: "Previous generation" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", note: "Previous generation" },
+  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", note: "Previous generation" },
 ];
 
 export const modelLabel = (model?: string) => modelOptions.find((option) => option.value === model)?.label ?? model ?? "—";
@@ -70,7 +71,7 @@ export function AssistantPage({
     void load().catch((caught) => setError(errorMessage(caught)));
   }, [agentId]);
 
-  // Drafts never affect production, so they save automatically.
+  // Drafts never affect customers, so they save automatically.
   async function save() {
     const current = latest.current;
     if (!current) return false;
@@ -81,7 +82,7 @@ export function AssistantPage({
       return true;
     } catch (caught) {
       setSaveState("dirty");
-      setError(errorMessage(caught, "Không thể lưu bản nháp"));
+      setError(errorMessage(caught, "Couldn't save the draft"));
       return false;
     }
   }
@@ -103,7 +104,7 @@ export function AssistantPage({
     setEditedSinceLoad(true);
   }
 
-  // One action: save, run the evaluation gate, then publish when it passes.
+  // One action: save, run the test gate, then publish when it passes.
   async function publish() {
     if (!agent || !(await flush())) return;
     setError("");
@@ -114,7 +115,7 @@ export function AssistantPage({
         setEvalRun(run);
         if (!run.passed) {
           onTab("test");
-          setError("Chưa xuất bản: có tình huống đánh giá chưa đạt. Xem chi tiết ở mục Đánh giá.");
+          setError("Not published: some test scenarios failed. See Test scenarios below.");
           return;
         }
       }
@@ -122,9 +123,9 @@ export function AssistantPage({
       const result = await post<{ version: number }>(`/api/admin/agents/${agentId}/publish`);
       await load();
       await refresh();
-      toast(`Đã xuất bản phiên bản ${result.version}`);
+      toast(`Published version ${result.version}`);
     } catch (caught) {
-      setError(errorMessage(caught, "Không thể xuất bản"));
+      setError(errorMessage(caught, "Couldn't publish"));
     } finally {
       setPublishing("");
     }
@@ -134,9 +135,9 @@ export function AssistantPage({
   const live = agent.versions.find((version) => version.id === agent.active_version_id);
   const upToDate = Boolean(live) && agent.draftMatchesLive && !editedSinceLoad && saveState === "saved";
   const missing = [
-    !agent.draft.modelConfig.credentialId && { text: "Chưa có API key Anthropic.", action: "Mở Cài đặt", go: openSettings },
-    !agent.draft.instructions.trim() && { text: "Chưa có hướng dẫn cho trợ lý.", action: "Viết hướng dẫn", go: () => onTab("instructions") },
-    agent.sources.some((source) => source.status === "failed") && { text: "Có nguồn kiến thức xử lý lỗi.", action: "Xem nguồn", go: () => onTab("sources") },
+    !agent.draft.modelConfig.credentialId && { text: "No Anthropic API key yet.", action: "Open Settings", go: openSettings },
+    !agent.draft.instructions.trim() && !hasProfile(agent.draft) && { text: "Tell the assistant what its job is.", action: "Write instructions", go: () => onTab("instructions") },
+    agent.sources.some((source) => source.status === "failed") && { text: "A knowledge source failed to process.", action: "View sources", go: () => onTab("sources") },
   ].filter(Boolean) as Array<{ text: string; action: string; go: () => void }>;
   return (
     <div className="page">
@@ -144,15 +145,15 @@ export function AssistantPage({
         title={agent.name}
         subtitle={
           <>
-            {live ? <Badge tone="green">Đang trả lời khách · v{live.version}</Badge> : <Badge>Chưa trả lời khách</Badge>}
+            {live ? <Badge tone="green">Live · v{live.version}</Badge> : <Badge>Not live yet</Badge>}
             <span className="save-state" aria-live="polite">
-              {saveState === "saving" ? "Đang lưu…" : upToDate ? "Khách đang dùng đúng bản này" : live ? "Có thay đổi chưa áp dụng cho khách" : "Thử xong thì bấm Xuất bản"}
+              {saveState === "saving" ? "Saving…" : upToDate ? "Customers see this version" : live ? "Changes not live yet" : "Test it, then publish"}
             </span>
           </>
         }
         actions={
           <Button onClick={() => void publish()} busy={Boolean(publishing)} disabled={upToDate}>
-            {publishing === "evaluating" ? "Đang kiểm tra…" : publishing === "publishing" ? "Đang xuất bản…" : upToDate ? "Đã xuất bản" : "Xuất bản"}
+            {publishing === "evaluating" ? "Running tests…" : publishing === "publishing" ? "Publishing…" : upToDate ? "Published" : "Publish"}
           </Button>
         }
       />
@@ -170,14 +171,14 @@ export function AssistantPage({
       )}
       <div className="toolbar">
         <Segmented<AssistantTab>
-          label="Phần cấu hình"
+          label="Assistant sections"
           value={tab}
           onChange={onTab}
           options={[
-            { value: "test", label: "Thử nghiệm" },
-            { value: "instructions", label: "Hướng dẫn" },
-            { value: "sources", label: "Nguồn" },
-            { value: "versions", label: "Phiên bản" },
+            { value: "test", label: "Test" },
+            { value: "instructions", label: "Instructions" },
+            { value: "sources", label: "Sources" },
+            { value: "versions", label: "Versions" },
           ]}
         />
       </div>
@@ -189,7 +190,7 @@ export function AssistantPage({
         </Banner>
       )}
       {tab === "test" && <TestTab agent={agent} collections={collections} flush={flush} reload={load} run={evalRun} setRun={setEvalRun} />}
-      {tab === "instructions" && <BehaviorTab agent={agent} mutate={mutate} rename={rename} />}
+      {tab === "instructions" && <InstructionsTab agent={agent} mutate={mutate} rename={rename} />}
       {tab === "sources" && (
         <>
           <KnowledgeTab agent={agent} mutate={mutate} reload={load} />
@@ -201,7 +202,21 @@ export function AssistantPage({
   );
 }
 
-function BehaviorTab({
+// One rule per line: the simplest list editor that still reads like a note.
+function RuleList({ value, onChange, placeholder, label }: { value: string[]; onChange: (value: string[]) => void; placeholder: string; label: string }) {
+  return (
+    <textarea
+      className="text-area rule-list"
+      rows={Math.max(3, value.length + 1)}
+      aria-label={label}
+      placeholder={placeholder}
+      value={value.join("\n")}
+      onChange={(event) => onChange(event.target.value.split("\n"))}
+    />
+  );
+}
+
+function InstructionsTab({
   agent,
   mutate,
   rename,
@@ -211,64 +226,72 @@ function BehaviorTab({
   rename: (field: "name" | "description", value: string) => void;
 }) {
   const { draft } = agent;
+  const profile: AssistantProfile = { ...emptyProfile, ...draft.profile };
   const sampling = modelSupportsTemperature(draft.modelConfig.model);
+  const setProfile = (value: Partial<AssistantProfile>) => mutate((current) => ({ ...current, profile: { ...emptyProfile, ...current.profile, ...value } }));
   const setModel = (value: Partial<AgentDraft["modelConfig"]>) => mutate((current) => ({ ...current, modelConfig: { ...current.modelConfig, ...value } }));
   return (
     <div className="split">
       <div className="split-main">
-        <Section
-          title="Hướng dẫn"
-          action={<span className="caption">{draft.instructions.length.toLocaleString("vi-VN")} ký tự</span>}
-          footer="Mô tả vai trò, giọng điệu, giới hạn và khi nào chuyển cho nhân viên. Giá, ưu đãi và dữ liệu thay đổi thường xuyên nên đặt trong Dữ liệu."
-        >
-          <textarea
-            className="editor"
-            value={draft.instructions}
-            spellCheck={false}
-            aria-label="Hướng dẫn cho trợ lý"
-            onChange={(event) => mutate((current) => ({ ...current, instructions: event.target.value }))}
-          />
+        <Section title="Your business" footer="Facts that rarely change. Prices, offers and stock belong in Data so they stay current.">
+          <FieldRow label="Business name">
+            <TextInput value={profile.businessName} onChange={(event) => setProfile({ businessName: event.target.value })} placeholder="Acme Furniture" />
+          </FieldRow>
+          <FieldRow label="What you offer" stacked>
+            <textarea className="text-area" rows={2} value={profile.offering} onChange={(event) => setProfile({ offering: event.target.value })} placeholder="Products or services you sell, and who they are for" />
+          </FieldRow>
+          <FieldRow label="Contact and hours" stacked>
+            <textarea className="text-area" rows={2} value={profile.contactInfo} onChange={(event) => setProfile({ contactInfo: event.target.value })} placeholder="Phone, email, address, opening hours" />
+          </FieldRow>
+          <FieldRow label="Website">
+            <TextInput type="url" value={profile.website} onChange={(event) => setProfile({ website: event.target.value })} placeholder="https://" />
+          </FieldRow>
         </Section>
+        <Section title="Your assistant's job" footer="What it should do for customers — answer questions, recommend, take requests — and what a good conversation ends with.">
+          <textarea className="text-area plain" rows={4} aria-label="Assistant's job" value={profile.job} onChange={(event) => setProfile({ job: event.target.value })} placeholder="Answer questions, recommend the right product and collect contact details when the customer is ready to buy." />
+        </Section>
+        <Section title="Voice and style" footer="How it should sound. It always replies in the customer's language.">
+          <textarea className="text-area plain" rows={3} aria-label="Voice and style" value={profile.voice} onChange={(event) => setProfile({ voice: event.target.value })} placeholder="Warm and polite, short messages, one question at a time." />
+        </Section>
+        <Section title="Always" footer="One rule per line.">
+          <RuleList label="Always" value={profile.alwaysDo} onChange={(alwaysDo) => setProfile({ alwaysDo })} placeholder="Check the data before stating a price or offer" />
+        </Section>
+        <Section title="Never" footer="One rule per line.">
+          <RuleList label="Never" value={profile.neverDo} onChange={(neverDo) => setProfile({ neverDo })} placeholder="Invent prices, discounts or delivery dates" />
+        </Section>
+        <Section title="Hand off to a person when" footer="The assistant tells the customer someone from the team will follow up.">
+          <RuleList label="Hand off to a person when" value={profile.handoffWhen} onChange={(handoffWhen) => setProfile({ handoffWhen })} placeholder="The customer has a complaint or asks for a person" />
+        </Section>
+        <Section title="Contact details to collect" footer="Asked politely when the customer is ready to buy, wants a quote, or needs a person. One per line.">
+          <RuleList label="Contact details to collect" value={profile.collectDetails} onChange={(collectDetails) => setProfile({ collectDetails })} placeholder="Name" />
+        </Section>
+        <details className="advanced">
+          <summary>Detailed playbook (advanced)</summary>
+          <Section
+            action={<span className="caption">{draft.instructions.length.toLocaleString("en-US")} characters</span>}
+            footer="Optional long-form prompt for experts. When it disagrees with the sections above, the sections above win."
+          >
+            <textarea
+              className="editor"
+              value={draft.instructions}
+              spellCheck={false}
+              aria-label="Detailed playbook"
+              onChange={(event) => mutate((current) => ({ ...current, instructions: event.target.value }))}
+            />
+          </Section>
+        </details>
       </div>
       <div className="split-side">
-        <Section title="Thông tin">
-          <FieldRow label="Tên" stacked>
+        <Section title="Assistant">
+          <FieldRow label="Name" stacked>
             <TextInput value={agent.name} onChange={(event) => rename("name", event.target.value)} />
           </FieldRow>
-          <FieldRow label="Mô tả" stacked>
+          <FieldRow label="Description" stacked>
             <TextInput value={agent.description} onChange={(event) => rename("description", event.target.value)} />
           </FieldRow>
         </Section>
-        <details className="advanced">
-          <summary>Nâng cao</summary>
-        <Section title="Mô hình" footer={sampling ? undefined : "Model này tự điều chỉnh độ sáng tạo; nhiệt độ không áp dụng."}>
-          <FieldRow label="Model">
-            <select className="select" value={draft.modelConfig.model} onChange={(event) => setModel({ model: event.target.value as AnthropicModel })}>
-              {modelOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label} — {option.note}
-                </option>
-              ))}
-            </select>
-          </FieldRow>
-          <FieldRow label="Nhiệt độ">
-            <TextInput type="number" min={0} max={1} step={0.1} disabled={!sampling} value={draft.modelConfig.temperature} onChange={(event) => setModel({ temperature: Number(event.target.value) })} />
-          </FieldRow>
-          <FieldRow label="Token tối đa">
-            <TextInput type="number" min={128} max={8192} step={128} value={draft.modelConfig.maxTokens} onChange={(event) => setModel({ maxTokens: Number(event.target.value) })} />
-          </FieldRow>
-        </Section>
-        <Section title="Phản hồi" footer="Câu trả lời dự phòng được gửi khi mô hình gặp lỗi hoặc quá thời gian.">
-          <FieldRow label="Độ dài tối đa">
-            <TextInput
-              type="number"
-              min={100}
-              max={8000}
-              value={draft.responsePolicy.maxLength}
-              onChange={(event) => mutate((current) => ({ ...current, responsePolicy: { ...current.responsePolicy, maxLength: Number(event.target.value) } }))}
-            />
-          </FieldRow>
-          <FieldRow label="Câu dự phòng" stacked>
+        <Section title="When something goes wrong" footer="Sent if the AI is unavailable or times out.">
+          <FieldRow label="Fallback reply" stacked>
             <textarea
               className="text-area"
               rows={3}
@@ -277,6 +300,34 @@ function BehaviorTab({
             />
           </FieldRow>
         </Section>
+        <details className="advanced">
+          <summary>Advanced</summary>
+          <Section title="Model" footer={sampling ? undefined : "This model manages creativity itself; temperature doesn't apply."}>
+            <FieldRow label="Model">
+              <select className="select" value={draft.modelConfig.model} onChange={(event) => setModel({ model: event.target.value as AnthropicModel })}>
+                {modelOptions.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label} — {option.note}
+                  </option>
+                ))}
+              </select>
+            </FieldRow>
+            <FieldRow label="Temperature">
+              <TextInput type="number" min={0} max={1} step={0.1} disabled={!sampling} value={draft.modelConfig.temperature} onChange={(event) => setModel({ temperature: Number(event.target.value) })} />
+            </FieldRow>
+            <FieldRow label="Max tokens">
+              <TextInput type="number" min={128} max={8192} step={128} value={draft.modelConfig.maxTokens} onChange={(event) => setModel({ maxTokens: Number(event.target.value) })} />
+            </FieldRow>
+            <FieldRow label="Max reply length">
+              <TextInput
+                type="number"
+                min={100}
+                max={8000}
+                value={draft.responsePolicy.maxLength}
+                onChange={(event) => mutate((current) => ({ ...current, responsePolicy: { ...current.responsePolicy, maxLength: Number(event.target.value) } }))}
+              />
+            </FieldRow>
+          </Section>
         </details>
       </div>
     </div>
@@ -301,22 +352,22 @@ function KnowledgeTab({ agent, mutate, reload }: { agent: AgentDetail; mutate: (
   return (
     <>
       <Section
-        title={`Nguồn kiến thức · ${used}/${agent.sources.length} đang dùng`}
+        title={`Knowledge · ${used} of ${agent.sources.length} in use`}
         action={
           <Button variant="tinted" size="small" icon="plus" onClick={() => setAdding(true)}>
-            Thêm nguồn
+            Add source
           </Button>
         }
-        footer="Kiến thức dành cho nội dung giải thích ổn định như chính sách, hướng dẫn, câu hỏi thường gặp. Trợ lý trích dẫn nguồn trong phần Thử nghiệm."
+        footer="For explanations that rarely change: policies, guides, FAQs. Test shows which sources each answer used."
       >
-        {agent.sources.length === 0 && <EmptyState icon="doc" title="Chưa có nguồn" text="Thêm văn bản, Markdown hoặc một trang web." />}
+        {agent.sources.length === 0 && <EmptyState icon="doc" title="No knowledge yet" text="Add text, Markdown or a web page." />}
         {agent.sources.map((source) => (
           <Row
             key={source.id}
             icon={source.type === "url" ? "globe" : "doc"}
             iconTint={source.type === "url" ? "var(--teal)" : "var(--indigo)"}
             title={source.name}
-            subtitle={source.error ? <span className="text-red">{source.error}</span> : `Cập nhật ${formatDate(source.updated_at)}`}
+            subtitle={source.error ? <span className="text-red">{source.error}</span> : `Updated ${formatDate(source.updated_at)}`}
             accessory={
               <>
                 <StatusBadge value={source.status} />
@@ -325,15 +376,15 @@ function KnowledgeTab({ agent, mutate, reload }: { agent: AgentDetail; mutate: (
                     variant="plain"
                     size="small"
                     icon="refresh"
-                    aria-label="Thử lại"
+                    aria-label="Retry"
                     onClick={async () => {
                       await post(`/api/admin/knowledge/${source.id}/retry`);
-                      toast("Đang xử lý lại nguồn");
+                      toast("Processing the source again");
                       await reload();
                     }}
                   />
                 )}
-                <Toggle label={`Dùng ${source.name}`} checked={agent.draft.knowledgeSourceIds.includes(source.id)} onChange={(on) => toggle(source.id, on)} />
+                <Toggle label={`Use ${source.name}`} checked={agent.draft.knowledgeSourceIds.includes(source.id)} onChange={(on) => toggle(source.id, on)} />
               </>
             }
           />
@@ -347,7 +398,7 @@ function KnowledgeTab({ agent, mutate, reload }: { agent: AgentDetail; mutate: (
             setAdding(false);
             toggle(sourceId, true);
             await reload();
-            toast("Đã thêm nguồn");
+            toast("Source added");
           }}
         />
       )}
@@ -376,27 +427,27 @@ function AddKnowledgeSheet({ agentId, onClose, onDone }: { agentId: string; onCl
   }
   return (
     <Sheet
-      title="Thêm nguồn kiến thức"
+      title="Add knowledge"
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Huỷ</Button>
-          <Button form="add-knowledge" busy={busy} disabled={!name || !content}>Thêm</Button>
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="add-knowledge" busy={busy} disabled={!name || !content}>Add</Button>
         </>
       }
     >
       <form id="add-knowledge" onSubmit={submit} className="sheet-form">
-        <Segmented label="Loại nguồn" value={kind} onChange={setKind} options={[{ value: "text", label: "Văn bản" }, { value: "url", label: "Trang web" }]} />
-        <Section footer={kind === "url" ? "Chỉ một URL HTTPS; không tự động đọc các trang liên kết." : "Dán nội dung .md hoặc .txt."}>
-          <FieldRow label="Tên">
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Chính sách bảo hành" required />
+        <Segmented label="Source type" value={kind} onChange={setKind} options={[{ value: "text", label: "Text" }, { value: "url", label: "Web page" }]} />
+        <Section footer={kind === "url" ? "One HTTPS page; linked pages are not followed." : "Paste text or Markdown."}>
+          <FieldRow label="Title">
+            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Warranty policy" required />
           </FieldRow>
           {kind === "url" ? (
             <FieldRow label="URL">
               <TextInput type="url" value={content} onChange={(event) => setContent(event.target.value)} placeholder="https://" required />
             </FieldRow>
           ) : (
-            <FieldRow label="Nội dung" stacked>
+            <FieldRow label="Content" stacked>
               <textarea className="text-area" rows={10} value={content} onChange={(event) => setContent(event.target.value)} required />
             </FieldRow>
           )}
@@ -423,17 +474,14 @@ function ToolsTab({
     mutate((current) => ({
       ...current,
       collectionBindings: on
-        ? [...current.collectionBindings, { collectionId: collection.id, toolName: `search_${collection.slug.replaceAll("-", "_")}`, purpose: `Tìm ${collection.name} phù hợp với câu hỏi của khách` }]
+        ? [...current.collectionBindings, { collectionId: collection.id, toolName: `search_${collection.slug.replaceAll("-", "_")}`, purpose: `Find ${collection.name} that match the customer's question` }]
         : current.collectionBindings.filter((item) => item.collectionId !== collection.id),
     }));
   const bindTool = (name: string, on: boolean) =>
     mutate((current) => ({ ...current, toolBindings: on ? [...new Set([...current.toolBindings, name])] : current.toolBindings.filter((item) => item !== name) }));
   return (
     <>
-      <Section
-        title="Dữ liệu có cấu trúc"
-        footer="Mỗi bộ dữ liệu bật lên trở thành một công cụ chỉ đọc. Trợ lý phải tra cứu trước khi nói về giá, ưu đãi hoặc tồn kho; bản ghi hết hạn hoặc lưu trữ luôn bị ẩn."
-      >
+      <Section title="Data" footer="Turn on the data the assistant may look up. It must check it before talking about prices, offers or stock; expired or switched-off rows are never shown.">
         {collections.map((collection) => {
           const binding = agent.draft.collectionBindings.find((item) => item.collectionId === collection.id);
           return (
@@ -442,33 +490,35 @@ function ToolsTab({
               icon="data"
               iconTint="var(--green)"
               title={collection.name}
-              subtitle={binding ? <code>{binding.toolName}</code> : collection.description}
-              accessory={<Toggle label={`Dùng ${collection.name}`} checked={Boolean(binding)} onChange={(on) => bindCollection(collection, on)} />}
+              subtitle={collection.description || undefined}
+              accessory={<Toggle label={`Use ${collection.name}`} checked={Boolean(binding)} onChange={(on) => bindCollection(collection, on)} />}
             />
           );
         })}
       </Section>
-      <Section
-        title="Công cụ chỉ đọc"
-        action={
-          <Button variant="tinted" size="small" icon="plus" onClick={() => setAdding(true)}>
-            Thêm công cụ
-          </Button>
-        }
-        footer="Chỉ hỗ trợ HTTP GET với URL cố định và plugin đọc. Không có thao tác ghi ra hệ thống bên ngoài."
-      >
-        {agent.tools.length === 0 && <Row title={<span className="text-secondary">Chưa có công cụ</span>} />}
-        {agent.tools.map((tool) => (
-          <Row
-            key={tool.id}
-            icon={tool.kind === "http_get" ? "globe" : "wrench"}
-            iconTint="var(--orange)"
-            title={<code>{tool.name}</code>}
-            subtitle={tool.description}
-            accessory={<Toggle label={`Dùng ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />}
-          />
-        ))}
-      </Section>
+      <details className="advanced">
+        <summary>Live lookups (advanced)</summary>
+        <Section
+          action={
+            <Button variant="tinted" size="small" icon="plus" onClick={() => setAdding(true)}>
+              Add lookup
+            </Button>
+          }
+          footer="Read-only HTTPS GET requests to your own systems, e.g. live stock. The assistant can never change anything outside."
+        >
+          {agent.tools.length === 0 && <Row title={<span className="text-secondary">No lookups</span>} />}
+          {agent.tools.map((tool) => (
+            <Row
+              key={tool.id}
+              icon={tool.kind === "http_get" ? "globe" : "wrench"}
+              iconTint="var(--orange)"
+              title={tool.name}
+              subtitle={tool.description}
+              accessory={<Toggle label={`Use ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />}
+            />
+          ))}
+        </Section>
+      </details>
       {adding && (
         <AddToolSheet
           agentId={agent.id}
@@ -507,22 +557,22 @@ function AddToolSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
   }
   return (
     <Sheet
-      title="Thêm công cụ chỉ đọc"
+      title="Add live lookup"
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Huỷ</Button>
-          <Button form="add-tool" busy={busy} disabled={!tool.name || !tool.description || (tool.kind === "http_get" && !tool.urlTemplate)}>Thêm</Button>
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="add-tool" busy={busy} disabled={!tool.name || !tool.description || (tool.kind === "http_get" && !tool.urlTemplate)}>Add</Button>
         </>
       }
     >
       <form id="add-tool" className="sheet-form" onSubmit={submit}>
-        <Segmented label="Loại công cụ" value={tool.kind} onChange={(kind) => setTool({ ...tool, kind })} options={[{ value: "http_get", label: "HTTP GET" }, { value: "plugin", label: "Plugin" }]} />
-        <Section footer={tool.kind === "http_get" ? "Dùng {query} trong URL để chèn từ khoá. Chỉ HTTPS công khai." : undefined}>
-          <FieldRow label="Tên">
+        <Segmented label="Lookup type" value={tool.kind} onChange={(kind) => setTool({ ...tool, kind })} options={[{ value: "http_get", label: "HTTP GET" }, { value: "plugin", label: "Plugin" }]} />
+        <Section footer={tool.kind === "http_get" ? "Use {query} in the URL for the search words. Public HTTPS only." : undefined}>
+          <FieldRow label="Name">
             <TextInput value={tool.name} placeholder="check_stock" onChange={(event) => setTool({ ...tool, name: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })} required />
           </FieldRow>
-          <FieldRow label="Khi nào dùng" stacked>
+          <FieldRow label="When to use it" stacked>
             <TextInput value={tool.description} onChange={(event) => setTool({ ...tool, description: event.target.value })} required />
           </FieldRow>
           {tool.kind === "http_get" ? (
@@ -564,7 +614,7 @@ function TestTab({
   const toolLabel = (name: string) => {
     const binding = agent.draft.collectionBindings.find((item) => item.toolName === name);
     const collection = binding && collections.find((item) => item.id === binding.collectionId);
-    return collection ? `Tra ${collection.name}` : name;
+    return collection ? `Looked up ${collection.name}` : name;
   };
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [selected, setSelected] = useState<AgentResult | null>(null);
@@ -601,8 +651,8 @@ function TestTab({
         <div className="chat-window">
           <div className="chat-header">
             <div>
-              <b>Bản nháp</b>
-              <span>Cuộc trò chuyện thử, không ảnh hưởng khách thật</span>
+              <b>Draft</b>
+              <span>A private test chat — customers never see it</span>
             </div>
             <Button
               variant="plain"
@@ -614,12 +664,12 @@ function TestTab({
                 setConversationId(crypto.randomUUID());
               }}
             >
-              Cuộc mới
+              New chat
             </Button>
           </div>
           <div className="chat-scroll" ref={scroller}>
             {turns.length === 0 && !busy && (
-              <EmptyState icon="conversations" title="Thử như một khách hàng" text="Hỏi về sản phẩm, ưu đãi hoặc chính sách. Chọn một câu trả lời để xem nguồn và công cụ đã dùng." />
+              <EmptyState icon="conversations" title="Chat like a customer" text="Ask about products, offers or policies. Tap a reply to see what it was based on." />
             )}
             {turns.map((turn, index) =>
               turn.role === "user" ? (
@@ -634,7 +684,7 @@ function TestTab({
             )}
             {busy && (
               <div className="message-row assistant">
-                <div className="bubble assistant typing" aria-label="Đang trả lời">
+                <div className="bubble assistant typing" aria-label="Typing">
                   <i />
                   <i />
                   <i />
@@ -647,8 +697,8 @@ function TestTab({
             <textarea
               rows={1}
               value={text}
-              placeholder="Tin nhắn"
-              aria-label="Tin nhắn thử"
+              placeholder="Message"
+              aria-label="Test message"
               onChange={(event) => setText(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
@@ -657,7 +707,7 @@ function TestTab({
                 }
               }}
             />
-            <button className="send-button" disabled={!text.trim() || busy} aria-label="Gửi">
+            <button className="send-button" disabled={!text.trim() || busy} aria-label="Send">
               <Icon name="send" size={18} />
             </button>
           </form>
@@ -673,39 +723,39 @@ function TraceInspector({ result, toolLabel }: { result: AgentResult | null; too
   if (!result?.trace)
     return (
       <aside className="inspector">
-        <h3>Chi tiết</h3>
-        <p className="text-secondary">Chọn một câu trả lời để xem trợ lý đã dựa vào đâu.</p>
+        <h3>Details</h3>
+        <p className="text-secondary">Tap a reply to see what the assistant based it on.</p>
       </aside>
     );
   const { trace } = result;
   return (
     <aside className="inspector">
-      <h3>Chi tiết</h3>
+      <h3>Details</h3>
       <Section>
-        <Row title="Trạng thái" accessory={<StatusBadge value={result.status} />} />
-        <Row title="Thời gian" detail={`${(trace.latencyMs / 1000).toFixed(1)} giây`} />
-        <Row title="Mô hình" detail={modelLabel(trace.model)} />
+        <Row title="Status" accessory={<StatusBadge value={result.status} />} />
+        <Row title="Time" detail={`${(trace.latencyMs / 1000).toFixed(1)} s`} />
+        <Row title="Model" detail={modelLabel(trace.model)} />
       </Section>
-      <Section title="Kiến thức đã đọc">
+      <Section title="Knowledge read">
         {trace.sources.length ? (
           trace.sources.map((source, index) => <Row key={index} icon="doc" iconTint="var(--indigo)" title={source.name} detail={source.score ? `${Math.round(source.score * 100)}%` : undefined} />)
         ) : (
-          <Row title={<span className="text-secondary">Không đọc kiến thức</span>} />
+          <Row title={<span className="text-secondary">No knowledge read</span>} />
         )}
       </Section>
-      <Section title="Dữ liệu đã tra">
+      <Section title="Data looked up">
         {trace.toolCalls.length ? (
           trace.toolCalls.map((tool, index) => (
             <details className="disclosure" key={index}>
               <summary>
                 <span>{toolLabel(tool.name)}</span>
-                <span className="text-secondary">{Array.isArray(tool.output) ? `${tool.output.length} kết quả` : ""}</span>
+                <span className="text-secondary">{Array.isArray(tool.output) ? `${tool.output.length} results` : ""}</span>
               </summary>
               <pre>{JSON.stringify({ input: tool.input, output: tool.output }, null, 2)}</pre>
             </details>
           ))
         ) : (
-          <Row title={<span className="text-secondary">Không tra dữ liệu</span>} />
+          <Row title={<span className="text-secondary">No data looked up</span>} />
         )}
       </Section>
       {trace.error && <Banner>{trace.error}</Banner>}
@@ -737,7 +787,7 @@ function Evaluations({
     try {
       const result = await post<EvalRun>(`/api/admin/agents/${agent.id}/evaluate`);
       setRun(result);
-      toast(result.passed ? "Tất cả tình huống đều đạt" : "Có tình huống chưa đạt", result.passed ? "default" : "error");
+      toast(result.passed ? "All scenarios passed" : "Some scenarios failed", result.passed ? "default" : "error");
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -747,28 +797,28 @@ function Evaluations({
   return (
     <>
       <Section
-        title="Đánh giá"
+        title="Test scenarios"
         action={
           <div className="inline-actions">
             <Button variant="plain" size="small" icon="plus" onClick={() => setAdding(true)}>
-              Thêm tình huống
+              Add scenario
             </Button>
             <Button variant="tinted" size="small" busy={busy} onClick={() => void evaluate()} disabled={!agent.evalCases.length}>
-              Chạy đánh giá
+              Run all
             </Button>
           </div>
         }
-        footer="Nút Xuất bản tự chạy đánh giá; tình huống bắt buộc phải đạt thì mới xuất bản."
+        footer="Publish runs these automatically; required scenarios must pass before customers get a new version."
       >
-        {agent.evalCases.length === 0 && <Row title={<span className="text-secondary">Chưa có tình huống đánh giá</span>} />}
+        {agent.evalCases.length === 0 && <Row title={<span className="text-secondary">No scenarios yet</span>} />}
         {agent.evalCases.map((testCase) => {
           const result = run?.results.find((item) => item.caseId === testCase.id);
           const assertions = JSON.parse(testCase.assertions_json || "{}") as { expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number };
           const rules = [
-            assertions.expectedTool && `gọi ${assertions.expectedTool}`,
-            assertions.mustInclude?.length && `có “${assertions.mustInclude.join("”, “")}”`,
-            assertions.mustNotInclude?.length && `không có “${assertions.mustNotInclude.join("”, “")}”`,
-            assertions.maxLength && `≤ ${assertions.maxLength} ký tự`,
+            assertions.expectedTool && `looks up ${assertions.expectedTool}`,
+            assertions.mustInclude?.length && `says “${assertions.mustInclude.join("”, “")}”`,
+            assertions.mustNotInclude?.length && `never says “${assertions.mustNotInclude.join("”, “")}”`,
+            assertions.maxLength && `≤ ${assertions.maxLength} characters`,
           ].filter(Boolean);
           return (
             <Row
@@ -776,13 +826,13 @@ function Evaluations({
               multiline
               title={
                 <>
-                  {testCase.name} {testCase.critical ? <Badge tone="orange">Bắt buộc</Badge> : null}
+                  {testCase.name} {testCase.critical ? <Badge tone="orange">Required</Badge> : null}
                 </>
               }
               subtitle={
                 <>
                   “{testCase.input}” · {rules.join(" · ")}
-                  {result && !result.passed && <span className="text-red"> — {result.failures.join(", ") || `trạng thái ${result.output.status}`}</span>}
+                  {result && !result.passed && <span className="text-red"> — {result.failures.join(", ") || `status ${result.output.status}`}</span>}
                 </>
               }
               accessory={result ? <StatusBadge value={result.passed ? "passed" : "failed"} /> : undefined}
@@ -835,38 +885,38 @@ function AddEvalSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
   }
   return (
     <Sheet
-      title="Thêm tình huống đánh giá"
+      title="Add test scenario"
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Huỷ</Button>
-          <Button form="add-eval" busy={busy} disabled={!form.name || !form.input}>Thêm</Button>
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="add-eval" busy={busy} disabled={!form.name || !form.input}>Add</Button>
         </>
       }
     >
       <form id="add-eval" className="sheet-form" onSubmit={submit}>
         <Section>
-          <FieldRow label="Tên">
+          <FieldRow label="Name">
             <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
           </FieldRow>
-          <FieldRow label="Câu hỏi của khách" stacked>
+          <FieldRow label="Customer message" stacked>
             <TextInput value={form.input} onChange={(event) => setForm({ ...form, input: event.target.value })} required />
           </FieldRow>
-          <FieldRow label="Bắt buộc đạt">
-            <Toggle label="Bắt buộc đạt" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
+          <FieldRow label="Required to publish">
+            <Toggle label="Required to publish" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
           </FieldRow>
         </Section>
-        <Section title="Điều kiện" footer="Phân tách nhiều cụm từ bằng dấu phẩy.">
-          <FieldRow label="Công cụ phải gọi">
+        <Section title="Pass when" footer="Separate several phrases with commas.">
+          <FieldRow label="Looks up">
             <TextInput value={form.expectedTool} placeholder="search_products" onChange={(event) => setForm({ ...form, expectedTool: event.target.value })} />
           </FieldRow>
-          <FieldRow label="Phải có">
+          <FieldRow label="Says">
             <TextInput value={form.mustInclude} onChange={(event) => setForm({ ...form, mustInclude: event.target.value })} />
           </FieldRow>
-          <FieldRow label="Không được có">
+          <FieldRow label="Never says">
             <TextInput value={form.mustNotInclude} onChange={(event) => setForm({ ...form, mustNotInclude: event.target.value })} />
           </FieldRow>
-          <FieldRow label="Độ dài tối đa">
+          <FieldRow label="Max length">
             <TextInput type="number" min={1} value={form.maxLength} onChange={(event) => setForm({ ...form, maxLength: event.target.value })} />
           </FieldRow>
         </Section>
@@ -882,8 +932,8 @@ function VersionsTab({ agent, reload }: { agent: AgentDetail; reload: () => Prom
   const [busy, setBusy] = useState(false);
   return (
     <>
-      <Section title="Lịch sử xuất bản" footer="Mỗi phiên bản là bản chụp không đổi. Hội thoại đang diễn ra giữ phiên bản lúc bắt đầu; khôi phục chỉ áp dụng cho hội thoại mới.">
-        {agent.versions.length === 0 && <EmptyState icon="clock" title="Chưa có phiên bản" text="Xuất bản bản nháp để tạo phiên bản đầu tiên." />}
+      <Section title="Published versions" footer="Each version is a frozen snapshot. Ongoing chats keep the version they started with; restoring affects new chats only.">
+        {agent.versions.length === 0 && <EmptyState icon="clock" title="No versions yet" text="Publish the draft to create the first version." />}
         {agent.versions.map((version) => {
           const live = version.id === agent.active_version_id;
           return (
@@ -891,14 +941,14 @@ function VersionsTab({ agent, reload }: { agent: AgentDetail; reload: () => Prom
               key={version.id}
               icon="clock"
               iconTint={live ? "var(--green)" : "var(--gray)"}
-              title={`Phiên bản ${version.version}`}
+              title={`Version ${version.version}`}
               subtitle={formatDate(version.published_at)}
               accessory={
                 live ? (
-                  <Badge tone="green">Đang chạy</Badge>
+                  <Badge tone="green">Live</Badge>
                 ) : (
                   <Button variant="gray" size="small" onClick={() => setConfirm(version)}>
-                    Khôi phục
+                    Restore
                   </Button>
                 )
               }
@@ -908,18 +958,18 @@ function VersionsTab({ agent, reload }: { agent: AgentDetail; reload: () => Prom
       </Section>
       {confirm && (
         <Sheet
-          title={`Khôi phục phiên bản ${confirm.version}?`}
+          title={`Restore version ${confirm.version}?`}
           onClose={() => setConfirm(null)}
           footer={
             <>
-              <Button variant="gray" onClick={() => setConfirm(null)}>Huỷ</Button>
+              <Button variant="gray" onClick={() => setConfirm(null)}>Cancel</Button>
               <Button
                 busy={busy}
                 onClick={async () => {
                   setBusy(true);
                   try {
                     await post(`/api/admin/agents/${agent.id}/rollback/${confirm.id}`);
-                    toast(`Hội thoại mới sẽ dùng phiên bản ${confirm.version}`);
+                    toast(`New chats will use version ${confirm.version}`);
                     setConfirm(null);
                     await reload();
                   } finally {
@@ -927,12 +977,12 @@ function VersionsTab({ agent, reload }: { agent: AgentDetail; reload: () => Prom
                   }
                 }}
               >
-                Khôi phục
+                Restore
               </Button>
             </>
           }
         >
-          <p className="sheet-text">Hội thoại mới sẽ dùng phiên bản {confirm.version}. Hội thoại đang diễn ra vẫn giữ phiên bản hiện tại. Bản nháp không thay đổi.</p>
+          <p className="sheet-text">New chats will use version {confirm.version}. Ongoing chats keep their current version, and your draft is not changed.</p>
         </Sheet>
       )}
     </>

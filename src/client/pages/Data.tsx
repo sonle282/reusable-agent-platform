@@ -19,10 +19,10 @@ const fieldsOf = (collection: Collection): FieldDef[] => {
 // Re-importing the same CSV must update rows, not duplicate them.
 const upsertKey = (fields: FieldDef[]) => fields.find((field) => field.unique)?.key ?? fields.find((field) => field.key === "id")?.key;
 const day = (value?: string | null) => (value ? value.slice(0, 10) : "");
+const shortDate = (value?: string | null) => (value ? new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "…");
 
-// Schedule and on/off are controlled by the record itself; imported columns that duplicate them are hidden in forms.
+// Schedule and on/off are controlled by the row itself; imported columns that duplicate them are hidden in forms.
 const scheduleColumns = new Set(["bat_dau", "ket_thuc", "dang_chay", "valid_from", "valid_until", "start_date", "end_date", "active", "is_active", "status"]);
-
 
 export function DataPage({ collections, reload }: { collections: Collection[]; reload: () => Promise<void> }) {
   const toast = useToast();
@@ -50,16 +50,16 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
     setError("");
     const parsed = Papa.parse<Record<string, unknown>>(await file.text(), { header: true, skipEmptyLines: true });
     if (parsed.errors.length) {
-      setError(`CSV không hợp lệ: ${parsed.errors[0].message}`);
+      setError(`This CSV can't be read: ${parsed.errors[0].message}`);
       return;
     }
     setImporting(true);
     try {
       await post(`/api/admin/collections/${selected.id}/import`, { rows: parsed.data, mapping: {}, uniqueKey: upsertKey(fieldsOf(selected)) });
-      toast(`Đã nhập ${parsed.data.length} dòng`);
+      toast(`Imported ${parsed.data.length} rows`);
       await loadRecords();
     } catch (caught) {
-      setError(`Không nhập được — không có dòng nào bị thay đổi. ${errorMessage(caught)}`);
+      setError(`Nothing was imported — no rows changed. ${errorMessage(caught)}`);
     } finally {
       setImporting(false);
       if (fileInput.current) fileInput.current.value = "";
@@ -67,26 +67,26 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
   }
 
   const allFields = selected ? fieldsOf(selected) : [];
-  const columns = allFields.filter((field) => field.key !== "id" && field.type !== "url" && field.type !== "image_url").slice(0, 3);
+  const columns = allFields.filter((field) => field.key !== "id" && field.type !== "url" && field.type !== "image_url" && !scheduleColumns.has(field.key)).slice(0, 3);
   const visible = (records ?? []).filter((record) => !query || record.data_json.toLowerCase().includes(query.toLowerCase()));
   const activeCount = (records ?? []).filter((record) => record.status === "active").length;
   return (
     <div className="page">
       <PageHeader
-        title="Dữ liệu"
-        subtitle="Giá, ưu đãi, tồn kho — thông tin hay thay đổi. Sửa ở đây là trợ lý dùng ngay, không cần xuất bản lại."
+        title="Data"
+        subtitle="Prices, offers, stock — anything that changes. Edits apply to the assistant immediately; no need to publish."
         actions={
           <Button variant="gray" icon="plus" onClick={() => setCreating(true)}>
-            Bộ dữ liệu
+            New table
           </Button>
         }
       />
       {error && <Banner onClose={() => setError("")}>{error}</Banner>}
       {collections.length === 0 ? (
-        <EmptyState icon="data" title="Chưa có bộ dữ liệu" text="Tạo bộ dữ liệu như Sản phẩm hoặc Ưu đãi." action={<Button onClick={() => setCreating(true)}>Tạo bộ dữ liệu</Button>} />
+        <EmptyState icon="data" title="No data yet" text="Create a table such as Products or Offers." action={<Button onClick={() => setCreating(true)}>Create table</Button>} />
       ) : (
         <div className="master-detail stack">
-          <nav className="master" aria-label="Bộ dữ liệu">
+          <nav className="master" aria-label="Tables">
             <Section>
               {collections.map((collection) => (
                 <Row key={collection.id} icon="data" iconTint="var(--green)" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
@@ -98,21 +98,21 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
               <div className="detail-header">
                 <div>
                   <h2>{selected.name}</h2>
-                  <p className="text-secondary">{records ? `${activeCount} đang áp dụng · ${records.length} tổng` : "Đang tải…"}</p>
+                  <p className="text-secondary">{records ? `${activeCount} active · ${records.length} total` : "Loading…"}</p>
                 </div>
                 <div className="inline-actions">
                   <label className="search-field compact">
                     <Icon name="search" size={15} />
-                    <input type="search" placeholder="Tìm" aria-label="Tìm" value={query} onChange={(event) => setQuery(event.target.value)} />
+                    <input type="search" placeholder="Search" aria-label="Search rows" value={query} onChange={(event) => setQuery(event.target.value)} />
                   </label>
                   <Button icon="plus" onClick={() => setEditing("new")}>
-                    Thêm
+                    Add
                   </Button>
                   <Button variant="gray" busy={importing} onClick={() => fileInput.current?.click()}>
-                    Nhập CSV
+                    Import CSV
                   </Button>
                   <Button variant="plain" onClick={() => setRenaming(true)}>
-                    Đổi tên cột
+                    Rename
                   </Button>
                   <input ref={fileInput} hidden type="file" accept=".csv,text/csv" onChange={(event) => event.target.files?.[0] && void importCsv(event.target.files[0])} />
                 </div>
@@ -120,7 +120,7 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
               {!records ? (
                 <div className="page-loading"><Spinner /></div>
               ) : visible.length === 0 ? (
-                <EmptyState icon="data" title={query ? "Không tìm thấy" : "Chưa có dòng nào"} text={query ? "Thử từ khoá khác." : "Bấm Thêm để nhập từng dòng, hoặc nhập nhiều dòng từ CSV."} />
+                <EmptyState icon="data" title={query ? "No matches" : "No rows yet"} text={query ? "Try different words." : "Tap Add for a single row, or import many from a CSV."} />
               ) : (
                 <div className="table-card">
                   <table>
@@ -129,8 +129,8 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
                         {columns.map((field) => (
                           <th key={field.key}>{field.label}</th>
                         ))}
-                        <th>Thời gian</th>
-                        <th>Trạng thái</th>
+                        <th>When</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -141,8 +141,8 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
                             {columns.map((field) => (
                               <td key={field.key}>{String(data[field.key] ?? "—")}</td>
                             ))}
-                            <td className="nowrap">{record.valid_from || record.valid_until ? `${formatDate(record.valid_from).split(" ")[0]} – ${formatDate(record.valid_until).split(" ")[0]}` : "Luôn áp dụng"}</td>
-                            <td>{record.status === "active" ? <Badge tone="green">Đang áp dụng</Badge> : record.status === "archived" ? <Badge>Tắt</Badge> : <StatusBadge value={record.status} />}</td>
+                            <td className="nowrap">{record.valid_from || record.valid_until ? `${shortDate(record.valid_from)} – ${shortDate(record.valid_until)}` : "Always"}</td>
+                            <td>{record.status === "active" ? <Badge tone="green">Active</Badge> : <StatusBadge value={record.status} />}</td>
                           </tr>
                         );
                       })}
@@ -184,7 +184,7 @@ export function DataPage({ collections, reload }: { collections: Collection[]; r
           onDone={async () => {
             setRenaming(false);
             await reload();
-            toast("Đã đổi tên");
+            toast("Renamed");
           }}
         />
       )}
@@ -216,7 +216,7 @@ function RecordSheet({
   const [until, setUntil] = useState(day(record?.valid_until));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const set = (key: string, value: unknown) => setData((current) => ({ ...current, [key]: value }));
+  const set = (field: string, value: unknown) => setData((current) => ({ ...current, [field]: value }));
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -225,7 +225,7 @@ function RecordSheet({
     try {
       if (record) await patch(`/api/admin/collections/${collection.id}/records/${record.id}`, body);
       else await post(`/api/admin/collections/${collection.id}/records`, { ...body, externalKey: key && data[key] ? String(data[key]) : undefined });
-      onDone(record ? "Đã lưu — trợ lý dùng ngay" : "Đã thêm — trợ lý dùng ngay");
+      onDone(record ? "Saved — the assistant uses it now" : "Added — the assistant uses it now");
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -234,12 +234,12 @@ function RecordSheet({
   }
   return (
     <Sheet
-      title={record ? `Sửa ${key && data[key] ? String(data[key]) : ""}`.trim() : `Thêm vào ${collection.name}`}
+      title={record ? `Edit ${key && data[key] ? String(data[key]) : ""}`.trim() : `Add to ${collection.name}`}
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Huỷ</Button>
-          <Button form="record-form" busy={busy}>{record ? "Lưu" : "Thêm"}</Button>
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="record-form" busy={busy}>{record ? "Save" : "Add"}</Button>
         </>
       }
     >
@@ -274,14 +274,14 @@ function RecordSheet({
             );
           })}
         </Section>
-        <Section title="Áp dụng" footer="Để trống ngày là luôn áp dụng. Hết hạn hoặc tắt thì trợ lý không nhắc tới nữa.">
-          <FieldRow label="Đang áp dụng">
-            <Toggle label="Đang áp dụng" checked={active} onChange={setActive} />
+        <Section title="Availability" footer="Leave dates empty to always apply. When it is switched off or expired, the assistant stops mentioning it.">
+          <FieldRow label="Active">
+            <Toggle label="Active" checked={active} onChange={setActive} />
           </FieldRow>
-          <FieldRow label="Từ ngày">
+          <FieldRow label="Starts">
             <TextInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
           </FieldRow>
-          <FieldRow label="Đến ngày">
+          <FieldRow label="Ends">
             <TextInput type="date" value={until} onChange={(event) => setUntil(event.target.value)} />
           </FieldRow>
         </Section>
@@ -312,24 +312,24 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
   }
   return (
     <Sheet
-      title="Đổi tên"
+      title="Rename"
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Huỷ</Button>
-          <Button form="rename-form" busy={busy}>Lưu</Button>
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="rename-form" busy={busy}>Save</Button>
         </>
       }
     >
       <form id="rename-form" className="sheet-form" onSubmit={submit}>
         <Section>
-          <FieldRow label="Tên bộ dữ liệu">
+          <FieldRow label="Table name">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
           </FieldRow>
         </Section>
-        <Section title="Tên cột" footer="Chỉ đổi tên hiển thị; dữ liệu và cột CSV giữ nguyên.">
+        <Section title="Column names" footer="Only the names you see change; data and CSV column keys stay the same.">
           {fields.map((field) => (
-            <FieldRow key={field.key} label={field.key} hint={undefined}>
+            <FieldRow key={field.key} label={field.key}>
               <TextInput value={labels[field.key] ?? ""} onChange={(event) => setLabels({ ...labels, [field.key]: event.target.value })} required />
             </FieldRow>
           ))}
@@ -341,20 +341,20 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
 }
 
 const fieldTypes: Array<[string, string]> = [
-  ["text", "Văn bản"],
-  ["long_text", "Văn bản dài"],
-  ["number", "Số"],
-  ["boolean", "Có/Không"],
-  ["date", "Ngày"],
-  ["datetime", "Ngày giờ"],
-  ["enum", "Lựa chọn"],
-  ["multi_enum", "Nhiều lựa chọn"],
-  ["url", "URL"],
-  ["image_url", "Ảnh (URL)"],
-  ["relation", "Liên kết"],
+  ["text", "Text"],
+  ["long_text", "Long text"],
+  ["number", "Number"],
+  ["boolean", "Yes / No"],
+  ["date", "Date"],
+  ["datetime", "Date and time"],
+  ["enum", "Choice"],
+  ["multi_enum", "Multiple choice"],
+  ["url", "Link"],
+  ["image_url", "Image link"],
+  ["relation", "Relation"],
 ];
 
-// Vietnamese label -> ascii identifier that starts with a letter (schema keys and slugs require it).
+// Any label -> ascii identifier that starts with a letter (schema keys and slugs require it).
 function identifier(label: string) {
   const ascii = label
     .toLowerCase()
@@ -369,20 +369,18 @@ function identifier(label: string) {
 function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDone: (id: string) => void }) {
   const [name, setName] = useState("");
   const [fields, setFields] = useState<FieldDef[]>([
-    { key: "name", label: "Tên", type: "text", required: true },
-    { key: "price", label: "Giá", type: "number", required: false },
+    { key: "name", label: "Name", type: "text", required: true },
+    { key: "price", label: "Price", type: "number", required: false },
   ]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const slug = identifier(name);
-  const keyOf = identifier;
   const update = (index: number, value: Partial<FieldDef>) => setFields((current) => current.map((field, i) => (i === index ? { ...field, ...value } : field)));
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
-      const result = await post<{ id: string }>("/api/admin/collections", { name, slug, description: "", schema: { fields } });
+      const result = await post<{ id: string }>("/api/admin/collections", { name, slug: identifier(name), description: "", schema: { fields } });
       onDone(result.id);
     } catch (caught) {
       setError(errorMessage(caught));
@@ -392,40 +390,40 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
   }
   return (
     <Sheet
-      title="Bộ dữ liệu mới"
+      title="New table"
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Huỷ</Button>
-          <Button form="create-collection" busy={busy} disabled={!name || !fields.length}>Tạo</Button>
+          <Button variant="gray" onClick={onClose}>Cancel</Button>
+          <Button form="create-collection" busy={busy} disabled={!name || !fields.length}>Create</Button>
         </>
       }
     >
       <form id="create-collection" className="sheet-form" onSubmit={submit}>
         <Section>
-          <FieldRow label="Tên">
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Ưu đãi" required />
+          <FieldRow label="Name">
+            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Offers" required />
           </FieldRow>
         </Section>
         <Section
-          title="Trường"
+          title="Columns"
           action={
-            <Button type="button" variant="plain" size="small" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Trường ${current.length + 1}`, type: "text", required: false }])}>
-              Thêm trường
+            <Button type="button" variant="plain" size="small" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Column ${current.length + 1}`, type: "text", required: false }])}>
+              Add column
             </Button>
           }
-          footer="Tên cột CSV cần khớp với khoá của trường."
+          footer="CSV headers should match the column names in lowercase with underscores, e.g. unit_price."
         >
           {fields.map((field, index) => (
             <div className="row field-editor" key={index}>
-              <TextInput aria-label="Tên trường" value={field.label} placeholder="Tên trường" onChange={(event) => update(index, { label: event.target.value, key: keyOf(event.target.value) })} />
-              <select className="select" aria-label="Kiểu" value={field.type} onChange={(event) => update(index, { type: event.target.value })}>
+              <TextInput aria-label="Column name" value={field.label} placeholder="Column name" onChange={(event) => update(index, { label: event.target.value, key: identifier(event.target.value) })} />
+              <select className="select" aria-label="Type" value={field.type} onChange={(event) => update(index, { type: event.target.value })}>
                 {fieldTypes.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
-              <Toggle label="Bắt buộc" checked={Boolean(field.required)} onChange={(required) => update(index, { required })} />
-              <button type="button" className="icon-button" aria-label="Xoá trường" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, i) => i !== index))}>
+              <Toggle label="Required" checked={Boolean(field.required)} onChange={(required) => update(index, { required })} />
+              <button type="button" className="icon-button" aria-label="Remove column" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, i) => i !== index))}>
                 <Icon name="close" size={14} />
               </button>
             </div>

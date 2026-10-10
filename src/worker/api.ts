@@ -7,6 +7,7 @@ import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, id, pars
 import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
 import { CloudflareAgentRuntime } from "./runtime";
 import { generateWithAnthropic } from "./model/anthropic";
+import { hasProfile } from "../shared/prompt";
 import { executeTool } from "./tools";
 import { clearSessionCookies, createSession, requireAdmin, setSessionCookies, type AuthVariables } from "./security/auth";
 import { constantTimeEqual, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
@@ -19,7 +20,7 @@ const now = () => new Date().toISOString();
 
 app.onError((error, c) => {
   if (error instanceof z.ZodError) return c.json({ error: "Invalid request", issues: error.issues.slice(0, 20).map((issue) => ({ path: issue.path.join("."), message: issue.message })), request_id: c.get("requestId") }, 400);
-  if (/UNIQUE constraint failed/i.test(error.message)) return c.json({ error: "Đã tồn tại một mục với cùng định danh", request_id: c.get("requestId") }, 409);
+  if (/UNIQUE constraint failed/i.test(error.message)) return c.json({ error: "An item with the same identifier already exists", request_id: c.get("requestId") }, 409);
   console.error(JSON.stringify({ level: "error", event: "request_failed", path: c.req.path, message: error.message }));
   return c.json({ error: "Request failed", request_id: c.get("requestId") }, 500);
 });
@@ -159,9 +160,10 @@ app.post("/api/admin/settings/anthropic/test", async (c) => {
 app.get("/api/admin/agents", async (c) => c.json((await c.env.DB.prepare("SELECT * FROM agents ORDER BY updated_at DESC").all()).results));
 
 app.post("/api/admin/agents", async (c) => {
-  const body = z.object({ name: z.string().min(1).max(120), description: z.string().max(500).default(""), primaryLanguage: z.string().default("vi"), template: z.enum(["blank", "sales", "support"]).default("blank") }).parse(await c.req.json());
+  const body = z.object({ name: z.string().min(1).max(120), description: z.string().max(500).default(""), primaryLanguage: z.string().default("en"), template: z.enum(["blank", "sales", "support"]).default("blank"), businessName: z.string().max(200).optional(), offering: z.string().max(2000).optional() }).parse(await c.req.json());
   const defaults = parseJson((await c.env.DB.prepare("SELECT value_json FROM settings WHERE key='model_defaults'").first<{ value_json: string }>())?.value_json, {} as Record<string, unknown>);
   const draft = starterDraft(body.template);
+  draft.profile = { ...draft.profile, businessName: body.businessName ?? draft.profile.businessName, offering: body.offering ?? draft.profile.offering };
   draft.modelConfig = agentDraftSchema.shape.modelConfig.parse({ ...draft.modelConfig, credentialId: defaults.credentialId, gatewayId: defaults.gatewayId, accountId: defaults.accountId });
   const agentId = id("agent");
   await c.env.DB.prepare("INSERT INTO agents(id,name,description,primary_language,draft_json) VALUES(?,?,?,?,?)").bind(agentId, body.name, body.description, body.primaryLanguage, JSON.stringify(draft)).run();
@@ -196,7 +198,7 @@ app.patch("/api/admin/agents/:id", async (c) => {
 
 async function validatePublish(env: Env, agentId: string, draft: ReturnType<typeof agentDraftSchema.parse>) {
   const errors: string[] = [];
-  if (!draft.instructions.trim()) errors.push("Instructions are required");
+  if (!draft.instructions.trim() && !hasProfile(draft)) errors.push("Describe the assistant's job in Instructions");
   if (!draft.modelConfig.credentialId) errors.push("Model credential is required");
   if (draft.modelConfig.credentialId && !(await env.DB.prepare("SELECT id FROM credentials WHERE id=?").bind(draft.modelConfig.credentialId).first())) errors.push("Model credential is missing");
   for (const sourceId of draft.knowledgeSourceIds) {
