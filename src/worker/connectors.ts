@@ -1,3 +1,4 @@
+import { channelParts } from "../shared/channel-parts";
 import type { AgentResult, NormalizedMessage } from "../shared/contracts";
 import type { ConnectionRow } from "./db";
 import { assertSafeHttpsUrl } from "./knowledge";
@@ -101,11 +102,14 @@ export async function sendOutbound(env: Env, connection: ConnectionRow, result: 
     const accountId = String(config.accountId ?? "");
     if (!accountId) throw new Error("Zernio account is not set on this channel");
     const statuses: number[] = [];
-    for (let index = 0; index < result.messages.length; index++) {
+    const parts = result.messages.flatMap((message) => channelParts(message.text));
+    for (let index = 0; index < parts.length; index++) {
+      const part = parts[index];
+      const body = part.kind === "image" ? { accountId, attachmentUrl: part.url, attachmentType: "image", messagingType: "RESPONSE" } : { accountId, message: part.text.slice(0, 9999), messagingType: "RESPONSE" };
       const response = await fetch(`${ZERNIO_API}/inbox/conversations/${encodeURIComponent(result.conversationId ?? "")}/messages`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "idempotency-key": `${result.requestId}:${index}` },
-        body: JSON.stringify({ accountId, message: result.messages[index].text.slice(0, 9999), messagingType: "RESPONSE" }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) throw new Error(`Zernio delivery returned ${response.status}: ${(await response.text()).slice(0, 200)}`);
       statuses.push(response.status);
