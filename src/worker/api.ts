@@ -18,6 +18,7 @@ const jsonError = (error: unknown) => ({ error: error instanceof Error ? error.m
 const now = () => new Date().toISOString();
 
 app.onError((error, c) => {
+  if (error instanceof z.ZodError) return c.json({ error: "Invalid request", issues: error.issues.slice(0, 20).map((issue) => ({ path: issue.path.join("."), message: issue.message })), request_id: c.get("requestId") }, 400);
   console.error(JSON.stringify({ level: "error", event: "request_failed", path: c.req.path, message: error.message }));
   return c.json({ error: "Request failed", request_id: c.get("requestId") }, 500);
 });
