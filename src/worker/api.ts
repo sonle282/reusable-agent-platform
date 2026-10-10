@@ -354,7 +354,8 @@ app.patch("/api/admin/knowledge/:id", async (c) => {
     if (source.type === "url" || !source.r2_key) return c.json({ error: "Web page sources are refreshed from their URL" }, 422);
     await c.env.FILES.put(source.r2_key, body.text, { httpMetadata: { contentType: "text/markdown; charset=utf-8" } });
   }
-  const reindex = body.text !== undefined || (body.name !== undefined && body.name !== source.name);
+  // Titles are read from D1 at retrieval time, so only new text needs re-indexing.
+  const reindex = body.text !== undefined;
   await c.env.DB.prepare(`UPDATE knowledge_sources SET name=?,${reindex ? "status='pending',error=NULL," : ""}updated_at=datetime('now') WHERE id=?`).bind(body.name ?? source.name, source.id).run();
   if (reindex) await c.env.JOBS.send({ kind: "knowledge_ingest", sourceId: source.id });
   await writeAudit(c.env.DB, "knowledge.update", "knowledge_source", source.id, c.get("adminId"));
