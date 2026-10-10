@@ -13,8 +13,10 @@
     "cf:typegen": "wrangler types src/worker-configuration.d.ts",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "ci": "npm run check && npm test && npm run build",
     "deploy:dry": "npm run build && wrangler deploy --dry-run",
     "deploy": "npm run build && wrangler deploy && wrangler d1 migrations apply DB --remote",
+    "deploy:ci": "wrangler d1 migrations apply DB --remote && wrangler deploy",
     "migrate:mrspa": "node scripts/migrate-mrspa.mjs"
   },
   "dependencies": {

@@ -68,6 +68,17 @@ After deployment:
 
 The bootstrap token is rejected after setup completes. API keys and webhook tokens are shown only once.
 
+### Continuous deployment
+
+For Cloudflare Workers Builds, use branch `main` with:
+
+```text
+Build command:  npm run ci
+Deploy command: npm run deploy:ci
+```
+
+The build gate runs type checking, tests, and the production build. The deploy step applies pending remote D1 migrations before publishing the Worker.
+
 ## Local development
 
 ```bash
