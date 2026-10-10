@@ -5,6 +5,11 @@
   "compatibility_date": "2026-10-10",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
+  // Anthropic rejects requests egressing from some edge locations (e.g. HKG).
+  // Run fetch handlers near us-east-1 and pin new conversation Durable Objects nearby.
+  "placement": {
+    "region": "aws:us-east-1"
+  },
   "preview_urls": false,
   "routes": [
     { "pattern": "agent.mrspainc.com", "custom_domain": true }
@@ -73,7 +78,8 @@
   "vars": {
     "APP_ENV": "production",
     "AI_SEARCH_INSTANCE": "agent-platform-knowledge",
-    "SESSION_TTL_SECONDS": "43200"
+    "SESSION_TTL_SECONDS": "43200",
+    "CONVERSATION_LOCATION_HINT": "enam"
   },
   "observability": {
     "enabled": true,

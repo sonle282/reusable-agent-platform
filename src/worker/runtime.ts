@@ -11,7 +11,8 @@ export class CloudflareAgentRuntime implements AgentRuntime {
 
   async handleMessage(input: NormalizedMessage, options: { versionId?: string; snapshotOverride?: AgentVersionSnapshot } = {}) {
     const name = `${input.agentId}:${input.connectionId}:${input.conversationId}`;
-    const stub = await getAgentByName<Env, ConversationAgent>(this.env.ConversationAgent as unknown as DurableObjectNamespace<ConversationAgent>, name);
+    const locationHint = (this.env.CONVERSATION_LOCATION_HINT || undefined) as DurableObjectLocationHint | undefined;
+    const stub = await getAgentByName<Env, ConversationAgent>(this.env.ConversationAgent as unknown as DurableObjectNamespace<ConversationAgent>, name, { locationHint });
     return (stub as unknown as { processMessage(message: NormalizedMessage, runtimeOptions: { versionId?: string; snapshotOverride?: AgentVersionSnapshot }): Promise<AgentResult> })
       .processMessage(input, options);
   }
