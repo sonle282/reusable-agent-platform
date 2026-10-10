@@ -42,3 +42,11 @@ describe("corrected answers", () => {
     expect(prompt).not.toContain("A: x");
   });
 });
+
+describe("privacy notice", () => {
+  it("is said before the first request for contact details, only when set", () => {
+    const withNotice = composeSystemPrompt({ profile: { collectDetails: ["Phone number"], consentNotice: "We only use your number for this quote." } });
+    expect(withNotice).toContain('first tell the customer this, in their language and briefly: "We only use your number for this quote."');
+    expect(composeSystemPrompt({ profile: { collectDetails: ["Phone number"] } })).not.toContain("first tell the customer");
+  });
+});

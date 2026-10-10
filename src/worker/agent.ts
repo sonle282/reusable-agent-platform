@@ -106,22 +106,25 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     return rows.reverse().map((row) => ({ role: row.role === "assistant" ? "assistant" : "user", content: row.content }));
   }
 
-  private async captureContact(input: NormalizedMessage, messageText: string) {
+  private async captureContact(input: NormalizedMessage, messageText: string, notice: string) {
     const phone = messageText.match(/(?:\+?84|0)(?:\d[ .-]?){8,10}\d/)?.[0]?.replace(/[ .-]/g, "");
     const email = messageText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0];
     const identity = await this.env.DB.prepare("SELECT contact_id FROM contact_identities WHERE channel = ? AND external_account_id = ? AND external_user_id = ?")
       .bind(input.connectionId, input.connectionId, input.externalUserId).first<{ contact_id: string }>();
     const contactId = identity?.contact_id ?? id("contact");
+    const consent = (phone || email) && notice ? { given_at: new Date().toISOString(), notice, channel: input.connectionId } : null;
     if (!identity) {
       await this.env.DB.batch([
         this.env.DB.prepare("INSERT INTO contacts(id, display_name, phone, email, locale, stage, custom_json, consent_json) VALUES(?,?,?,?,?,'new','{}',?)")
-          .bind(contactId, input.customer?.name ?? null, phone ?? null, email ?? null, input.customer?.locale ?? null, JSON.stringify({ source: input.connectionId })),
+          .bind(contactId, input.customer?.name ?? null, phone ?? null, email ?? null, input.customer?.locale ?? null, JSON.stringify({ source: input.connectionId, ...(consent ?? {}) })),
         this.env.DB.prepare("INSERT INTO contact_identities(id, contact_id, channel, external_account_id, external_user_id) VALUES(?,?,?,?,?)")
           .bind(id("identity"), contactId, input.connectionId, input.connectionId, input.externalUserId),
       ]);
     } else if (phone || email || input.customer?.name) {
       await this.env.DB.prepare("UPDATE contacts SET display_name = COALESCE(?, display_name), phone = COALESCE(?, phone), email = COALESCE(?, email), locale = COALESCE(?, locale), stage = CASE WHEN ? IS NOT NULL OR ? IS NOT NULL THEN 'lead_captured' ELSE stage END, updated_at = datetime('now') WHERE id = ?")
         .bind(input.customer?.name ?? null, phone ?? null, email ?? null, input.customer?.locale ?? null, phone ?? null, email ?? null, contactId).run();
+      // First details after the notice: record when, and what they were told. Never overwritten.
+      if (consent) await this.env.DB.prepare("UPDATE contacts SET consent_json = json_set(consent_json, '$.given_at', ?, '$.notice', ?, '$.channel', ?) WHERE id = ? AND json_extract(consent_json, '$.given_at') IS NULL").bind(consent.given_at, consent.notice, consent.channel, contactId).run();
     }
     return { contactId, captured: Boolean(phone || email), profile: { ...input.customer?.metadata, name: input.customer?.name, phone, email } };
   }
@@ -182,7 +185,7 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
       }
       const answer = (model.text || snapshot.responsePolicy.fallbackMessage).slice(0, snapshot.responsePolicy.maxLength);
       const now = new Date().toISOString();
-      const contact = await this.captureContact(input, messageText);
+      const contact = await this.captureContact(input, messageText, snapshot.profile.consentNotice?.trim() ?? "");
       const nextState: ConversationState = {
         initialized: true,
         agentId: input.agentId,

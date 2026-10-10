@@ -12,6 +12,8 @@ export type AssistantProfile = {
   neverDo: string[];
   handoffWhen: string[];
   collectDetails: string[];
+  // Said once before the first request for contact details (PDPA / Vietnam PDP law: tell people why before collecting).
+  consentNotice: string;
 };
 
 export const emptyProfile: AssistantProfile = {
@@ -25,6 +27,7 @@ export const emptyProfile: AssistantProfile = {
   neverDo: [],
   handoffWhen: [],
   collectDetails: [],
+  consentNotice: "",
 };
 
 type PromptSource = { profile?: Partial<AssistantProfile>; instructions?: string; correctedAnswers?: Array<{ question: string; answer: string }> };
@@ -56,7 +59,8 @@ export function composeSystemPrompt(source: PromptSource) {
   if (handoff.length)
     sections.push(`# HAND OFF TO A PERSON WHEN\n${handoff.map((item) => `- ${item}`).join("\n")}\nWhen handing off: acknowledge the customer, ask for their contact details if you do not have them, and say a staff member will follow up.`);
   const details = list(profile.collectDetails);
-  if (details.length) sections.push(`# CONTACT DETAILS TO COLLECT\nWhen the customer is ready to buy, asks for a quote, or needs a person, politely ask for: ${details.join(", ")}. Never insist and never ask for what you already have.`);
+  if (details.length) sections.push(`# CONTACT DETAILS TO COLLECT\nWhen the customer is ready to buy, asks for a quote, or needs a person, politely ask for: ${details.join(", ")}. Never insist and never ask for what you already have.${profile.consentNotice.trim() ? `
+The first time you ask, first tell the customer this, in their language and briefly: "${profile.consentNotice.trim()}"` : ""}`);
   const corrected = (source.correctedAnswers ?? []).filter((item) => item.question.trim() && item.answer.trim());
   if (corrected.length)
     sections.push(

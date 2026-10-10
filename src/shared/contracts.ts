@@ -54,6 +54,7 @@ export const assistantProfileSchema = z.object({
   neverDo: ruleList,
   handoffWhen: ruleList,
   collectDetails: z.array(z.string().max(100)).max(20).default([]),
+  consentNotice: z.string().max(500).default(""),
 });
 
 const fallbackMessage = "Sorry, I can't answer right now. A team member will get back to you shortly.";

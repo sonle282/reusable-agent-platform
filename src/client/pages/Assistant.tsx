@@ -409,6 +409,11 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
         value={profile.collectDetails}
         onChange={(collectDetails) => setProfile({ collectDetails })}
       />
+      <Section footer="Said once, before the first time the assistant asks for contact details. Saved with each contact as proof of what they were told.">
+        <FieldRow label="Privacy notice" stacked>
+          <TextArea rows={2} value={profile.consentNotice} onChange={(event) => setProfile({ consentNotice: event.target.value })} placeholder="We only use your phone number to send your quote and follow up on this request." />
+        </FieldRow>
+      </Section>
 
       <Section title="When something goes wrong" footer="Sent only if the AI is unavailable or takes too long.">
         <FieldRow label="Fallback reply" stacked>
