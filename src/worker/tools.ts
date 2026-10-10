@@ -38,12 +38,15 @@ const pluginHandlers: Record<string, (input: Record<string, unknown>) => unknown
 
 export async function searchRecords(env: Env, collectionId: string, query: string, limit = 5) {
   const safeLimit = Math.max(1, Math.min(limit, 20));
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8);
+  // D1 rejects LIKE patterns over 50 bytes, and Vietnamese letters take 2-3 bytes each.
+  const fits = (pattern: string) => new TextEncoder().encode(pattern).length <= 50;
+  const like = (value: string) => `%${value.replaceAll("%", "").replaceAll("_", "")}%`;
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8).filter((term) => fits(like(term)));
   const where = terms.length ? terms.map(() => "LOWER(search_text) LIKE ?").join(" OR ") : "1 = 1";
-  const params = terms.map((term) => `%${term.replaceAll("%", "").replaceAll("_", "")}%`);
+  const params = terms.map(like);
   // Rank by how many words match, whole phrase first, so a common word ("hàng") can't crowd out the right row.
-  const score = terms.length ? `${terms.map(() => "(LOWER(search_text) LIKE ?)").join(" + ")} + 2 * (LOWER(search_text) LIKE ?)` : "0";
-  const phrase = terms.length ? [`%${terms.join(" ").replaceAll("%", "").replaceAll("_", "")}%`] : [];
+  const phrase = terms.length > 1 && fits(like(terms.join(" "))) ? [like(terms.join(" "))] : [];
+  const score = terms.length ? [...terms.map(() => "(LOWER(search_text) LIKE ?)"), ...phrase.map(() => "2 * (LOWER(search_text) LIKE ?)")].join(" + ") : "0";
   const result = await env.DB.prepare(`SELECT id, data_json, valid_from, valid_until FROM data_records WHERE collection_id = ? AND status = 'active' AND (valid_from IS NULL OR valid_from <= datetime('now')) AND (valid_until IS NULL OR valid_until >= datetime('now')) AND (${where}) ORDER BY ${score} DESC, updated_at DESC LIMIT ?`)
     .bind(collectionId, ...params, ...params, ...phrase, safeLimit).all<{ id: string; data_json: string; valid_from: string | null; valid_until: string | null }>();
   return result.results.map((row) => ({ id: row.id, ...JSON.parse(row.data_json) as object, record_id: row.id, valid_from: row.valid_from, valid_until: row.valid_until }));
