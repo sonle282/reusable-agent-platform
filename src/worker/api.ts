@@ -244,6 +244,25 @@ app.post("/api/admin/agents/:id/publish", async (c) => {
   return c.json({ versionId, version: versionNumber, status: "active" }, 201);
 });
 
+// Draft back to what customers see. Unpublished instruction fixes go with it, so their scenarios are removed too; data fixes stay (data isn't versioned).
+app.post("/api/admin/agents/:id/discard", async (c) => {
+  const agent = await getAgent(c.env.DB, c.req.param("id"));
+  if (!agent?.active_version_id) return c.json({ error: "Nothing is live yet" }, 409);
+  const live = await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>();
+  if (!live) return c.json({ error: "Live version not found" }, 404);
+  const draft = agentDraftSchema.parse(JSON.parse(live.snapshot_json));
+  const dropped = (await c.env.DB.prepare("SELECT id,eval_case_id FROM answer_fixes WHERE agent_id=? AND status IN ('verified','kept_failing') AND target_kind IN ('knowledge','rule')").bind(agent.id).all<{ id: string; eval_case_id: string | null }>()).results;
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE agents SET draft_json=?,updated_at=datetime('now') WHERE id=?").bind(JSON.stringify(draft), agent.id),
+    ...dropped.flatMap((fix) => [
+      c.env.DB.prepare("UPDATE answer_fixes SET status='undone' WHERE id=?").bind(fix.id),
+      ...(fix.eval_case_id ? [c.env.DB.prepare("DELETE FROM eval_cases WHERE id=?").bind(fix.eval_case_id)] : []),
+    ]),
+  ]);
+  await writeAudit(c.env.DB, "agent.discard_draft", "agent", agent.id, c.get("adminId"), { versionId: agent.active_version_id, fixesUndone: dropped.length });
+  return c.json({ discarded: true, fixesUndone: dropped.length });
+});
+
 app.post("/api/admin/agents/:id/rollback/:versionId", async (c) => {
   const version = await c.env.DB.prepare("SELECT id,version FROM agent_versions WHERE id=? AND agent_id=?").bind(c.req.param("versionId"), c.req.param("id")).first<{ id: string; version: number }>();
   if (!version) return c.json({ error: "Version not found" }, 404);

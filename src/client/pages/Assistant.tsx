@@ -3,7 +3,7 @@ import { api, del, patch, post } from "../api";
 import { modelSupportsTemperature, type AnthropicModel } from "../../shared/models";
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
 import { formatDate, timeSeparator, titleField } from "../format";
-import { useFixAnswer } from "../FixSheet";
+import { readable, useFixAnswer } from "../FixSheet";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import {
@@ -83,7 +83,9 @@ export function AssistantPage({
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving">("saved");
   const [saveFailed, setSaveFailed] = useState(false);
   const [publishing, setPublishing] = useState<"" | "evaluating" | "publishing">("");
-  const [publishFailure, setPublishFailure] = useState<string | null>(null);
+  const [publishFailure, setPublishFailure] = useState<{ name: string; fromFix: boolean; input: string; reply: string } | null>(null);
+  const [discarding, setDiscarding] = useState<"ask" | "busy" | null>(null);
+  const { startFix: startPublishFix, fixSheet: publishFixSheet } = useFixAnswer({ agentId, onChanged: () => load(), onOpenSettings: () => navigate("settings") });
   const [evalRun, setEvalRun] = useState<EvalRun | null>(null);
   const [scenOpen, setScenOpen] = useState(false);
   const [editedSinceLoad, setEditedSinceLoad] = useState(false);
@@ -144,8 +146,11 @@ export function AssistantPage({
         const run = await post<EvalRun>(`/api/admin/agents/${agentId}/evaluate`);
         setEvalRun(run);
         if (!run.passed) {
-          const failed = agent.evalCases.find((item) => run.results.some((result) => result.caseId === item.id && !result.passed));
-          setPublishFailure(failed?.name ?? "A scenario");
+          const failing = agent.evalCases.filter((item) => run.results.some((result) => result.caseId === item.id && !result.passed));
+          // A broken fix is the most important one to show: it passed once and regressed.
+          const failed = failing.find((item) => (JSON.parse(item.assertions_json || "{}") as Assertions).fromFix) ?? failing[0];
+          const reply = run.results.find((result) => result.caseId === failed?.id)?.text ?? "";
+          setPublishFailure({ name: failed?.name ?? "A scenario", fromFix: Boolean(failed && (JSON.parse(failed.assertions_json || "{}") as Assertions).fromFix), input: failed?.input ?? "", reply });
           setScenOpen(true);
           return;
         }
@@ -228,13 +233,23 @@ export function AssistantPage({
       {publishFailure && (
         <Banner
           tone="error"
-          title="Not published — a required scenario failed"
-          text={`“${publishFailure}” failed on the draft. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
+          title={publishFailure.fromFix ? "A fixed answer broke again" : "Not published — a required scenario failed"}
+          text={`“${publishFailure.name}” ${publishFailure.fromFix ? "passed when you fixed it, but fails with your latest changes" : "failed on the draft"}. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
           actions={
             <>
+              {publishFailure.fromFix && publishFailure.input && (
+                <Button variant="gray" size="small" onClick={() => startPublishFix({ origin: "test", customerMessage: publishFailure.input, badReply: readable(publishFailure.reply) })}>
+                  Fix this answer
+                </Button>
+              )}
               <Button variant="gray" size="small" onClick={() => setScenOpen(true)}>
                 Show scenario
               </Button>
+              {live && !agent.draftMatchesLive && (
+                <Button variant="plain" size="small" destructive onClick={() => setDiscarding("ask")}>
+                  Discard unpublished changes
+                </Button>
+              )}
               <Button variant="plain" size="small" onClick={() => setPublishFailure(null)}>
                 Dismiss
               </Button>
@@ -242,6 +257,30 @@ export function AssistantPage({
           }
         />
       )}
+      {discarding && live && (
+        <Alert
+          title="Discard unpublished changes?"
+          text={`Instructions, knowledge choices and corrected answers go back to version ${live.version}, what customers see now. Data tables aren't changed.`}
+          confirmLabel="Discard"
+          destructive
+          busy={discarding === "busy"}
+          onCancel={() => setDiscarding(null)}
+          onConfirm={async () => {
+            setDiscarding("busy");
+            try {
+              await post(`/api/admin/agents/${agentId}/discard`);
+              setPublishFailure(null);
+              await load();
+              toast(`Back to version ${live.version}`);
+            } catch (caught) {
+              toast(errorMessage(caught, "Couldn't discard the changes"), "error");
+            } finally {
+              setDiscarding(null);
+            }
+          }}
+        />
+      )}
+      {publishFixSheet}
       {saveFailed && (
         <Banner
           tone="warning"
