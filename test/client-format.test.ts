@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextKey, previewSnippet } from "../src/client/format";
+import { displayName, formatDate, nextKey, previewSnippet, timeSeparator } from "../src/client/format";
 import { parseRichMessage } from "../src/client/RichMessage";
 
 describe("nextKey", () => {
@@ -33,5 +33,33 @@ describe("titleField", () => {
       { key: "title", type: "text", required: true },
     ];
     expect(titleField(fields)?.key).toBe("title");
+  });
+});
+
+describe("displayName", () => {
+  it("prefers name, then phone, then a short visitor label", () => {
+    expect(displayName({ display_name: "Lan", phone: "0901", external_user_id: "abc" })).toBe("Lan");
+    expect(displayName({ display_name: " ", phone: "0901 234 567", external_user_id: "abc" })).toBe("0901 234 567");
+    expect(displayName({ external_user_id: "preview-7f3a9c2e" })).toBe("Visitor 9C2E");
+    expect(displayName({})).toBe("Visitor");
+  });
+});
+
+describe("formatDate", () => {
+  const now = new Date(2026, 9, 10, 15, 0);
+  const at = (d: Date) => d.toISOString();
+  it("follows the today / yesterday / weekday / date rules", () => {
+    expect(formatDate(at(new Date(2026, 9, 10, 14, 39)), now)).toBe("2:39 PM");
+    expect(formatDate(at(new Date(2026, 9, 9, 8, 0)), now)).toBe("Yesterday");
+    expect(formatDate(at(new Date(2026, 9, 6, 8, 0)), now)).toBe("Tuesday");
+    expect(formatDate(at(new Date(2026, 9, 3, 8, 0)), now)).toBe("Oct 3");
+    expect(formatDate(at(new Date(2025, 9, 3, 8, 0)), now)).toBe("Oct 3, 2025");
+    expect(formatDate(null, now)).toBe("—");
+  });
+  it("adds a transcript separator only after a 15 minute gap", () => {
+    const a = at(new Date(2026, 9, 10, 14, 39));
+    expect(timeSeparator(null, a, now)).toBe("Today 2:39 PM");
+    expect(timeSeparator(a, at(new Date(2026, 9, 10, 14, 50)), now)).toBeNull();
+    expect(timeSeparator(a, at(new Date(2026, 9, 10, 15, 0)), now)).toBe("Today 3:00 PM");
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, post } from "../api";
-import { previewSnippet } from "../format";
+import { displayName, previewSnippet } from "../format";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { Conversation, TranscriptMessage } from "../types";
 import { Banner, EmptyState, PageHeader, Row, SearchField, Section, Spinner, StatusBadge, Toggle, errorMessage, formatDate, useToast } from "../ui";
@@ -62,8 +62,8 @@ export function ConversationsPage() {
                   <Row
                     key={item.id}
                     icon="person"
-                    iconTint={item.human_takeover ? "var(--orange)" : "var(--blue)"}
-                    title={item.display_name || item.phone || item.external_user_id}
+                    tone={item.human_takeover ? "orange" : "blue"}
+                    title={displayName(item)}
                     subtitle={previewText(item.last_message_preview)}
                     detail={<small>{formatDate(item.last_activity_at)}</small>}
                     selected={item.id === selectedId}
@@ -82,7 +82,7 @@ export function ConversationsPage() {
                   ‹ Conversations
                 </button>
                 <Section>
-                  <Row title={selected.display_name || selected.external_user_id} subtitle={[selected.phone, selected.email].filter(Boolean).join(" · ") || "No contact details yet"} accessory={<StatusBadge value={selected.stage} />} />
+                  <Row title={displayName(selected)} subtitle={[selected.phone, selected.email].filter(Boolean).join(" · ") || "No contact details yet"} accessory={<StatusBadge value={selected.stage} />} />
                   <Row
                     title="Your team replies"
                     subtitle="The assistant stays quiet while this is on"

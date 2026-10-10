@@ -368,7 +368,7 @@ function KnowledgeTab({ agent, mutate, reload }: { agent: AgentDetail; mutate: (
           <Row
             key={source.id}
             icon={source.type === "url" ? "globe" : "doc"}
-            iconTint={source.type === "url" ? "var(--teal)" : "var(--indigo)"}
+            tone={source.type === "url" ? "blue" : "indigo"}
             title={source.name}
             subtitle={source.error ? <span className="text-red">{source.error}</span> : `Updated ${formatDate(source.updated_at)}`}
             accessory={
@@ -505,7 +505,7 @@ function ToolsTab({
             <Row
               key={collection.id}
               icon="data"
-              iconTint="var(--green)"
+              tone="green"
               title={collection.name}
               subtitle={collection.description || undefined}
               accessory={<Toggle label={`Use ${collection.name}`} checked={Boolean(binding)} onChange={(on) => bindCollection(collection, on)} />}
@@ -528,7 +528,7 @@ function ToolsTab({
             <Row
               key={tool.id}
               icon={tool.kind === "http_get" ? "globe" : "wrench"}
-              iconTint="var(--orange)"
+              tone="orange"
               title={tool.name}
               subtitle={tool.description}
               accessory={<Toggle label={`Use ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />}
@@ -814,7 +814,7 @@ function TraceInspector({
             <Row
               key={index}
               icon="doc"
-              iconTint="var(--indigo)"
+              tone="indigo"
               title={source.name}
               detail={source.score ? `${Math.round(source.score * 100)}%` : undefined}
               chevron
@@ -1057,7 +1057,7 @@ function VersionsTab({ agent, reload }: { agent: AgentDetail; reload: () => Prom
             <Row
               key={version.id}
               icon="clock"
-              iconTint={live ? "var(--green)" : "var(--gray)"}
+              tone={live ? "green" : "gray"}
               title={`Version ${version.version}`}
               subtitle={formatDate(version.published_at)}
               accessory={

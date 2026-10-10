@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { previewSnippet } from "../format";
+import { displayName, previewSnippet } from "../format";
 import { parseRichMessage } from "../RichMessage";
 import type { AgentSummary, Conversation, Dashboard } from "../types";
-import { Badge, Banner, EmptyState, PageHeader, Row, Section, errorMessage, formatDate } from "../ui";
+import { Badge, Banner, Button, EmptyState, PageHeader, Row, Section, errorMessage, formatDate } from "../ui";
 
 type Go = (page: "assistant" | "conversations" | "connections") => void;
 
@@ -35,7 +35,7 @@ export function HomePage({ agent, go }: { agent: AgentSummary; go: Go }) {
       <Section>
         <Row
           icon="assistant"
-          iconTint={agent.active_version_id ? "var(--green)" : "var(--gray)"}
+          tone={agent.active_version_id ? "green" : "gray"}
           title={agent.name}
           subtitle={agent.active_version_id ? "Answering customers" : "Not live yet — test it, then publish"}
           accessory={agent.active_version_id ? <Badge tone="green">Live</Badge> : <Badge>Draft</Badge>}
@@ -56,14 +56,14 @@ export function HomePage({ agent, go }: { agent: AgentSummary; go: Go }) {
           ),
         )}
       </div>
-      <Section title="Recent conversations" action={recent && recent.length > 0 ? <button className="btn btn-plain btn-small" onClick={() => go("conversations")}>See all</button> : undefined}>
+      <Section title="Recent conversations" action={recent && recent.length > 0 ? <Button variant="plain" size="small" onClick={() => go("conversations")}>See all</Button> : undefined}>
         {recent && recent.length === 0 && <EmptyState icon="conversations" title="No conversations yet" text="Chats appear here when customers message you on a connected channel." />}
         {recent?.map((conversation) => (
           <Row
             key={conversation.id}
             icon="person"
-            iconTint={conversation.human_takeover ? "var(--orange)" : "var(--blue)"}
-            title={conversation.display_name || conversation.phone || conversation.external_user_id}
+            tone={conversation.human_takeover ? "orange" : "blue"}
+            title={displayName(conversation)}
             subtitle={previewSnippet(conversation.last_message_preview, parseRichMessage)}
             detail={<small>{formatDate(conversation.last_activity_at)}</small>}
             onClick={() => go("conversations")}

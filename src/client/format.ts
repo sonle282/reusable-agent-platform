@@ -28,3 +28,53 @@ export function titleField<T extends FieldLike>(fields: T[]) {
   const usable = fields.filter((field) => field.key !== "id" && field.type === "text");
   return usable.find((field) => field.required) ?? usable[0];
 }
+
+type PersonLike = { display_name?: string | null; phone?: string | null; external_user_id?: string | null };
+
+// Owners never see raw ids: contact name, then phone, then "Visitor" + the last 4 characters of the id.
+export function displayName(person: PersonLike) {
+  const name = person.display_name?.trim();
+  if (name) return name;
+  const phone = person.phone?.trim();
+  if (phone) return phone;
+  const id = (person.external_user_id ?? "").replace(/[^a-z0-9]/gi, "");
+  return id ? `Visitor ${id.slice(-4).toUpperCase()}` : "Visitor";
+}
+
+// D1 returns "YYYY-MM-DD HH:MM:SS" in UTC without a zone; ISO strings pass through.
+export function parseDate(value?: string | null) {
+  if (!value) return null;
+  const normalized = /Z|[+-]\d\d:?\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+const DAY = 86_400_000;
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+const time = (date: Date) => date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+// Today "2:39 PM" · "Yesterday" · this week "Tuesday" · older "Oct 3" · other years "Oct 3, 2025".
+export function formatDate(value?: string | null, now = new Date()) {
+  const date = parseDate(value);
+  if (!date) return value ? value : "—";
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY);
+  if (days <= 0) return time(date);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return date.toLocaleDateString("en-US", { weekday: "long" });
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
+// Transcript separator shown before a message when more than 15 minutes passed: "Today 2:39 PM", "Oct 3 9:05 AM".
+export function timeSeparator(previous: string | null | undefined, current: string, now = new Date()) {
+  const date = parseDate(current);
+  if (!date) return null;
+  const before = parseDate(previous);
+  if (before && date.getTime() - before.getTime() <= 15 * 60_000) return null;
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY);
+  const day = days <= 0 ? "Today" : days === 1 ? "Yesterday" : formatDate(current, now);
+  return `${day} ${time(date)}`;
+}

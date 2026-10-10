@@ -111,7 +111,7 @@ export function DataPage({
           <nav className="master" aria-label="Tables">
             <Section>
               {visibleCollections.map((collection) => (
-                <Row key={collection.id} icon="data" iconTint="var(--green)" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
+                <Row key={collection.id} icon="data" tone="green" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
               ))}
             </Section>
             {hiddenCollections.length > 0 && (
@@ -119,7 +119,7 @@ export function DataPage({
                 <summary>Hidden tables · {hiddenCollections.length}</summary>
                 <Section>
                   {hiddenCollections.map((collection) => (
-                    <Row key={collection.id} icon="data" iconTint="var(--gray)" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
+                    <Row key={collection.id} icon="data" tone="gray" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
                   ))}
                 </Section>
               </details>

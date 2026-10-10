@@ -1,14 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, post } from "../api";
 import type { AgentSummary, Connection, Delivery } from "../types";
-import { Banner, Button, CopyField, EmptyState, FieldRow, PageHeader, Row, Section, Segmented, Sheet, StatusBadge, TextInput, errorMessage, formatDate, useToast } from "../ui";
+import { Banner, Button, CopyField, EmptyState, FieldRow, PageHeader, Row, Section, Segmented, Sheet, StatusBadge, TextInput, errorMessage, formatDate, useToast, type TileTone } from "../ui";
 
 type ConnectionType = "generic_api" | "generic_webhook" | "zernio";
 
-const typeInfo: Record<ConnectionType, { label: string; icon: string; tint: string; description: string }> = {
-  generic_api: { label: "API", icon: "bolt", tint: "var(--blue)", description: "Your website, app or CRM sends customer messages over HTTP and gets replies instantly or by callback." },
-  generic_webhook: { label: "Webhook", icon: "connections", tint: "var(--purple)", description: "Receive HMAC-signed events from another system; replies go to your callback URL." },
-  zernio: { label: "Zernio", icon: "conversations", tint: "var(--green)", description: "Connect a Zernio inbox so the assistant replies to customer messages there." },
+const typeInfo: Record<ConnectionType, { label: string; icon: string; tint: TileTone; description: string }> = {
+  generic_api: { label: "API", icon: "bolt", tint: "blue", description: "Your website, app or CRM sends customer messages over HTTP and gets replies instantly or by callback." },
+  generic_webhook: { label: "Webhook", icon: "connections", tint: "indigo", description: "Receive HMAC-signed events from another system; replies go to your callback URL." },
+  zernio: { label: "Zernio", icon: "conversations", tint: "green", description: "Connect a Zernio inbox so the assistant replies to customer messages there." },
 };
 
 type Secrets = { apiKey?: string; webhookToken?: string; webhookPath?: string; type: ConnectionType };
@@ -46,7 +46,7 @@ export function ConnectionsPage({ agent, connections, reload }: { agent: AgentSu
             <Row
               key={delivery.id}
               icon="warning"
-              iconTint="var(--red)"
+              tone="soft-red"
               title={connections.find((connection) => connection.id === delivery.connection_id)?.name ?? "Channel"}
               subtitle={`${delivery.last_error ?? "Unknown error"} · ${delivery.attempts} attempts · ${formatDate(delivery.updated_at)}`}
               accessory={
@@ -81,7 +81,7 @@ export function ConnectionsPage({ agent, connections, reload }: { agent: AgentSu
               <Row
                 key={connection.id}
                 icon={info.icon}
-                iconTint={info.tint}
+                tone={info.tint}
                 title={connection.name}
                 subtitle={info.label}
                 accessory={<StatusBadge value={connection.status} />}

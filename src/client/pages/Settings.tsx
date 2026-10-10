@@ -122,18 +122,10 @@ export function SettingsPage({
         )}
       </Section>
       <Section title="Backup" footer="Includes the assistant setup, versions, data and test scenarios. Never includes keys or passwords.">
-        <a className="row row-button" href="/api/admin/export" download>
-          <span className="row-text">
-            <span className="row-title text-tint">Download backup (JSON)</span>
-          </span>
-        </a>
+        <Row href="/api/admin/export" download title={<span className="text-tint">Download backup (JSON)</span>} />
       </Section>
       <Section>
-        <button className="row row-button" onClick={logout}>
-          <span className="row-text">
-            <span className="row-title text-red">Sign out</span>
-          </span>
-        </button>
+        <Row onClick={logout} title={<span className="text-red">Sign out</span>} />
       </Section>
     </div>
   );
