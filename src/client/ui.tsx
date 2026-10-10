@@ -694,7 +694,7 @@ export function Sheet({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  useDialog(ref, onClose, ".sheet-body input, .sheet-body textarea, .sheet-body select");
+  useDialog(ref, onClose, "[data-autofocus]");
   return (
     <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1}>

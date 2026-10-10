@@ -119,7 +119,7 @@ app.get("/api/admin/bootstrap", async (c) => {
     c.env.DB.prepare("SELECT value_json FROM settings WHERE key='brand'").first<{ value_json: string }>(),
     c.env.DB.prepare("SELECT value_json FROM settings WHERE key='model_defaults'").first<{ value_json: string }>(),
     c.env.DB.prepare("SELECT id,name,description,primary_language,status,active_version_id,updated_at FROM agents ORDER BY updated_at DESC").all(),
-    c.env.DB.prepare("SELECT id,name,slug,description,schema_json,updated_at,archived_at FROM data_collections ORDER BY archived_at IS NOT NULL, updated_at DESC").all(),
+    c.env.DB.prepare("SELECT d.id,d.name,d.slug,d.description,d.schema_json,d.updated_at,d.archived_at,(SELECT COUNT(*) FROM data_records r WHERE r.collection_id=d.id) AS record_count FROM data_collections d ORDER BY d.archived_at IS NOT NULL, d.updated_at DESC").all(),
     c.env.DB.prepare("SELECT id,agent_id,type,name,status,callback_url,config_json,created_at FROM connections ORDER BY created_at DESC").all(),
   ]);
   // Sidebar signals: the draft differs from the live version (or nothing is live) and replies that failed to deliver.
@@ -418,6 +418,18 @@ app.patch("/api/admin/collections/:id/records/:recordId", async (c) => {
     .bind(JSON.stringify(validated.data), Object.values(validated.data).join(" ").toLowerCase(), body.status ?? record.status, body.validFrom === undefined ? record.valid_from : body.validFrom || null, body.validUntil === undefined ? record.valid_until : body.validUntil || null, c.req.param("recordId")).run();
   await writeAudit(c.env.DB, "record.update", "data_record", c.req.param("recordId"), c.get("adminId"));
   return c.json({ id: c.req.param("recordId"), data: validated.data });
+});
+
+// Rows are plain facts the assistant looks up; deleting one only stops future lookups (conversations keep their text).
+app.delete("/api/admin/collections/:id/records/:recordId", async (c) => {
+  const record = await c.env.DB.prepare("SELECT id FROM data_records WHERE id=? AND collection_id=?").bind(c.req.param("recordId"), c.req.param("id")).first<{ id: string }>();
+  if (!record) return c.json({ error: "Record not found" }, 404);
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM data_record_values WHERE record_id=?").bind(record.id),
+    c.env.DB.prepare("DELETE FROM data_records WHERE id=?").bind(record.id),
+  ]);
+  await writeAudit(c.env.DB, "record.delete", "data_record", record.id, c.get("adminId"));
+  return c.json({ deleted: true });
 });
 
 // Renames only: field keys and types stay fixed so tools, imports and stored records keep working.

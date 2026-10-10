@@ -756,7 +756,7 @@ function AddKnowledgeSheet({ agentId, onClose, onDone }: { agentId: string; onCl
         <Segmented label="Source type" value={kind} onChange={setKind} options={[{ value: "text", label: "Text" }, { value: "url", label: "Web page" }]} />
         <Section footer={kind === "url" ? "One HTTPS page; linked pages are not followed." : "Paste text or Markdown. Changes go into the draft; publish to make them live."}>
           <FieldRow label="Title">
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Warranty policy" required />
+            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Warranty policy" required data-autofocus />
           </FieldRow>
           {kind === "url" ? (
             <FieldRow label="Address">
@@ -1374,7 +1374,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
         <form id="scenario" className="sheet-form" onSubmit={submit}>
           <Section>
             <FieldRow label="Name">
-              <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Never invent a price" required />
+              <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Never invent a price" required data-autofocus={existing ? undefined : true} />
             </FieldRow>
             <FieldRow label="Customer message" stacked>
               <TextArea rows={1} value={form.input} onChange={(event) => setForm({ ...form, input: event.target.value })} required />

@@ -1,9 +1,28 @@
 import Papa from "papaparse";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, patch, post } from "../api";
+import { api, del, patch, post } from "../api";
 import { nextKey, titleField } from "../format";
 import type { Collection } from "../types";
-import { Badge, Banner, Button, EmptyState, FieldRow, Icon, PageHeader, Row, Section, Sheet, Spinner, StatusBadge, TextInput, Toggle, errorMessage, formatDate, useToast } from "../ui";
+import {
+  Alert,
+  Badge,
+  Banner,
+  Button,
+  EmptyState,
+  FieldRow,
+  Icon,
+  Menu,
+  PageHeader,
+  SearchField,
+  Section,
+  Sheet,
+  Skeleton,
+  TextArea,
+  TextInput,
+  Toggle,
+  errorMessage,
+  useToast,
+} from "../ui";
 
 type RecordRow = { id: string; data_json: string; status: string; valid_from?: string | null; valid_until?: string | null; external_key?: string | null };
 type FieldDef = { key: string; label: string; type: string; required?: boolean; unique?: boolean; options?: string[] };
@@ -19,10 +38,24 @@ const fieldsOf = (collection: Collection): FieldDef[] => {
 // Re-importing the same CSV must update rows, not duplicate them.
 const upsertKey = (fields: FieldDef[]) => fields.find((field) => field.unique)?.key ?? fields.find((field) => field.key === "id")?.key;
 const day = (value?: string | null) => (value ? value.slice(0, 10) : "");
-const shortDate = (value?: string | null) => (value ? new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "…");
+const shortDay = (value: string) => {
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(date.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) });
+};
+const today = () => new Date().toLocaleDateString("en-CA");
 
 // Schedule and on/off are controlled by the row itself; imported columns that duplicate them are hidden in forms.
 const scheduleColumns = new Set(["bat_dau", "ket_thuc", "dang_chay", "valid_from", "valid_until", "start_date", "end_date", "active", "is_active", "status"]);
+const hiddenTypes = new Set(["url", "image_url"]);
+
+// Only rows that customers won't get are marked: switched off, not started, ended.
+function rowBadge(record: RecordRow): { tone: "blue" | "neutral"; label: string } | null {
+  if (record.status !== "active") return { tone: "neutral", label: "Off" };
+  if (record.valid_from && day(record.valid_from) > today()) return { tone: "blue", label: `Starts ${shortDay(record.valid_from)}` };
+  if (record.valid_until && day(record.valid_until) < today()) return { tone: "neutral", label: `Ended ${shortDay(record.valid_until)}` };
+  return null;
+}
+const isUsed = (record: RecordRow) => rowBadge(record) === null;
 
 export function DataPage({
   collections,
@@ -40,26 +73,32 @@ export function DataPage({
   const toast = useToast();
   const visibleCollections = collections.filter((collection) => !collection.archived_at);
   const hiddenCollections = collections.filter((collection) => collection.archived_at);
-  const selectedId = openCollectionId ?? visibleCollections[0]?.id ?? collections[0]?.id ?? "";
-  const setSelectedId = onSelect;
+  const selected = collections.find((collection) => collection.id === openCollectionId) ?? visibleCollections[0] ?? collections[0];
+  const [showHidden, setShowHidden] = useState(Boolean(selected?.archived_at));
   const [records, setRecords] = useState<RecordRow[] | null>(null);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [editing, setEditing] = useState<RecordRow | "new" | null>(null);
   const [importing, setImporting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ title: string; text: string; retry?: () => void } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const selected = collections.find((collection) => collection.id === selectedId) ?? collections[0];
+
   async function loadRecords(collection = selected) {
     if (!collection) return;
-    setRecords(await api<RecordRow[]>(`/api/admin/collections/${collection.id}/records`));
+    try {
+      setRecords(await api<RecordRow[]>(`/api/admin/collections/${collection.id}/records`));
+      setError(null);
+    } catch (caught) {
+      setError({ title: `Couldn't load ${collection.name}`, text: `${errorMessage(caught)}. The assistant still uses the saved rows.`, retry: () => void loadRecords(collection) });
+    }
   }
   useEffect(() => {
     setRecords(null);
-    void loadRecords().catch((caught) => setError(errorMessage(caught)));
+    setQuery("");
+    void loadRecords();
   }, [selected?.id]);
-  // Deep link from a Test reply: open the exact row once it is loaded.
+  // Deep link from a Preview reply: open the exact row once it is loaded.
   useEffect(() => {
     if (!openRecordId || !records) return;
     const record = records.find((row) => row.id === openRecordId);
@@ -68,10 +107,11 @@ export function DataPage({
 
   async function importCsv(file: File) {
     if (!selected) return;
-    setError("");
+    setError(null);
     const parsed = Papa.parse<Record<string, unknown>>(await file.text(), { header: true, skipEmptyLines: true });
+    if (fileInput.current) fileInput.current.value = "";
     if (parsed.errors.length) {
-      setError(`This CSV can't be read: ${parsed.errors[0].message}`);
+      setError({ title: "This CSV can't be read", text: `${parsed.errors[0].message}. Nothing was imported.` });
       return;
     }
     setImporting(true);
@@ -79,134 +119,164 @@ export function DataPage({
       await post(`/api/admin/collections/${selected.id}/import`, { rows: parsed.data, mapping: {}, uniqueKey: upsertKey(fieldsOf(selected)) });
       toast(`Imported ${parsed.data.length} rows`);
       await loadRecords();
+      await reload();
     } catch (caught) {
-      setError(`Nothing was imported — no rows changed. ${errorMessage(caught)}`);
+      setError({ title: "Nothing was imported", text: `${errorMessage(caught)}. No rows changed.` });
     } finally {
       setImporting(false);
-      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+  async function setHidden(collection: Collection, hidden: boolean) {
+    try {
+      await patch(`/api/admin/collections/${collection.id}`, { archived: hidden });
+      await reload();
+      toast(hidden ? "Table hidden" : "Table shown");
+    } catch (caught) {
+      setError({ title: hidden ? "Couldn't hide the table" : "Couldn't show the table", text: errorMessage(caught) });
     }
   }
 
   const allFields = selected ? fieldsOf(selected) : [];
   const title = titleField(allFields);
-  const columns = [title, ...allFields.filter((field) => field !== title && field.key !== "id" && field.type !== "url" && field.type !== "image_url" && !scheduleColumns.has(field.key))].filter(Boolean).slice(0, 3) as FieldDef[];
+  const shown = allFields.filter((field) => field !== title && field.key !== "id" && !hiddenTypes.has(field.type) && !scheduleColumns.has(field.key) && field.key !== upsertKey(allFields));
+  const detailField = shown.find((field) => field.type === "long_text") ?? shown.find((field) => field.type === "text");
+  const footFields = shown.filter((field) => field !== detailField).slice(0, 3);
   const visible = (records ?? []).filter((record) => !query || record.data_json.toLowerCase().includes(query.toLowerCase()));
-  const activeCount = (records ?? []).filter((record) => record.status === "active").length;
+  const usedCount = (records ?? []).filter(isUsed).length;
+
   return (
-    <div className="page">
-      <PageHeader
-        title="Data"
-        subtitle="Prices, offers, stock — anything that changes. Edits apply to the assistant immediately; no need to publish."
-        actions={
-          <Button variant="gray" icon="plus" onClick={() => setCreating(true)}>
-            New table
-          </Button>
-        }
-      />
-      {error && <Banner onClose={() => setError("")}>{error}</Banner>}
+    <div className="page data-page">
+      <PageHeader title="Data" subtitle="Prices, offers and stock. Edits reach customers right away." />
+      {error && (
+        <Banner
+          tone="error"
+          title={error.title}
+          text={error.text}
+          onClose={error.retry ? undefined : () => setError(null)}
+          actions={
+            error.retry ? (
+              <Button variant="gray" size="small" onClick={error.retry}>
+                Try again
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
       {collections.length === 0 ? (
-        <EmptyState icon="data" title="No data yet" text="Create a table such as Products or Offers." action={<Button onClick={() => setCreating(true)}>Create table</Button>} />
+        <div className="section-card">
+          <EmptyState
+            icon="table"
+            title="No tables yet"
+            text="Keep prices, offers and stock here. The assistant checks them before it quotes anything, so answers stay current."
+            action={<Button onClick={() => setCreating(true)}>New table</Button>}
+          />
+        </div>
       ) : (
-        <div className="master-detail stack">
-          <nav className="master" aria-label="Tables">
-            <Section>
+        <div className="split">
+          <div className="master">
+            <Section title="Tables">
               {visibleCollections.map((collection) => (
-                <Row key={collection.id} icon="data" tone="green" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
+                <TableRow key={collection.id} collection={collection} selected={collection.id === selected?.id} onClick={() => onSelect(collection.id)} />
               ))}
+              {hiddenCollections.length > 0 && (
+                <button type="button" className="row" aria-expanded={showHidden} onClick={() => setShowHidden(!showHidden)}>
+                  <span className="tile tile-soft-gray" aria-hidden="true">
+                    <Icon name="eye-slash" size={18} />
+                  </span>
+                  <span className="row-body">
+                    <span className="row-text">
+                      <span className="row-title muted">Hidden tables</span>
+                    </span>
+                    <span className="row-detail tabular">{hiddenCollections.length}</span>
+                    <Icon name={showHidden ? "chevron-down" : "chevron-right"} className="row-chevron" size={14} />
+                  </span>
+                </button>
+              )}
+              {showHidden && hiddenCollections.map((collection) => <TableRow key={collection.id} collection={collection} hidden selected={collection.id === selected?.id} onClick={() => onSelect(collection.id)} />)}
             </Section>
-            {hiddenCollections.length > 0 && (
-              <details className="advanced hidden-tables">
-                <summary>Hidden tables · {hiddenCollections.length}</summary>
-                <Section>
-                  {hiddenCollections.map((collection) => (
-                    <Row key={collection.id} icon="data" tone="gray" title={collection.name} onClick={() => setSelectedId(collection.id)} selected={collection.id === selected?.id} />
-                  ))}
-                </Section>
-              </details>
-            )}
-          </nav>
+            <Button variant="plain" icon="plus" className="new-table" onClick={() => setCreating(true)}>
+              New table
+            </Button>
+          </div>
+
           {selected && (
             <div className="detail">
-              <div className="detail-header">
-                <div>
-                  <h2>{selected.name}</h2>
-                  <p className="text-secondary">{records ? `${activeCount} active · ${records.length} total` : "Loading…"}</p>
+              <div className="detail-head">
+                <div className="detail-heading">
+                  <h2 className="detail-title truncate">{selected.name}</h2>
+                  <p className="status-line">
+                    {selected.archived_at ? "Hidden · the assistant can't look it up · " : ""}
+                    {records ? `${usedCount} in use · ${records.length} total` : "Loading…"}
+                  </p>
                 </div>
-                <div className="inline-actions">
-                  <label className="search-field compact">
-                    <Icon name="search" size={15} />
-                    <input type="search" placeholder="Search" aria-label="Search rows" value={query} onChange={(event) => setQuery(event.target.value)} />
-                  </label>
-                  <Button icon="plus" onClick={() => setEditing("new")}>
-                    Add
-                  </Button>
-                  <Button variant="gray" busy={importing} onClick={() => fileInput.current?.click()}>
-                    Import CSV
-                  </Button>
-                  <Button variant="plain" onClick={() => setRenaming(true)}>
-                    Rename
-                  </Button>
-                  <Button
-                    variant="plain"
-                    onClick={async () => {
-                      try {
-                        await patch(`/api/admin/collections/${selected.id}`, { archived: !selected.archived_at });
-                        await reload();
-                        toast(selected.archived_at ? "Table shown" : "Table hidden");
-                      } catch (caught) {
-                        setError(errorMessage(caught));
-                      }
-                    }}
-                  >
-                    {selected.archived_at ? "Show table" : "Hide table"}
-                  </Button>
-                  <input ref={fileInput} hidden type="file" accept=".csv,text/csv" onChange={(event) => event.target.files?.[0] && void importCsv(event.target.files[0])} />
-                </div>
+                <SearchField className="detail-search" value={query} onChange={setQuery} placeholder="Search rows" />
+                <Button size="small" icon="plus" onClick={() => setEditing("new")}>
+                  Add
+                </Button>
+                <Menu
+                  label="More table actions"
+                  items={[
+                    { label: importing ? "Importing…" : "Import CSV", icon: "upload", onSelect: () => fileInput.current?.click() },
+                    { label: "Rename", icon: "pencil", onSelect: () => setRenaming(true) },
+                    { separator: true },
+                    selected.archived_at
+                      ? { label: "Show table", icon: "eye-slash", onSelect: () => void setHidden(selected, false) }
+                      : { label: "Hide table", icon: "eye-slash", onSelect: () => void setHidden(selected, true) },
+                  ]}
+                />
+                <input ref={fileInput} hidden type="file" accept=".csv,text/csv" onChange={(event) => event.target.files?.[0] && void importCsv(event.target.files[0])} />
               </div>
+
               {!records ? (
-                <div className="page-loading"><Spinner /></div>
-              ) : visible.length === 0 ? (
-                <EmptyState icon="data" title={query ? "No matches" : "No rows yet"} text={query ? "Try different words." : "Tap Add for a single row, or import many from a CSV."} />
-              ) : (
-                <div className="table-card">
-                  <table>
-                    <thead>
-                      <tr>
-                        {columns.map((field) => (
-                          <th key={field.key}>{field.label}</th>
-                        ))}
-                        <th>When</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visible.map((record) => {
-                        const data = JSON.parse(record.data_json || "{}") as Record<string, unknown>;
-                        return (
-                          <tr key={record.id} className="clickable" tabIndex={0} onClick={() => setEditing(record)} onKeyDown={(event) => event.key === "Enter" && setEditing(record)}>
-                            {columns.map((field) => (
-                              <td key={field.key}>{String(data[field.key] ?? "—")}</td>
-                            ))}
-                            <td className="nowrap">{record.valid_from || record.valid_until ? `${shortDate(record.valid_from)} – ${shortDate(record.valid_until)}` : "Always"}</td>
-                            <td>{record.status === "active" ? <Badge tone="green">Active</Badge> : <StatusBadge value={record.status} />}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                error ? null : <Skeleton rows={3} />
+              ) : records.length === 0 ? (
+                <div className="section-card">
+                  <EmptyState icon="table" title="No rows yet" text="Add one row with Add, or many at once with Import CSV in the ••• menu." />
                 </div>
+              ) : (
+                <Section footer="Rows that are off, have ended or haven't started are never used by the assistant.">
+                  {visible.length === 0 ? (
+                    <EmptyState icon="search" title={`No rows match “${query}”`} text="Try another word, or add a new row." />
+                  ) : (
+                    visible.map((record) => {
+                      const data = JSON.parse(record.data_json || "{}") as Record<string, unknown>;
+                      const badge = rowBadge(record);
+                      const name = String((title && data[title.key]) || record.external_key || "Untitled row");
+                      const details = detailField ? String(data[detailField.key] ?? "") : "";
+                      const foot = footFields
+                        .map((field) => (data[field.key] === undefined || data[field.key] === "" ? null : `${field.label} ${String(data[field.key])}`))
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <button type="button" className="row top" key={record.id} onClick={() => setEditing(record)}>
+                          <span className="row-body data-row">
+                            <span className="row-text">
+                              <span className="row-title strong truncate">{name}</span>
+                              {details && <span className="row-subtitle clamp-2 data-details">{details}</span>}
+                              {foot && <span className="row-subtitle data-foot truncate">{foot}</span>}
+                            </span>
+                            {badge && <Badge tone={badge.tone}>{badge.label}</Badge>}
+                            <Icon name="chevron-right" className="row-chevron" size={14} />
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </Section>
               )}
             </div>
           )}
         </div>
       )}
+
       {creating && (
         <CreateCollectionSheet
           onClose={() => setCreating(false)}
           onDone={async (id) => {
             setCreating(false);
             await reload();
-            setSelectedId(id);
+            onSelect(id);
           }}
         />
       )}
@@ -217,13 +287,14 @@ export function DataPage({
           record={editing === "new" ? null : editing}
           onClose={() => {
             setEditing(null);
-            if (openRecordId) setSelectedId(selected.id);
+            if (openRecordId) onSelect(selected.id);
           }}
           onDone={async (message) => {
             setEditing(null);
-            if (openRecordId) setSelectedId(selected.id);
+            if (openRecordId) onSelect(selected.id);
             toast(message);
             await loadRecords();
+            await reload();
           }}
         />
       )}
@@ -239,6 +310,23 @@ export function DataPage({
         />
       )}
     </div>
+  );
+}
+
+function TableRow({ collection, selected, hidden, onClick }: { collection: Collection; selected: boolean; hidden?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className={`row${selected ? " is-selected" : ""}`} aria-current={selected || undefined} onClick={onClick}>
+      <span className={`tile tile-${hidden ? "gray" : "green"}`} aria-hidden="true">
+        <Icon name="table" size={18} />
+      </span>
+      <span className="row-body">
+        <span className="row-text">
+          <span className="row-title truncate">{collection.name}</span>
+        </span>
+        {collection.record_count !== undefined && <span className="row-detail tabular">{collection.record_count}</span>}
+        <Icon name="chevron-right" className="row-chevron" size={14} />
+      </span>
+    </button>
   );
 }
 
@@ -258,6 +346,7 @@ function RecordSheet({
   const allFields = fieldsOf(collection);
   const key = upsertKey(allFields);
   const fields = allFields.filter((field) => field.key !== key && !scheduleColumns.has(field.key));
+  const title = titleField(allFields);
   const [data, setData] = useState<Record<string, unknown>>(() =>
     record ? (JSON.parse(record.data_json || "{}") as Record<string, unknown>) : key ? { [key]: nextKey(existingKeys) } : {},
   );
@@ -265,8 +354,10 @@ function RecordSheet({
   const [from, setFrom] = useState(day(record?.valid_from));
   const [until, setUntil] = useState(day(record?.valid_until));
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const set = (field: string, value: unknown) => setData((current) => ({ ...current, [field]: value }));
+  const initialName = record ? String((title && (JSON.parse(record.data_json || "{}") as Record<string, unknown>)[title.key]) || record.external_key || "Row") : `New row`;
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -275,7 +366,7 @@ function RecordSheet({
     try {
       if (record) await patch(`/api/admin/collections/${collection.id}/records/${record.id}`, body);
       else await post(`/api/admin/collections/${collection.id}/records`, { ...body, externalKey: key && data[key] ? String(data[key]) : undefined });
-      onDone(record ? "Saved — the assistant uses it now" : "Added — the assistant uses it now");
+      onDone(record ? "Saved · the assistant uses it now" : "Added · the assistant uses it now");
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -283,61 +374,95 @@ function RecordSheet({
     }
   }
   return (
-    <Sheet
-      title={record ? `Edit ${key && data[key] ? String(data[key]) : ""}`.trim() : `Add to ${collection.name}`}
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="gray" onClick={onClose}>Cancel</Button>
-          <Button form="record-form" busy={busy}>{record ? "Save" : "Add"}</Button>
-        </>
-      }
-    >
-      <form id="record-form" className="sheet-form" onSubmit={submit}>
-        <Section>
-          {fields.map((field) => {
-            const value = data[field.key];
-            const common = { "aria-label": field.label, required: field.required };
-            return (
-              <FieldRow key={field.key} label={field.label} stacked={field.type === "long_text" || field.type === "text" || field.type === "url" || field.type === "image_url"}>
-                {field.type === "long_text" ? (
-                  <textarea className="text-area" rows={3} value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} {...common} />
-                ) : field.type === "boolean" ? (
-                  <Toggle label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
-                ) : field.type === "enum" && field.options?.length ? (
-                  <select className="select" value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} {...common}>
-                    <option value="">—</option>
-                    {field.options.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <TextInput
-                    type={field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "datetime" ? "datetime-local" : field.type === "url" || field.type === "image_url" ? "url" : "text"}
-                    step={field.type === "number" ? "any" : undefined}
-                    value={String(value ?? "")}
-                    onChange={(event) => set(field.key, event.target.value)}
-                    {...common}
-                  />
-                )}
-              </FieldRow>
-            );
-          })}
-        </Section>
-        <Section title="Availability" footer="Leave dates empty to always apply. When it is switched off or expired, the assistant stops mentioning it.">
-          <FieldRow label="Active">
-            <Toggle label="Active" checked={active} onChange={setActive} />
-          </FieldRow>
-          <FieldRow label="Starts">
-            <TextInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-          </FieldRow>
-          <FieldRow label="Ends">
-            <TextInput type="date" value={until} onChange={(event) => setUntil(event.target.value)} />
-          </FieldRow>
-        </Section>
-        {error && <Banner>{error}</Banner>}
-      </form>
-    </Sheet>
+    <>
+      <Sheet
+        title={initialName}
+        subtitle={collection.name}
+        onClose={onClose}
+        footer={
+          <>
+            {record && (
+              <Button variant="plain" destructive onClick={() => setConfirmDelete(true)}>
+                Delete row
+              </Button>
+            )}
+            <span className="spacer" />
+            <Button variant="gray" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" form="record-form" busy={busy}>
+              {record ? "Save" : "Add"}
+            </Button>
+          </>
+        }
+      >
+        <form id="record-form" className="sheet-form" onSubmit={submit}>
+          {error && <Banner tone="error" title="Couldn't save this row" text={`${error}. Your edit is kept here; customers still see the old row.`} />}
+          <Section title="Availability" footer="Leave Starts and Ends empty for a row that always applies.">
+            <div className="field">
+              <span className="field-label spacer">Active</span>
+              <Toggle label="Active" checked={active} onChange={setActive} />
+            </div>
+            <FieldRow label="Starts">
+              <TextInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="Starts" />
+            </FieldRow>
+            <FieldRow label="Ends">
+              <TextInput type="date" value={until} onChange={(event) => setUntil(event.target.value)} aria-label="Ends" />
+            </FieldRow>
+          </Section>
+          <Section title="Details">
+            {fields.map((field) => {
+              const value = data[field.key];
+              const stacked = field.type === "long_text" || field.type === "text" || field.type === "url" || field.type === "image_url";
+              return (
+                <FieldRow key={field.key} label={field.label} stacked={stacked}>
+                  {field.type === "long_text" || field.type === "text" ? (
+                    <TextArea rows={1} value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label} />
+                  ) : field.type === "boolean" ? (
+                    <Toggle label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
+                  ) : field.type === "enum" && field.options?.length ? (
+                    <select className="select" value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label}>
+                      <option value="">None</option>
+                      {field.options.map((option) => (
+                        <option key={option}>{option}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <TextInput
+                      className={field.type === "number" ? "tabular" : undefined}
+                      type={field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "datetime" ? "datetime-local" : field.type === "url" || field.type === "image_url" ? "url" : "text"}
+                      step={field.type === "number" ? "any" : undefined}
+                      value={String(value ?? "")}
+                      onChange={(event) => set(field.key, event.target.value)}
+                      required={field.required}
+                      aria-label={field.label}
+                    />
+                  )}
+                </FieldRow>
+              );
+            })}
+          </Section>
+        </form>
+      </Sheet>
+      {confirmDelete && record && (
+        <Alert
+          title="Delete this row?"
+          text="The assistant stops using it right away. This can't be undone."
+          confirmLabel="Delete"
+          destructive
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={async () => {
+            try {
+              await del(`/api/admin/collections/${collection.id}/records/${record.id}`);
+              onDone("Row deleted");
+            } catch (caught) {
+              setConfirmDelete(false);
+              setError(errorMessage(caught));
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -363,11 +488,16 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
   return (
     <Sheet
       title="Rename"
+      subtitle={collection.name}
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Cancel</Button>
-          <Button form="rename-form" busy={busy}>Save</Button>
+          <Button variant="gray" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="rename-form" busy={busy}>
+            Save
+          </Button>
         </>
       }
     >
@@ -377,14 +507,14 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
             <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
           </FieldRow>
         </Section>
-        <Section title="Column names" footer="Only the names you see change; data and CSV column keys stay the same.">
+        <Section title="Column names" footer="Only the names you see change; data and CSV headers stay the same.">
           {fields.map((field) => (
-            <FieldRow key={field.key} label={field.key}>
-              <TextInput value={labels[field.key] ?? ""} onChange={(event) => setLabels({ ...labels, [field.key]: event.target.value })} required />
+            <FieldRow key={field.key} label={field.label} hint={field.key}>
+              <TextInput value={labels[field.key] ?? ""} onChange={(event) => setLabels({ ...labels, [field.key]: event.target.value })} required aria-label={`New name for ${field.label}`} />
             </FieldRow>
           ))}
         </Section>
-        {error && <Banner>{error}</Banner>}
+        {error && <Banner tone="error" title="Couldn't rename" text={error} />}
       </form>
     </Sheet>
   );
@@ -444,42 +574,54 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>Cancel</Button>
-          <Button form="create-collection" busy={busy} disabled={!name || !fields.length}>Create</Button>
+          <Button variant="gray" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-collection" busy={busy} disabled={!name || !fields.length}>
+            Create
+          </Button>
         </>
       }
     >
       <form id="create-collection" className="sheet-form" onSubmit={submit}>
         <Section>
           <FieldRow label="Name">
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Offers" required />
+            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Offers" required data-autofocus />
           </FieldRow>
         </Section>
         <Section
           title="Columns"
           action={
-            <Button type="button" variant="plain" size="small" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Column ${current.length + 1}`, type: "text", required: false }])}>
+            <Button type="button" variant="plain" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Column ${current.length + 1}`, type: "text", required: false }])}>
               Add column
             </Button>
           }
-          footer="CSV headers should match the column names in lowercase with underscores, e.g. unit_price."
+          footer="For CSV imports, headers should match the column names in lowercase with underscores, e.g. unit_price."
         >
           {fields.map((field, index) => (
             <div className="row field-editor" key={index}>
-              <TextInput aria-label="Column name" value={field.label} placeholder="Column name" onChange={(event) => update(index, { label: event.target.value, key: identifier(event.target.value) })} />
-              <select className="select" aria-label="Type" value={field.type} onChange={(event) => update(index, { type: event.target.value })}>
+              <TextInput aria-label={`Column ${index + 1} name`} value={field.label} placeholder="Column name" onChange={(event) => update(index, { label: event.target.value, key: identifier(event.target.value) })} />
+              <select className="select" aria-label={`Column ${index + 1} type`} value={field.type} onChange={(event) => update(index, { type: event.target.value })}>
                 {fieldTypes.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
               </select>
-              <Toggle label="Required" checked={Boolean(field.required)} onChange={(required) => update(index, { required })} />
-              <button type="button" className="icon-button" aria-label="Remove column" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, i) => i !== index))}>
-                <Icon name="close" size={14} />
-              </button>
+              <Toggle label={`Column ${index + 1} required`} checked={Boolean(field.required)} onChange={(required) => update(index, { required })} />
+              <Button
+                type="button"
+                variant="plain"
+                size="small"
+                icon="xmark"
+                aria-label={`Remove column ${index + 1}`}
+                disabled={fields.length === 1}
+                onClick={() => setFields((current) => current.filter((_, i) => i !== index))}
+              />
             </div>
           ))}
         </Section>
-        {error && <Banner>{error}</Banner>}
+        {error && <Banner tone="error" title="Couldn't create the table" text={error} />}
       </form>
     </Sheet>
   );

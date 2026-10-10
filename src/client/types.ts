@@ -80,6 +80,7 @@ export type Collection = {
   schema_json: string;
   updated_at?: string;
   archived_at?: string | null;
+  record_count?: number;
 };
 
 export type Connection = {
