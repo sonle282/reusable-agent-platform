@@ -14,7 +14,7 @@ This document lets a new operator or coding session resume without reconstructin
 | Cloudflare account | `Mrspainc Nail Furniture and Equipment` |
 | Cloudflare account ID | `759105f65ba94c85759b0b2a03f1c39a` |
 | Worker | `reusable-agent-platform` |
-| Production URL | `https://reusable-agent-platform.mrspaoffice.workers.dev` |
+| Production URL | `https://agent.mrspainc.com` |
 | D1 database UUID | `35e4f854-2a4c-4b60-ae6b-8807bf35d08d` |
 | D1 binding | `DB` |
 | R2 binding | `FILES` |

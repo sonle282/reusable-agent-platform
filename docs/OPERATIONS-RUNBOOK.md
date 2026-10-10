@@ -33,7 +33,7 @@ Read [CURRENT-STATE.md](./CURRENT-STATE.md) and check:
 ```powershell
 git status --short --branch
 git log --oneline -10
-Invoke-RestMethod https://reusable-agent-platform.mrspaoffice.workers.dev/health
+Invoke-RestMethod https://agent.mrspainc.com/health
 ```
 
 Cloudflare stores production secret values remotely. Cloning onto a new machine does not copy them, and ordinary deployments do not require their plaintext values.
@@ -92,7 +92,7 @@ Confirm the account and target first. The current `deploy` script publishes the 
 Production health:
 
 ```powershell
-Invoke-RestMethod https://reusable-agent-platform.mrspaoffice.workers.dev/health
+Invoke-RestMethod https://agent.mrspainc.com/health
 ```
 
 Useful checks:
@@ -132,7 +132,7 @@ Anthropic, Zernio, webhook, and connection credentials are managed by the applic
 
 The pending production task is to provide an Anthropic API key securely.
 
-1. Sign in at `https://reusable-agent-platform.mrspaoffice.workers.dev`.
+1. Sign in at `https://agent.mrspainc.com`.
 2. Open model/provider settings.
 3. Set Cloudflare account ID `759105f65ba94c85759b0b2a03f1c39a`.
 4. Set AI Gateway ID `default` unless a named gateway has been deliberately created. Model calls go through the Worker `AI` binding (`env.AI.gateway(id).run`), which is pre-authenticated, so Authenticated Gateway works without an extra `AI Gateway Run` API token. `AI_GATEWAY_TOKEN` is only used by the direct-HTTP fallback.
@@ -147,7 +147,7 @@ The pending production task is to provide an Anthropic API key securely.
 The importer expects the fixture at `../ai-agent-blueprint/tenants/mrspa`, or a path supplied in `MRSPA_FIXTURE_ROOT`. It authenticates through the admin API and is idempotent by stable business keys.
 
 ```powershell
-$env:AGENT_PLATFORM_URL='https://reusable-agent-platform.mrspaoffice.workers.dev'
+$env:AGENT_PLATFORM_URL='https://agent.mrspainc.com'
 $env:AGENT_ADMIN_EMAIL='sonle@nhi.sg'
 $env:AGENT_ADMIN_PASSWORD='<retrieve-securely>'
 npm run migrate:mrspa

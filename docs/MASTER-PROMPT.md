@@ -11,7 +11,7 @@ Repository và production:
 - Cloudflare account: Mrspainc Nail Furniture and Equipment
 - Cloudflare account ID: 759105f65ba94c85759b0b2a03f1c39a
 - Worker: reusable-agent-platform
-- Production URL: https://reusable-agent-platform.mrspaoffice.workers.dev
+- Production URL: https://agent.mrspainc.com
 - D1 UUID: 35e4f854-2a4c-4b60-ae6b-8807bf35d08d
 - Cloudflare Workers Builds is connected to GitHub account sonle282.
 - Build command: npm run ci

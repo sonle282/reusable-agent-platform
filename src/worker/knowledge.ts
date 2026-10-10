@@ -50,11 +50,34 @@ export async function fetchKnowledgeUrl(rawUrl: string) {
   throw new Error("Unable to fetch URL");
 }
 
+// AI Search only filters on declared custom metadata; field names are stored lowercase.
+const knowledgeMetadataFields = [
+  { field_name: "agentid", data_type: "text" },
+  { field_name: "sourceid", data_type: "text" },
+  { field_name: "name", data_type: "text" },
+] as const;
+let metadataSchemaReady = false;
+
 async function searchInstance(env: Env) {
   const instance = env.AI_SEARCH.get(env.AI_SEARCH_INSTANCE);
-  try { await instance.stats(); }
-  catch { await env.AI_SEARCH.create({ id: env.AI_SEARCH_INSTANCE }); }
+  let info: Awaited<ReturnType<typeof instance.info>> | undefined;
+  try { info = await instance.info(); }
+  catch { await env.AI_SEARCH.create({ id: env.AI_SEARCH_INSTANCE, custom_metadata: [...knowledgeMetadataFields] }); metadataSchemaReady = true; }
+  if (info && !metadataSchemaReady) {
+    const declared = new Set((info.custom_metadata ?? []).map((field) => field.field_name.toLowerCase()));
+    if (!knowledgeMetadataFields.every((field) => declared.has(field.field_name))) {
+      const extra = (info.custom_metadata ?? []).filter((field) => !knowledgeMetadataFields.some((known) => known.field_name === field.field_name.toLowerCase()));
+      await instance.update({ custom_metadata: [...knowledgeMetadataFields, ...extra] });
+    }
+    metadataSchemaReady = true;
+  }
   return env.AI_SEARCH.get(env.AI_SEARCH_INSTANCE);
+}
+
+function metadataValue(metadata: Record<string, unknown> | undefined, field: string) {
+  if (!metadata) return undefined;
+  const key = Object.keys(metadata).find((candidate) => candidate.toLowerCase() === field);
+  return key === undefined ? undefined : metadata[key];
 }
 
 export async function ingestKnowledgeSource(env: Env, sourceId: string) {
@@ -80,7 +103,7 @@ export async function ingestKnowledgeSource(env: Env, sourceId: string) {
     }
     if (!text.trim()) throw new Error("Knowledge source is empty");
     const instance = await searchInstance(env);
-    await instance.items.upload(`${source.agent_id}__${source.id}.md`, text, { metadata: { sourceId, agentId: source.agent_id, name: source.name } });
+    await instance.items.upload(`${source.agent_id}__${source.id}.md`, text, { metadata: { sourceid: sourceId, agentid: source.agent_id, name: source.name } });
     await env.DB.prepare("UPDATE knowledge_sources SET status = 'ready', updated_at = datetime('now') WHERE id = ?").bind(sourceId).run();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Knowledge ingestion failed";
@@ -94,14 +117,14 @@ export async function retrieveKnowledge(env: Env, agentId: string, sourceIds: st
   const instance = await searchInstance(env);
   const result = await instance.search({
     query,
-    ai_search_options: { retrieval: { max_num_results: 5, match_threshold: 0.35, filters: { agentId: { $eq: agentId } } } },
+    ai_search_options: { retrieval: { max_num_results: 5, match_threshold: 0.35, filters: { agentid: { $eq: agentId } } } },
   });
   return result.chunks
-    .filter((chunk) => sourceIds.includes(String(chunk.item.metadata?.sourceId ?? "")))
+    .filter((chunk) => sourceIds.includes(String(metadataValue(chunk.item.metadata, "sourceid") ?? "")))
     .slice(0, 5)
     .map((chunk) => ({
-      id: String(chunk.item.metadata?.sourceId ?? chunk.id),
-      name: String(chunk.item.metadata?.name ?? chunk.item.key),
+      id: String(metadataValue(chunk.item.metadata, "sourceid") ?? chunk.id),
+      name: String(metadataValue(chunk.item.metadata, "name") ?? chunk.item.key),
       score: chunk.score,
       text: chunk.text,
     }));
