@@ -1,0 +1,478 @@
+<title>Fix This Answer</title>
+<style>
+/* Layout: the app's own shell — sidebar + content — reduced to the Assistant page; one sheet carries the three-step fix. */
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --tint: #007aff; --tint-soft: rgba(0,122,255,.12);
+  --green: #34c759; --orange: #ff9500; --red: #ff3b30; --indigo: #5856d6; --gray: #8e8e93;
+  --bg: #f2f2f7; --bg2: #ffffff; --fill: rgba(120,120,128,.12); --fill2: rgba(120,120,128,.2);
+  --label: #1d1d1f; --label2: rgba(60,60,67,.62); --label3: rgba(60,60,67,.32); --sep: rgba(60,60,67,.18);
+  --bubble-in: #e9e9eb; --sidebar: rgba(246,246,248,.9); --shadow: 0 24px 64px rgba(0,0,0,.18);
+  --strike: rgba(255,59,48,.14); --add: rgba(52,199,89,.16);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --tint: #0a84ff; --tint-soft: rgba(10,132,255,.2); --green: #30d158; --orange: #ff9f0a; --red: #ff453a; --indigo: #5e5ce6; --gray: #98989d;
+  --bg: #000; --bg2: #1c1c1e; --fill: rgba(118,118,128,.24); --fill2: rgba(118,118,128,.36);
+  --label: #f5f5f7; --label2: rgba(235,235,245,.62); --label3: rgba(235,235,245,.3); --sep: rgba(84,84,88,.6);
+  --bubble-in: #26252a; --sidebar: rgba(28,28,30,.85); --shadow: 0 24px 64px rgba(0,0,0,.6); --strike: rgba(255,69,58,.22); --add: rgba(48,209,88,.22); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --tint: #0a84ff; --tint-soft: rgba(10,132,255,.2); --green: #30d158; --orange: #ff9f0a; --red: #ff453a; --indigo: #5e5ce6; --gray: #98989d;
+  --bg: #000; --bg2: #1c1c1e; --fill: rgba(118,118,128,.24); --fill2: rgba(118,118,128,.36);
+  --label: #f5f5f7; --label2: rgba(235,235,245,.62); --label3: rgba(235,235,245,.3); --sep: rgba(84,84,88,.6);
+  --bubble-in: #26252a; --sidebar: rgba(28,28,30,.85); --shadow: 0 24px 64px rgba(0,0,0,.6); --strike: rgba(255,69,58,.22); --add: rgba(48,209,88,.22); color-scheme: dark }
+
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--label); font: 15px/1.4 var(--font); letter-spacing: -.01em; -webkit-font-smoothing: antialiased }
+button, textarea, input { font: inherit; color: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--tint) 55%, transparent); outline-offset: 2px; border-radius: 6px }
+
+.proto-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--tint-soft); color: var(--label); font-size: 13px }
+.proto-bar b { font-weight: 600 }
+.proto-bar button { border: 0; background: transparent; color: var(--tint); font-weight: 600 }
+
+.app { display: grid; grid-template-columns: 220px minmax(0,1fr); min-height: calc(100vh - 40px) }
+.side { padding: 16px 10px; background: var(--sidebar); border-right: .5px solid var(--sep); display: flex; flex-direction: column; gap: 2px }
+.brand { display: flex; gap: 10px; align-items: center; padding: 4px 10px 14px; font-weight: 600 }
+.app-icon { width: 30px; height: 30px; border-radius: 7px; background: #172126; color: #fff; display: grid; place-items: center; font-weight: 700 }
+.nav { display: flex; gap: 10px; align-items: center; min-height: 34px; padding: 6px 10px; border-radius: 8px; color: var(--label); font-size: 14px }
+.nav.on { background: var(--fill2); font-weight: 600 }
+.nav i { width: 8px; height: 8px; border-radius: 3px; background: var(--tint) }
+.content { min-width: 0; padding: 0 32px 64px }
+.page { max-width: 1100px; margin: 0 auto }
+.head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 32px 0 16px; flex-wrap: wrap }
+h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -.025em }
+.sub { display: flex; gap: 8px; align-items: center; margin-top: 6px; color: var(--label2); font-size: 14px; flex-wrap: wrap }
+.badge { display: inline-flex; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--fill); color: var(--label2) }
+.badge.green { background: color-mix(in srgb, var(--green) 16%, transparent); color: color-mix(in srgb, var(--green) 70%, var(--label)) }
+.badge.orange { background: color-mix(in srgb, var(--orange) 16%, transparent); color: color-mix(in srgb, var(--orange) 72%, var(--label)) }
+.badge.red { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red) }
+
+.btn { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 34px; padding: 6px 14px; border: 0; border-radius: 8px; font-size: 14px; font-weight: 500; white-space: nowrap }
+.btn.filled { background: var(--tint); color: #fff }
+.btn.gray { background: var(--fill); color: var(--label) }
+.btn.plain { background: transparent; color: var(--tint); padding-inline: 6px }
+.btn:disabled { opacity: .4; cursor: default }
+.btn.wide { width: 100% }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px }
+.tile { display: grid; gap: 2px; padding: 14px 16px; border: 0; border-radius: 12px; background: var(--bg2); text-align: left }
+.tile[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--tint) inset }
+.tile .v { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums }
+.tile .l { font-size: 14px; font-weight: 500 }
+.tile .h { font-size: 12px; color: var(--label2) }
+.tile.warn .v { color: var(--orange) }
+
+.section { margin-bottom: 24px }
+.sec-h { display: flex; justify-content: space-between; align-items: center; padding: 0 16px 6px; color: var(--label2); font-size: 13px; text-transform: uppercase; letter-spacing: .02em }
+.group { background: var(--bg2); border-radius: 12px; overflow: hidden }
+.row { display: flex; gap: 12px; align-items: center; width: 100%; min-height: 44px; padding: 8px 16px; border: 0; background: transparent; text-align: left; position: relative }
+.group > .row + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep) }
+button.row:hover { background: var(--fill) }
+.row .t { flex: 1; min-width: 0; display: grid }
+.row .t span:last-child { color: var(--label2); font-size: 13px }
+.ico { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: #fff; font-size: 14px; flex: none }
+
+.seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--fill) }
+.seg button { min-height: 28px; padding: 4px 14px; border: 0; border-radius: 7px; background: transparent; font-size: 13px; font-weight: 500 }
+.seg button[aria-selected="true"] { background: var(--bg2); box-shadow: 0 3px 8px rgba(0,0,0,.12); font-weight: 600 }
+
+.test { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; margin-top: 16px }
+.chat { background: var(--bg2); border-radius: 12px; display: flex; flex-direction: column; min-height: 420px; overflow: hidden }
+.chat-h { padding: 12px 16px; border-bottom: .5px solid var(--sep); display: grid }
+.chat-h span { color: var(--label2); font-size: 12px }
+.msgs { padding: 16px; display: flex; flex-direction: column; gap: 6px; flex: 1 }
+.mrow { display: flex; flex-direction: column; max-width: 78%; border: 0; padding: 0; background: none; text-align: left }
+.mrow.user { align-self: flex-end; align-items: flex-end }
+.mrow.bot { align-self: flex-start; border-radius: 20px }
+.bubble { padding: 8px 13px; border-radius: 18px; white-space: pre-wrap }
+.user .bubble { background: var(--tint); color: #fff; border-bottom-right-radius: 6px }
+.bot .bubble { background: var(--bubble-in); border-bottom-left-radius: 6px }
+.mrow.bot.sel .bubble { box-shadow: 0 0 0 2px var(--tint) }
+.fixlink { margin: 2px 0 0 10px; font-size: 12px; color: var(--tint); background: none; border: 0; padding: 4px 2px }
+.composer { display: flex; gap: 8px; padding: 10px 12px; border-top: .5px solid var(--sep) }
+.composer div { flex: 1; min-height: 36px; padding: 7px 14px; border-radius: 18px; border: .5px solid var(--sep); color: var(--label3) }
+.insp h3 { margin: 4px 16px 10px; font-size: 17px }
+.insp p { margin: 0 16px 12px; color: var(--label2); font-size: 14px }
+
+.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.32); display: grid; place-items: center; padding: 24px; z-index: 10 }
+.sheet { width: min(580px, 100%); max-height: calc(100vh - 48px); overflow: auto; background: var(--bg); border-radius: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column }
+.sh-h { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px 6px }
+.sh-h h2 { margin: 0; font-size: 17px }
+.steps { display: flex; gap: 6px; padding: 0 18px 10px; font-size: 12px; color: var(--label2) }
+.steps span { padding: 2px 8px; border-radius: 999px; background: var(--fill) }
+.steps span.on { background: var(--tint); color: #fff }
+.sh-b { padding: 6px 18px 4px; display: grid; gap: 16px }
+.sh-f { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 18px 16px; border-top: .5px solid var(--sep); flex-wrap: wrap }
+.sh-f .lead { margin-right: auto }
+.ro { padding: 10px 16px; display: grid; gap: 4px }
+.ro small { color: var(--label2); font-size: 12px; text-transform: uppercase; letter-spacing: .02em }
+textarea.answer { width: 100%; min-height: 110px; padding: 12px 16px; border: 0; background: transparent; resize: vertical; outline: none; line-height: 1.5 }
+.card { background: var(--bg2); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px }
+.card-h { display: flex; gap: 10px; align-items: center; font-weight: 600 }
+.why { color: var(--label2); font-size: 14px }
+.diff { font-family: var(--mono); font-size: 13px; border-radius: 8px; overflow: hidden; border: .5px solid var(--sep) }
+.diff div { padding: 6px 10px; white-space: pre-wrap }
+.diff .old { background: var(--strike); text-decoration: line-through; color: var(--label2) }
+.diff .new { background: var(--add) }
+.diff .ctx { color: var(--label2); font-family: var(--font) }
+.result { display: grid; justify-items: center; text-align: center; gap: 6px; padding: 18px 8px }
+.check { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); display: grid; place-items: center; font-size: 28px; font-weight: 700 }
+.result h3 { margin: 4px 0 0; font-size: 20px }
+.result p { margin: 0; color: var(--label2) }
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: var(--bg2); box-shadow: 0 8px 30px rgba(0,0,0,.18); font-weight: 500; z-index: 20 }
+.thinking { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; animation: spin .8s linear infinite }
+@keyframes spin { to { transform: rotate(360deg) } }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important } }
+
+@media (max-width: 900px) { .test { grid-template-columns: minmax(0,1fr) } .tiles { grid-template-columns: repeat(2, minmax(0,1fr)) } }
+@media (max-width: 720px) {
+  .app { grid-template-columns: minmax(0,1fr) } .side { display: none } .content { padding: 0 16px 48px }
+  .backdrop { align-items: end; padding: 0 } .sheet { width: 100%; max-height: 92vh; border-radius: 14px 14px 0 0 }
+}
+</style>
+
+<div class="proto-bar" role="note">
+  <span><b>Prototype</b> · Example data, not your real assistant. Try: fix the 8-chair answer, choose Knowledge to see a failing fix, or open Needs attention.</span>
+  <span style="display:flex;gap:12px;flex-wrap:wrap">
+    <button id="simulate" type="button" hidden>Simulate a later change that breaks the fix</button>
+    <button id="reset" type="button">Start over</button>
+  </span>
+</div>
+
+<div class="app">
+  <aside class="side" aria-label="Main">
+    <div class="brand"><span class="app-icon">M</span>Mr Spa AI</div>
+    <div class="nav on"><i></i>Assistant</div>
+    <div class="nav"><i style="background:var(--green)"></i>Data</div>
+    <div class="nav"><i style="background:var(--indigo)"></i>Conversations</div>
+    <div class="nav"><i style="background:var(--orange)"></i>Channels</div>
+    <div class="nav"><i style="background:var(--gray)"></i>Settings</div>
+  </aside>
+  <main class="content"><div class="page">
+    <div class="head">
+      <div>
+        <h1>Mr Spa Consultant</h1>
+        <div class="sub"><span class="badge green" id="liveBadge">Live · version 3</span><span id="draftState">Customers see this version</span></div>
+      </div>
+      <button class="btn filled" id="publish" type="button" disabled>Published</button>
+    </div>
+
+    <div class="banner-slot" id="brokeBanner" hidden>
+      <div class="card" style="border:1.5px solid var(--red)">
+        <div class="card-h" style="color:var(--red)">A fixed answer broke again</div>
+        <div class="why"><i>“Có ưu đãi gì nếu mua 8 ghế không?”</i> — the reply no longer mentions free shipping. Nothing was published; customers are still on version <span id="brokeVersion">3</span>.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn filled" id="brokeFix" type="button">Fix this answer</button>
+          <button class="btn gray" id="brokeCompare" type="button">See what changed</button>
+          <button class="btn plain" id="brokeRevert" type="button">Discard unpublished changes</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <button class="tile" type="button"><span class="v">12</span><span class="l">Chats in the last 24 hours</span><span class="h">48 this week · example</span></button>
+      <button class="tile warn" id="needsTile" type="button" aria-pressed="false" aria-controls="needs"><span class="v" id="needsCount">2</span><span class="l">Needs attention</span><span class="h" id="needsHint">Oldest waiting 2 days</span></button>
+      <button class="tile" type="button"><span class="v">0</span><span class="l">Waiting for your team</span><span class="h">All handled</span></button>
+      <button class="tile" type="button"><span class="v">0</span><span class="l">Replies not delivered</span><span class="h">All delivered</span></button>
+    </div>
+
+    <section class="section" id="needs" hidden>
+      <div class="sec-h"><span>Needs attention</span>
+        <div class="seg" role="tablist" aria-label="Filter"><button type="button" role="tab" data-filter="open" aria-selected="true">Open</button><button type="button" role="tab" data-filter="dismissed" aria-selected="false">Dismissed</button></div>
+      </div>
+      <div class="group" id="needsList"></div>
+    </section>
+
+    <div class="seg" role="tablist" aria-label="Assistant sections">
+      <button role="tab" aria-selected="true" type="button">Test</button><button role="tab" aria-selected="false" type="button">Instructions</button><button role="tab" aria-selected="false" type="button">Sources</button><button role="tab" aria-selected="false" type="button">Versions</button>
+    </div>
+
+    <div class="test">
+      <div class="chat">
+        <div class="chat-h"><b>Draft</b><span>A private test chat — customers never see it</span></div>
+        <div class="msgs">
+          <div class="mrow user"><div class="bubble">Có ưu đãi gì nếu mua 8 ghế không?</div></div>
+          <button class="mrow bot" id="badReply" type="button" aria-label="Assistant reply. Open details.">
+            <div class="bubble" id="badBubble"></div>
+          </button>
+          <button class="fixlink" id="fixLink" type="button" aria-label="Fix this answer: Dạ mua nhiều ghế pedicure">Fix this answer</button>
+        </div>
+        <div class="composer"><div>Message</div></div>
+      </div>
+      <aside class="insp" aria-live="polite">
+        <h3>Details</h3>
+        <div id="inspector"></div>
+      </aside>
+    </div>
+
+    <section class="section" style="margin-top:24px">
+      <div class="sec-h"><span>Test scenarios</span><button class="btn plain" type="button">Run all</button></div>
+      <div class="group" id="scenarios">
+        <div class="row"><div class="t"><span>Never invent a price <span class="badge orange">Required</span></span><span>“Ghế Cyber Carbon S3 giá bao nhiêu?” · checks Mr Spa Products</span></div><span class="badge green">Passed</span></div>
+        <div class="row"><div class="t"><span>Offers come from the Offers table <span class="badge orange">Required</span></span><span>“Hiện tại có ưu đãi ghế pedicure nào?” · checks Mr Spa Offers</span></div><span class="badge green">Passed</span></div>
+      </div>
+    </section>
+  </div></main>
+</div>
+
+<div class="backdrop" id="sheetWrap" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sh-h"><h2 id="sheetTitle" tabindex="-1">Fix this answer</h2><button class="btn gray" id="close" type="button" aria-label="Close">✕</button></div>
+    <div class="steps" id="steps" aria-hidden="true"><span data-s="1">1 · What it should say</span><span data-s="2">2 · Where to fix</span><span data-s="3">3 · Result</span></div>
+    <div class="sh-b" id="sheetBody"></div>
+    <div class="sh-f" id="sheetFoot"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<style>
+.banner-slot { margin-bottom: 16px }
+.choice { display: flex; gap: 8px; flex-wrap: wrap }
+.warnbox { background: color-mix(in srgb, var(--orange) 13%, var(--bg2)); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px }
+.warnbox b { color: color-mix(in srgb, var(--orange) 60%, var(--label)) }
+.compare { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px }
+.compare small { color: var(--label2); font-size: 12px; text-transform: uppercase; letter-spacing: .02em }
+@media (max-width: 720px) { .compare { grid-template-columns: minmax(0,1fr) } }
+.btn.tinted { background: var(--tint-soft); color: var(--tint) }
+</style>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const BAD = "Dạ mua nhiều ghế pedicure sẽ được giảm thêm tuỳ số lượng ạ. Anh/chị để lại số điện thoại để tư vấn viên báo giá nhé.";
+const GOOD = "Dạ với 8 ghế pedicure anh/chị được free giao hàng (đơn từ 6 ghế), và còn được giảm thêm tuỳ số lượng ạ. Anh/chị dự định lấy ghế mẫu nào để tư vấn viên báo giá chính xác?";
+const fresh = () => ({ step: 1, kind: "data", answer: GOOD, fix: "none", ruleUnpublished: false, version: 3, broke: false, needsOpen: false, filter: "open", dismissed: [], keptFailing: false, selected: false, sheet: null });
+let state = fresh();
+
+const places = {
+  data: { icon: "▦", color: "var(--green)", title: "Update a data row", label: "Data",
+    why: "The free-shipping offer exists, but its “Applies to” doesn’t mention quantity, so the lookup for 8 chairs missed it.",
+    diff: `<div class="ctx">Mr Spa Offers › OF-001 › Applies to</div><div class="old">Pedicure chairs, combo</div><div class="new">Pedicure chairs, combo — orders of 6 or more</div>`,
+    live: "Live for customers now.", passes: true },
+  knowledge: { icon: "▤", color: "var(--indigo)", title: "Add to Corrected answers", label: "Knowledge",
+    why: "Adds the exact question and your answer to Knowledge.",
+    diff: `<div class="ctx">Knowledge › Corrected answers</div><div class="new">Q: Có ưu đãi gì nếu mua 8 ghế không?\nA: Free giao hàng cho đơn từ 6 ghế, và giảm thêm tuỳ số lượng.</div>`,
+    live: "Live in about a minute.", passes: false,
+    failReason: "Offer questions always look up the Offers table first, and that table still doesn’t say free shipping applies to 8 chairs. The reply kept missing it." },
+  rule: { icon: "≡", color: "var(--orange)", title: "Add to your instructions", label: "Instructions",
+    why: "The assistant should mention every offer that applies to the quantity a customer gives.",
+    diff: `<div class="ctx">Instructions › Always</div><div class="new">When a customer mentions a quantity, mention every offer that applies to that quantity.</div>`,
+    live: "Publish to send it to customers.", passes: true },
+};
+
+const needsItems = () => [
+  { id: "chairs", icon: "%", color: "var(--orange)", title: "Có ưu đãi gì nếu mua 8 ghế không?", sub: "Possible issue · price question without a lookup · Oct 8, 2026", badge: '<span class="badge orange">Waiting 2 days</span>', open: state.fix === "none" },
+  { id: "kept", icon: "◷", color: "var(--red)", title: "Có ưu đãi gì nếu mua 8 ghế không?", sub: "Fix kept but failing · Oct 10, 2026", badge: '<span class="badge red">Failing</span>', open: state.keptFailing },
+  { id: "rule", icon: "◷", color: "var(--orange)", title: "Fix not live yet", sub: "Added to your instructions · publish to send it to customers", badge: "", open: state.ruleUnpublished },
+  { id: "backup", icon: "⚠", color: "var(--red)", title: "Ship về Houston mất bao lâu?", sub: "Sent the backup reply · Oct 9, 2026", badge: "", open: true },
+].filter((item) => item.open);
+
+function toast(text) { const t = $("toast"); t.textContent = text; t.hidden = false; clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), 2600); }
+
+function renderHeader() {
+  const publishable = state.ruleUnpublished || state.broke;
+  $("liveBadge").textContent = `Live · version ${state.version}`;
+  $("draftState").textContent = publishable ? "Changes not live yet" : "Customers see this version";
+  const p = $("publish");
+  p.disabled = !publishable || state.broke;
+  p.textContent = publishable ? "Publish" : "Published";
+  p.className = `btn ${state.broke ? "gray" : "filled"}`;
+  $("brokeBanner").hidden = !state.broke;
+  $("brokeVersion").textContent = state.version;
+  $("simulate").hidden = !(state.fix === "verified" && !state.broke);
+}
+
+function renderNeeds() {
+  const open = needsItems().filter((item) => !state.dismissed.includes(item.id));
+  $("needsCount").textContent = open.length;
+  $("needsTile").classList.toggle("warn", open.length > 0);
+  $("needsHint").textContent = open.length ? (open.some((i) => i.id === "chairs") ? "Oldest waiting 2 days" : "Newest from today") : "All clear";
+  document.querySelectorAll("[data-filter]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.filter === state.filter)));
+  const list = state.filter === "open" ? open : state.dismissedItems || [];
+  $("needsList").innerHTML = list.length
+    ? list.map((item) => `<button class="row" type="button" data-item="${item.id}"><span class="ico" style="background:${item.color}">${item.icon}</span><span class="t"><span>${item.title}</span><span>${item.sub}</span></span>${item.badge}</button>`).join("")
+    : `<div class="row"><span class="t"><span>${state.filter === "open" ? "Nothing needs your attention." : "Nothing dismissed."}</span><span>${state.filter === "open" ? "New issues show up here automatically." : "Dismissed items stay here so you can reopen them."}</span></span></div>`;
+  $("needsList").querySelectorAll("[data-item]").forEach((b) => b.addEventListener("click", () => openItem(b.dataset.item)));
+}
+
+function renderInspector() {
+  if (!state.selected) { $("inspector").innerHTML = "<p>Tap a reply to see what it was based on, or to fix it.</p>"; return; }
+  const primary = state.ruleUnpublished ? "tinted" : "filled";
+  $("inspector").innerHTML = `
+    <div style="padding:0 0 12px"><button class="btn ${primary} wide" id="fixBtn" type="button">Fix this answer</button></div>
+    <div class="section"><div class="group">
+      <div class="row"><span class="t"><span>Status</span></span><span class="badge green">Completed</span></div>
+      <div class="row"><span class="t"><span>Time</span></span><span style="color:var(--label2)">8.4 s</span></div>
+    </div></div>
+    <div class="section"><div class="sec-h"><span>Data looked up</span></div><div class="group">
+      <div class="row"><span class="t"><span>Looked up Mr Spa Offers</span></span><span style="color:var(--label2)">2 found</span></div>
+      <button class="row" type="button"><span class="t"><span>Ưu đãi mua nhiều ghế pedicure giảm thêm</span><span>OF-003</span></span>›</button>
+      <button class="row" type="button"><span class="t"><span>Ưu đãi tự lắp đặt trừ $100 mỗi ghế</span><span>OF-002</span></span>›</button>
+    </div></div>`;
+  $("fixBtn").addEventListener("click", openFix);
+}
+
+function renderAll() {
+  $("badBubble").textContent = state.fix === "verified" && !state.broke ? GOOD : BAD;
+  $("badReply").classList.toggle("sel", state.selected);
+  renderHeader(); renderNeeds(); renderInspector();
+}
+
+function showSheet(title, steps) {
+  $("sheetTitle").textContent = title;
+  $("steps").hidden = !steps;
+  $("sheetWrap").hidden = false;
+  requestAnimationFrame(() => $("sheetTitle").focus());
+}
+function closeSheet() { $("sheetWrap").hidden = true; state.sheet = null; }
+function setSteps(n) { document.querySelectorAll("#steps span").forEach((s) => s.classList.toggle("on", Number(s.dataset.s) === n)); }
+
+function openFix() { state.selected = true; state.step = 1; state.sheet = "fix"; showSheet("Fix this answer", true); renderAll(); renderFix(); }
+
+function renderFix() {
+  setSteps(Math.min(state.step, 3));
+  const body = $("sheetBody"), foot = $("sheetFoot"), place = places[state.kind];
+  if (state.step === 1) {
+    body.innerHTML = `
+      <div class="group">
+        <div class="ro"><small>Customer asked</small><span>Có ưu đãi gì nếu mua 8 ghế không?</span></div>
+        <div class="ro" style="border-top:.5px solid var(--sep)"><small>Assistant replied</small><span>${BAD}</span></div>
+        <div class="ro" style="border-top:.5px solid var(--sep)"><small>What it used</small><span><span class="badge">Data</span> OF-003 · OF-002</span></div>
+      </div>
+      <div><div class="sec-h"><span><label for="answer">What should it have said?</label></span></div>
+      <div class="group"><textarea class="answer" id="answer" placeholder="Write the answer you'd give, in your own words.">${state.answer}</textarea></div></div>`;
+    foot.innerHTML = `<button class="btn gray" type="button" id="cancel">Cancel</button><button class="btn filled" type="button" id="suggest" ${state.answer.trim() ? "" : "disabled"}>Suggest a fix</button>`;
+    $("answer").addEventListener("input", (e) => { state.answer = e.target.value; $("suggest").disabled = !state.answer.trim(); });
+    $("cancel").onclick = closeSheet;
+    $("suggest").onclick = () => { const b = $("suggest"); b.disabled = true; b.innerHTML = '<span class="thinking"></span> Thinking…'; setTimeout(() => { state.step = 2; renderFix(); }, 800); };
+  } else if (state.step === 2) {
+    body.innerHTML = `
+      <div class="card">
+        <div class="card-h"><span class="ico" style="background:${place.color}">${place.icon}</span>${place.title}</div>
+        <div class="why">${place.why}</div>
+        <div><div class="sec-h" style="padding:0 0 6px"><span>What will change</span></div><div class="diff">${place.diff}</div></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn plain" type="button" id="another-place" aria-expanded="${state.showPlaces ? "true" : "false"}">Choose another place</button>
+          <div class="seg" role="tablist" aria-label="Where to fix" ${state.showPlaces ? "" : "hidden"}>${Object.keys(places).map((k) => `<button type="button" role="tab" data-k="${k}" aria-selected="${k === state.kind}">${places[k].label}</button>`).join("")}</div></div>
+      </div>
+      <div class="group"><div class="row"><span class="t"><span>Also saves a scenario</span><span>“Có ưu đãi gì nếu mua 8 ghế không?” · Pass when: mentions free shipping from 6 chairs · Required</span></span></div></div>`;
+    foot.innerHTML = `<button class="btn gray" type="button" id="back">Back</button><button class="btn filled" type="button" id="apply">Apply fix</button>`;
+    body.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { state.kind = b.dataset.k; renderFix(); }));
+    $("another-place").onclick = () => { state.showPlaces = !state.showPlaces; renderFix(); };
+    $("back").onclick = () => { state.step = 1; renderFix(); };
+    $("apply").onclick = () => { const b = $("apply"); b.disabled = true; b.innerHTML = '<span class="thinking"></span> Checking…'; $("close").disabled = true; setTimeout(() => { $("close").disabled = false; place.passes ? applyPass() : applyFail(); }, 1000); };
+  } else if (state.step === 3) {
+    body.innerHTML = `<div class="result"><div class="check">✓</div><h3>Fixed and protected</h3><p>${place.live}</p><p>Saved as a scenario: <i>“Có ưu đãi gì nếu mua 8 ghế không?”</i></p></div>
+      <div class="group"><div class="row"><span class="t"><span>Next</span><span>1 more answer needs attention</span></span></div></div>`;
+    foot.innerHTML = state.kind === "rule"
+      ? `<button class="btn plain lead" type="button" id="undo">Undo</button><button class="btn gray" type="button" id="done">Done</button><button class="btn filled" type="button" id="pubNow">Publish now</button>`
+      : `<button class="btn plain lead" type="button" id="undo">Undo</button><button class="btn filled" type="button" id="done">Done</button>`;
+    $("done").onclick = closeSheet;
+    $("undo").onclick = () => { state.step = 5; renderFix(); };
+    if ($("pubNow")) $("pubNow").onclick = () => { closeSheet(); publish(); };
+  } else if (state.step === 4) {
+    body.innerHTML = `<div class="warnbox"><b>Not applied — the scenario still fails.</b><span>Customers don’t see this change. Reason: ${place.failReason}</span></div>
+      <div id="keepConfirm" hidden class="warnbox" style="background:color-mix(in srgb, var(--red) 11%, var(--bg2))"><b style="color:var(--red)">Keep this change anyway?</b><span>Customers will see this change even though the scenario fails. It stays in Needs attention until it passes.</span>
+        <div class="choice"><button class="btn gray" type="button" id="keepCancel">Cancel</button><button class="btn" style="background:var(--red);color:#fff" type="button" id="keepYes">Keep change</button></div></div>`;
+    foot.innerHTML = `<button class="btn plain lead" type="button" id="keep">Keep it anyway</button><button class="btn gray" type="button" id="done">Done</button><button class="btn filled" type="button" id="another">Try another fix</button>`;
+    $("done").onclick = closeSheet;
+    $("another").onclick = () => { state.step = 2; state.kind = "data"; renderFix(); };
+    $("keep").onclick = () => ($("keepConfirm").hidden = false);
+    $("keepCancel").onclick = () => ($("keepConfirm").hidden = true);
+    $("keepYes").onclick = () => { state.keptFailing = true; state.fix = "kept"; closeSheet(); renderAll(); toast("Change kept · it stays in Needs attention"); };
+  } else if (state.step === 5) {
+    setSteps(3);
+    body.innerHTML = `<div class="card"><div class="card-h">Undo this fix?</div><div class="why">${{ data: "The data row goes back to its old value.", knowledge: "The question and answer are removed from Corrected answers.", rule: "The line is removed from your draft. Publish to send the change to customers." }[state.kind]} Why are you undoing it?</div>
+      <div class="choice"><button class="btn gray" type="button" data-r="Wrong fix">Wrong fix</button><button class="btn gray" type="button" data-r="No longer needed">No longer needed</button></div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="alsoScenario" checked> Also remove the scenario</label></div>`;
+    foot.innerHTML = `<button class="btn gray" type="button" id="cancelUndo">Cancel</button>`;
+    $("cancelUndo").onclick = () => { state.step = 3; renderFix(); };
+    body.querySelectorAll("[data-r]").forEach((b) => b.addEventListener("click", () => { const remove = $("alsoScenario").checked; undoFix(remove); closeSheet(); toast(`Fix undone · ${b.dataset.r}`); }));
+  }
+}
+
+function applyPass() {
+  state.fix = "verified"; state.step = 3; state.ruleUnpublished = state.kind === "rule";
+  if (!document.querySelector("[data-fix-scenario]")) $("scenarios").insertAdjacentHTML("beforeend", `<div class="row" data-fix-scenario><div class="t"><span>Có ưu đãi gì nếu mua 8 ghế <span class="badge orange">Required</span> <span class="badge">From a fix</span></span><span>Pass when: mentions free shipping from 6 chairs · “The reply says free shipping applies to 8 chairs.”</span></div><span class="badge green" id="fixScenarioBadge">Passed</span></div>`);
+  renderAll(); renderFix();
+}
+function applyFail() { state.step = 4; renderFix(); }
+
+function undoFix(removeScenario) {
+  state.fix = "none"; state.ruleUnpublished = false; state.broke = false;
+  if (removeScenario) document.querySelector("[data-fix-scenario]")?.remove();
+  renderAll();
+}
+
+function publish() {
+  const b = $("publish"); b.disabled = true; b.textContent = "Running scenarios…";
+  setTimeout(() => {
+    if (state.broke) return;
+    state.version += 1; state.ruleUnpublished = false; renderAll();
+    toast(`Published version ${state.version} · 3 scenarios passed`);
+  }, 1000);
+}
+
+function openItem(id) {
+  if (id === "chairs" || id === "kept") { openFix(); return; }
+  if (id === "rule") { publish(); return; }
+  state.sheet = "item";
+  showSheet("Needs attention", false);
+  $("sheetBody").innerHTML = `
+    <div class="group">
+      <div class="ro"><small>Customer asked · Oct 9, 2026</small><span>Ship về Houston mất bao lâu?</span></div>
+      <div class="ro" style="border-top:.5px solid var(--sep)"><small>Sent the backup reply</small><span>Sorry, I can't answer right now. A team member will get back to you shortly.</span></div>
+      <div class="ro" style="border-top:.5px solid var(--sep)"><small>Why</small><span>The AI timed out after 45 seconds.</span></div>
+    </div>
+    <div id="dismissBox" hidden class="card"><div class="card-h">Why dismiss it?</div>
+      <div class="choice"><button class="btn gray" type="button" data-d="Answer was fine">Answer was fine</button><button class="btn gray" type="button" data-d="Not worth fixing">Not worth fixing</button><button class="btn gray" type="button" data-d="Handled elsewhere">Handled elsewhere</button></div></div>`;
+  $("sheetFoot").innerHTML = `<button class="btn plain lead" type="button" id="dismiss">Dismiss</button><button class="btn gray" type="button" id="openConv">Open conversation</button><button class="btn filled" type="button" id="itemFix">Fix this answer</button>`;
+  $("dismiss").onclick = () => ($("dismissBox").hidden = false);
+  $("openConv").onclick = () => toast("In the app this opens the conversation");
+  $("itemFix").onclick = () => toast("In the app this opens Fix for this reply");
+  $("sheetBody").querySelectorAll("[data-d]").forEach((b) => b.addEventListener("click", () => {
+    state.dismissed.push("backup");
+    state.dismissedItems = [{ id: "backup", icon: "⚠", color: "var(--gray)", title: "Ship về Houston mất bao lâu?", sub: `Dismissed · ${b.dataset.d}`, badge: "" }];
+    closeSheet(); renderAll(); toast(`Dismissed · ${b.dataset.d}`);
+  }));
+}
+
+function openCompare() {
+  state.sheet = "compare";
+  showSheet("See what changed", false);
+  $("sheetBody").innerHTML = `<div class="compare">
+      <div class="group"><div class="ro"><small>When fixed · Oct 10, 2026</small><span>${GOOD}</span></div></div>
+      <div class="group"><div class="ro"><small>Now</small><span>Dạ mua nhiều ghế pedicure sẽ được giảm thêm tuỳ số lượng ạ. Anh/chị cho em xin số điện thoại nhé.</span></div></div>
+    </div>
+    <div class="why">Someone edited the Offers table on Oct 12, 2026 and removed “orders of 6 or more”.</div>`;
+  $("sheetFoot").innerHTML = `<button class="btn gray" type="button" id="cmpClose">Close</button><button class="btn filled" type="button" id="cmpFix">Fix this answer</button>`;
+  $("cmpClose").onclick = closeSheet;
+  $("cmpFix").onclick = () => { closeSheet(); openFix(); };
+}
+
+$("badReply").addEventListener("click", () => { state.selected = true; renderAll(); });
+$("fixLink").addEventListener("click", openFix);
+$("needsTile").addEventListener("click", () => { state.needsOpen = !state.needsOpen; $("needs").hidden = !state.needsOpen; $("needsTile").setAttribute("aria-pressed", String(state.needsOpen)); });
+document.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", () => { state.filter = b.dataset.filter; renderNeeds(); }));
+$("publish").addEventListener("click", publish);
+$("close").addEventListener("click", closeSheet);
+$("sheetWrap").addEventListener("mousedown", (e) => { if (e.target === e.currentTarget) closeSheet(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sheetWrap").hidden) closeSheet(); });
+$("simulate").addEventListener("click", () => { state.broke = true; const badge = $("fixScenarioBadge"); if (badge) { badge.className = "badge red"; badge.textContent = "Failed"; } renderAll(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+$("brokeFix").addEventListener("click", () => { state.broke = false; state.fix = "none"; renderAll(); openFix(); });
+$("brokeCompare").addEventListener("click", openCompare);
+$("brokeRevert").addEventListener("click", () => {
+  state.sheet = "revert";
+  showSheet("Discard unpublished changes?", false);
+  $("sheetBody").innerHTML = `<div class="card"><div class="why">1 unpublished change will be removed from the draft. Customers keep version ${state.version}. Why are you reverting?</div>
+    <div class="choice"><button class="btn gray" type="button" data-rv="Wrong change">Wrong change</button><button class="btn gray" type="button" data-rv="Start over">Start over</button></div></div>`;
+  $("sheetFoot").innerHTML = `<button class="btn gray" type="button" id="rvCancel">Cancel</button>`;
+  $("rvCancel").onclick = closeSheet;
+  $("sheetBody").querySelectorAll("[data-rv]").forEach((b) => b.addEventListener("click", () => {
+    state.broke = false; const badge = $("fixScenarioBadge"); if (badge) { badge.className = "badge green"; badge.textContent = "Passed"; }
+    closeSheet(); renderAll(); toast(`Unpublished changes discarded · ${b.dataset.rv}`);
+  }));
+});
+$("reset").addEventListener("click", () => { document.querySelector("[data-fix-scenario]")?.remove(); state = fresh(); $("needs").hidden = true; $("needsTile").setAttribute("aria-pressed", "false"); closeSheet(); renderAll(); });
+renderAll();
+</script>
