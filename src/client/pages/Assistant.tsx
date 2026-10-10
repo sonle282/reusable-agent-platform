@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, del, patch, post } from "../api";
 import { modelSupportsTemperature, type AnthropicModel } from "../../shared/models";
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
+import { titleField } from "../format";
 import { RichBubbles } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, Dashboard, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import {
@@ -740,6 +741,11 @@ function TestTab({
         <TraceInspector
           result={selected}
           toolLabel={toolLabel}
+          titleKeyFor={(toolName) => {
+            const collection = collectionFor(toolName);
+            if (!collection) return undefined;
+            return titleField(JSON.parse(collection.schema_json).fields as Array<{ key: string; type: string; required?: boolean }>)?.key;
+          }}
           openRecord={(toolName, recordId) => {
             const collection = collectionFor(toolName);
             if (collection) navigate("data", collection.id, recordId);
@@ -765,18 +771,25 @@ function TestTab({
 
 type TracedRecord = { record_id?: string; id?: string } & Record<string, unknown>;
 
-// A readable label for a looked-up row: its first short text value that is not an identifier.
-const recordTitle = (record: TracedRecord) =>
-  String(Object.entries(record).find(([key, value]) => !["id", "record_id", "valid_from", "valid_until"].includes(key) && typeof value === "string" && value.length > 0 && value.length < 90 && !/^https?:/.test(value))?.[1] ?? record.id ?? "Row");
+// A readable label for a looked-up row: the table's title column, else its first short text value.
+const recordTitle = (record: TracedRecord, titleKey?: string) =>
+  String(
+    (titleKey && record[titleKey]) ??
+      Object.entries(record).find(([key, value]) => !["id", "record_id", "valid_from", "valid_until"].includes(key) && typeof value === "string" && value.length > 0 && value.length < 90 && !/^https?:/.test(value))?.[1] ??
+      record.id ??
+      "Row",
+  );
 
 function TraceInspector({
   result,
   toolLabel,
+  titleKeyFor,
   openRecord,
   openSource,
 }: {
   result: AgentResult | null;
   toolLabel: (name: string) => string;
+  titleKeyFor: (toolName: string) => string | undefined;
   openRecord: (toolName: string, recordId: string) => void;
   openSource: (sourceId: string) => void;
 }) {
@@ -821,7 +834,7 @@ function TraceInspector({
               <div key={index} className="trace-group">
                 <Row title={toolLabel(tool.name)} detail={rows.length ? `${rows.length} found` : "Nothing found"} />
                 {rows.slice(0, 8).map((record, rowIndex) => (
-                  <Row key={rowIndex} title={recordTitle(record)} subtitle={record.id && record.id !== record.record_id ? String(record.id) : undefined} chevron onClick={() => record.record_id && openRecord(tool.name, String(record.record_id))} />
+                  <Row key={rowIndex} title={recordTitle(record, titleKeyFor(tool.name))} subtitle={record.id && record.id !== record.record_id ? String(record.id) : undefined} chevron onClick={() => record.record_id && openRecord(tool.name, String(record.record_id))} />
                 ))}
               </div>
             );

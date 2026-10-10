@@ -110,12 +110,7 @@ Secrets remain on the Cloudflare account across laptop changes and normal Git de
 
 Owner direction (2026-10-10): finish the agent builder first; plug in channels (Zernio, other integrations) only after that.
 
-1. Agent builder polish from the owner walkthrough (P0 shipped in `f536f4c`, `4fe6408`). Open P1, in order:
-   - Done (`6b29fbc`, v3): structured profile replaces the wall of prompt for owners; the 33,000-character Mr Spa prompt stays as the Detailed playbook. UI switched to English and made industry-neutral.
-   - "Sửa từ câu trả lời": from a Test reply, jump to the record or knowledge source it used.
-   - A small daily summary (khách hôm nay, đang chờ nhân viên, gửi lỗi) on the Assistant page.
-   - Three unused starter collections (Products, Offers, Policies) clutter Data; allow hiding/archiving unused collections.
-   - Knowledge sources show file names (`kb-after-sales.md`); allow renaming to plain titles.
+1. Agent builder backlog from the owner walkthrough — **done** (`f536f4c`, `4fe6408`, `6b29fbc`, `7c4a3b5`, `e85475b` and the title-column fix): row editing, hidden test chats, publish state, structured profile, English UI, fix-from-reply deep links (`#/data/<table>/<row>`), daily summary, hidden tables (migration `0003_collection_archive.sql`; tables in use cannot be hidden), editable/renamable knowledge, editable test scenarios. Production data: starter tables Products/Offers/Policies hidden, knowledge sources renamed to plain titles, scenarios renamed in English. Next builder work should come from real owner use.
 2. Then Zernio: create the connection in the UI with the owner's Inbox API URL, API token and webhook secret; verify invalid HMAC → 401, duplicate ignored, fast 202, queue → outbound, idempotent retry.
 3. Contact capture, human takeover on a real channel conversation, forced failed delivery → inspect → retry.
 4. Backup/export validation and public-template release gates.

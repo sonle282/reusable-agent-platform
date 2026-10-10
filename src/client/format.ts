@@ -20,3 +20,11 @@ export function previewSnippet(value: string | null | undefined, parse: (text: s
   if (quoted) return quoted.replace(/\\n/g, " ").replace(/\\"/g, '"');
   return parse(value).find((part) => part.text)?.text ?? "Sent an image";
 }
+
+type FieldLike = { key: string; type: string; required?: boolean };
+
+// The column that names a row: first required text column, else the first text column (never the code).
+export function titleField<T extends FieldLike>(fields: T[]) {
+  const usable = fields.filter((field) => field.key !== "id" && field.type === "text");
+  return usable.find((field) => field.required) ?? usable[0];
+}

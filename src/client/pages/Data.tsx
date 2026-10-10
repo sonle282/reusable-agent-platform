@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, patch, post } from "../api";
-import { nextKey } from "../format";
+import { nextKey, titleField } from "../format";
 import type { Collection } from "../types";
 import { Badge, Banner, Button, EmptyState, FieldRow, Icon, PageHeader, Row, Section, Sheet, Spinner, StatusBadge, TextInput, Toggle, errorMessage, formatDate, useToast } from "../ui";
 
@@ -88,7 +88,8 @@ export function DataPage({
   }
 
   const allFields = selected ? fieldsOf(selected) : [];
-  const columns = allFields.filter((field) => field.key !== "id" && field.type !== "url" && field.type !== "image_url" && !scheduleColumns.has(field.key)).slice(0, 3);
+  const title = titleField(allFields);
+  const columns = [title, ...allFields.filter((field) => field !== title && field.key !== "id" && field.type !== "url" && field.type !== "image_url" && !scheduleColumns.has(field.key))].filter(Boolean).slice(0, 3) as FieldDef[];
   const visible = (records ?? []).filter((record) => !query || record.data_json.toLowerCase().includes(query.toLowerCase()));
   const activeCount = (records ?? []).filter((record) => record.status === "active").length;
   return (

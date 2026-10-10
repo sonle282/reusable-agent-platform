@@ -23,3 +23,15 @@ describe("previewSnippet", () => {
     expect(previewSnippet("Xin chào", parseRichMessage)).toBe("Xin chào");
   });
 });
+
+describe("titleField", () => {
+  it("prefers the first required text column over a type column", async () => {
+    const { titleField } = await import("../src/client/format");
+    const fields = [
+      { key: "id", type: "text", required: true },
+      { key: "kind", type: "text" },
+      { key: "title", type: "text", required: true },
+    ];
+    expect(titleField(fields)?.key).toBe("title");
+  });
+});
