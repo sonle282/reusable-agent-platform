@@ -259,7 +259,7 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
   // Apply, save a Required scenario, test the draft. A failing change is undone in the same request unless "keep" is set.
   app.post("/api/admin/fixes/:fixId/apply", async (c) => {
     const body = z.object({ change: changeSchema, name: z.string().min(1).max(120), mustInclude: z.array(z.string().max(60)).max(3).default([]), mustNotInclude: z.array(z.string().max(60)).max(3).default([]), keep: z.boolean().default(false) }).parse(await c.req.json());
-    const fix = await c.env.DB.prepare("SELECT * FROM answer_fixes WHERE id=?").bind(c.req.param("fixId")).first<{ id: string; agent_id: string; customer_message: string; status: string; eval_case_id: string | null }>();
+    const fix = await c.env.DB.prepare("SELECT * FROM answer_fixes WHERE id=?").bind(c.req.param("fixId")).first<{ id: string; agent_id: string; customer_message: string; correct_reply: string; status: string; eval_case_id: string | null }>();
     if (!fix) return c.json({ error: "Fix not found" }, 404);
     if (["verified", "kept_failing", "published"].includes(fix.status) && !body.keep) return c.json({ error: "This fix is already applied" }, 409);
 
@@ -270,7 +270,7 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
       return c.json({ error: `Couldn't apply the fix — ${error instanceof Error ? error.message : "unknown error"}. Nothing changed for customers.` }, 422);
     }
     const toolName = body.change.kind === "data" ? applied.draft.collectionBindings.find((item) => item.collectionId === (body.change as { collectionId: string }).collectionId)?.toolName : undefined;
-    const assertions: Assertions = { mustInclude: body.mustInclude.length ? body.mustInclude : undefined, mustNotInclude: body.mustNotInclude.length ? body.mustNotInclude : undefined, expectedTool: toolName, fromFix: fix.id };
+    const assertions: Assertions = { criteria: clip(`Gives the same key facts as: ${fix.correct_reply}`, 500), mustInclude: body.mustInclude.length ? body.mustInclude : undefined, mustNotInclude: body.mustNotInclude.length ? body.mustNotInclude : undefined, expectedTool: toolName, fromFix: fix.id };
     const caseId = id("case");
     await c.env.DB.prepare("INSERT INTO eval_cases(id,agent_id,name,input,assertions_json,critical) VALUES(?,?,?,?,?,1)").bind(caseId, fix.agent_id, body.name, fix.customer_message, JSON.stringify(assertions)).run();
 

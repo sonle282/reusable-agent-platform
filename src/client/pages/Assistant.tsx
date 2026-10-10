@@ -1259,7 +1259,7 @@ function ReplyDetails({
 
 // ---------- Test scenarios (bottom of the Preview) ----------
 
-type Assertions = { expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; fromFix?: string };
+type Assertions = { criteria?: string; expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; fromFix?: string };
 
 function ScenarioBar({
   agent,
@@ -1336,6 +1336,7 @@ function ScenarioBar({
             const result = resultFor(testCase.id);
             const assertions = JSON.parse(testCase.assertions_json || "{}") as Assertions;
             const rules = [
+              assertions.criteria && `passes when ${assertions.criteria}`,
               assertions.expectedTool && "checks Data",
               assertions.mustInclude?.length && `says “${assertions.mustInclude.join("”, “")}”`,
               assertions.mustNotInclude?.length && `never says “${assertions.mustNotInclude.join("”, “")}”`,
@@ -1351,7 +1352,7 @@ function ScenarioBar({
                   <span className="truncate muted scen-msg">{[`“${testCase.input}”`, ...rules].join(" · ")}</span>
                   {result && !result.passed && <span className="scen-msg text-red">{result.failures.join(", ") || "Didn't pass"}</span>}
                 </span>
-                {result && <Badge tone={result.passed ? "green" : "red"}>{result.passed ? "Passed" : "Failed"}</Badge>}
+                {result && (result.passed ? <Badge tone="green">Passed</Badge> : result.failures.some((item) => item.startsWith("Not checked")) && result.failures.every((item) => item.startsWith("Not checked")) ? <Badge tone="neutral">Not checked</Badge> : <Badge tone="red">Failed</Badge>)}
               </button>
             );
           })}
@@ -1381,6 +1382,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
     return {
       name: existing?.name ?? "",
       input: existing?.input ?? "",
+      criteria: assertions.criteria ?? "",
       expectedTool: assertions.expectedTool ?? "",
       mustInclude: (assertions.mustInclude ?? []).join(", "),
       mustNotInclude: (assertions.mustNotInclude ?? []).join(", "),
@@ -1403,6 +1405,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
         input: form.input,
         critical: form.critical,
         assertions: {
+          criteria: form.criteria.trim() || undefined,
           expectedTool: form.expectedTool || undefined,
           mustInclude: list(form.mustInclude).length ? list(form.mustInclude) : undefined,
           mustNotInclude: list(form.mustNotInclude).length ? list(form.mustNotInclude) : undefined,
@@ -1453,19 +1456,26 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
               <Toggle label="Required to publish" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
             </FieldRow>
           </Section>
-          <Section title="Passes when" footer="Separate several phrases with commas.">
-            <FieldRow label="Says">
-              <TextInput value={form.mustInclude} onChange={(event) => setForm({ ...form, mustInclude: event.target.value })} />
+          <Section title="Passes when" footer="Write it the way you'd tell a new hire. The AI checks each reply against it, so wording can differ.">
+            <FieldRow label="Passes when" stacked>
+              <TextArea rows={2} value={form.criteria} onChange={(event) => setForm({ ...form, criteria: event.target.value })} placeholder="Says returns cost 20% and asks for the order number" />
             </FieldRow>
-            <FieldRow label="Never says">
-              <TextInput value={form.mustNotInclude} onChange={(event) => setForm({ ...form, mustNotInclude: event.target.value })} />
-            </FieldRow>
-            <FieldRow label="Checks Data" hint="Lookup name">
-              <TextInput value={form.expectedTool} placeholder="search_products" onChange={(event) => setForm({ ...form, expectedTool: event.target.value })} />
-            </FieldRow>
-            <FieldRow label="Max length" hint="Characters">
-              <TextInput className="tabular" type="number" min={1} value={form.maxLength} onChange={(event) => setForm({ ...form, maxLength: event.target.value })} />
-            </FieldRow>
+          </Section>
+          <Section footer="Exact checks. Separate several phrases with commas.">
+            <Disclosure title={<>Exact words and lookups <span className="muted">(advanced)</span></>} defaultOpen={Boolean(form.mustInclude || form.mustNotInclude || form.expectedTool || form.maxLength) && !form.criteria}>
+              <FieldRow label="Says">
+                <TextInput value={form.mustInclude} onChange={(event) => setForm({ ...form, mustInclude: event.target.value })} />
+              </FieldRow>
+              <FieldRow label="Never says">
+                <TextInput value={form.mustNotInclude} onChange={(event) => setForm({ ...form, mustNotInclude: event.target.value })} />
+              </FieldRow>
+              <FieldRow label="Checks Data" hint="Lookup name">
+                <TextInput value={form.expectedTool} placeholder="search_products" onChange={(event) => setForm({ ...form, expectedTool: event.target.value })} />
+              </FieldRow>
+              <FieldRow label="Max length" hint="Characters">
+                <TextInput className="tabular" type="number" min={1} value={form.maxLength} onChange={(event) => setForm({ ...form, maxLength: event.target.value })} />
+              </FieldRow>
+            </Disclosure>
           </Section>
           {error && <Banner tone="error" title="Couldn't save it" text={error} />}
         </form>
