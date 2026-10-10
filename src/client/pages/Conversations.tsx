@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, post } from "../api";
-import { RichBubbles } from "../RichMessage";
+import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { Conversation, TranscriptMessage } from "../types";
 import { Banner, EmptyState, PageHeader, Row, SearchField, Section, Spinner, StatusBadge, Toggle, errorMessage, formatDate, useToast } from "../ui";
+
+const previewText = (value?: string) => (value ? parseRichMessage(value).find((part) => part.text)?.text ?? "Đã gửi hình ảnh" : "—");
 
 type Detail = { conversation: Conversation & { custom_json?: string | null }; messages: TranscriptMessage[] };
 
@@ -61,7 +63,7 @@ export function ConversationsPage() {
                   icon="person"
                   iconTint={item.human_takeover ? "var(--orange)" : "var(--blue)"}
                   title={item.display_name || item.phone || item.external_user_id}
-                  subtitle={item.last_message_preview || "—"}
+                  subtitle={previewText(item.last_message_preview)}
                   detail={<small>{formatDate(item.last_activity_at)}</small>}
                   selected={item.id === selectedId}
                   onClick={() => void open(item.id)}

@@ -178,7 +178,10 @@ app.get("/api/admin/agents/:id", async (c) => {
     c.env.DB.prepare("SELECT id,name,description,kind,config_json,input_schema_json,status FROM tool_definitions WHERE agent_id=?").bind(agent.id).all(),
     c.env.DB.prepare("SELECT * FROM eval_cases WHERE agent_id=?").bind(agent.id).all(),
   ]);
-  return c.json({ ...agent, draft: agentDraftSchema.parse(JSON.parse(agent.draft_json)), versions: versions.results, sources: sources.results, tools: tools.results, evalCases: evalCases.results });
+  const draft = agentDraftSchema.parse(JSON.parse(agent.draft_json));
+  const live = agent.active_version_id ? await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>() : null;
+  const draftMatchesLive = Boolean(live) && JSON.stringify(agentDraftSchema.parse(JSON.parse(live!.snapshot_json))) === JSON.stringify(draft);
+  return c.json({ ...agent, draft, draftMatchesLive, versions: versions.results, sources: sources.results, tools: tools.results, evalCases: evalCases.results });
 });
 
 app.patch("/api/admin/agents/:id", async (c) => {
@@ -357,6 +360,30 @@ app.post("/api/admin/collections/:id/records", async (c) => {
   return c.json({ id: recordId, data: validated.data }, 201);
 });
 
+app.patch("/api/admin/collections/:id/records/:recordId", async (c) => {
+  const body = z.object({ data: z.record(z.string(), z.unknown()).optional(), status: z.enum(["draft", "active", "archived"]).optional(), validFrom: z.string().nullable().optional(), validUntil: z.string().nullable().optional() }).parse(await c.req.json());
+  const record = await c.env.DB.prepare("SELECT r.data_json,r.status,r.valid_from,r.valid_until,d.schema_json FROM data_records r JOIN data_collections d ON d.id=r.collection_id WHERE r.id=? AND r.collection_id=?")
+    .bind(c.req.param("recordId"), c.req.param("id")).first<{ data_json: string; status: string; valid_from: string | null; valid_until: string | null; schema_json: string }>();
+  if (!record) return c.json({ error: "Record not found" }, 404);
+  const validated = validateCollectionData(record.schema_json, body.data ?? JSON.parse(record.data_json));
+  if (validated.errors.length) return c.json({ error: "Validation failed", details: validated.errors }, 422);
+  await c.env.DB.prepare("UPDATE data_records SET data_json=?,search_text=?,status=?,valid_from=?,valid_until=?,updated_at=datetime('now') WHERE id=?")
+    .bind(JSON.stringify(validated.data), Object.values(validated.data).join(" ").toLowerCase(), body.status ?? record.status, body.validFrom === undefined ? record.valid_from : body.validFrom || null, body.validUntil === undefined ? record.valid_until : body.validUntil || null, c.req.param("recordId")).run();
+  await writeAudit(c.env.DB, "record.update", "data_record", c.req.param("recordId"), c.get("adminId"));
+  return c.json({ id: c.req.param("recordId"), data: validated.data });
+});
+
+// Renames only: field keys and types stay fixed so tools, imports and stored records keep working.
+app.patch("/api/admin/collections/:id", async (c) => {
+  const body = z.object({ name: z.string().min(1).max(120).optional(), labels: z.record(z.string(), z.string().min(1).max(120)).default({}) }).parse(await c.req.json());
+  const collection = await c.env.DB.prepare("SELECT name,schema_json FROM data_collections WHERE id=?").bind(c.req.param("id")).first<{ name: string; schema_json: string }>();
+  if (!collection) return c.json({ error: "Collection not found" }, 404);
+  const schema = collectionSchema.parse(JSON.parse(collection.schema_json));
+  schema.fields = schema.fields.map((field) => ({ ...field, label: body.labels[field.key] ?? field.label }));
+  await c.env.DB.prepare("UPDATE data_collections SET name=?,schema_json=?,updated_at=datetime('now') WHERE id=?").bind(body.name ?? collection.name, JSON.stringify(schema), c.req.param("id")).run();
+  return c.json({ id: c.req.param("id"), name: body.name ?? collection.name, schema });
+});
+
 app.post("/api/admin/collections/:id/import", async (c) => {
   const body = z.object({ rows: z.array(z.record(z.string(), z.unknown())).max(5000), mapping: z.record(z.string(), z.string()).default({}), uniqueKey: z.string().optional(), validFromField: z.string().optional(), validUntilField: z.string().optional(), statusField: z.string().optional() }).parse(await c.req.json());
   const collection = await c.env.DB.prepare("SELECT schema_json FROM data_collections WHERE id=?").bind(c.req.param("id")).first<{ schema_json: string }>();
@@ -437,9 +464,10 @@ app.post("/api/admin/connections/:id/rotate", async (c) => {
 
 app.get("/api/admin/conversations", async (c) => {
   const query = c.req.query("q")?.trim();
+  const tests = c.req.query("tests") === "1" ? "" : "AND c.connection_id NOT IN ('preview','eval')";
   const result = query
-    ? await c.env.DB.prepare("SELECT c.*,ct.display_name,ct.phone,ct.email FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE c.external_user_id LIKE ? OR ct.display_name LIKE ? OR ct.phone LIKE ? ORDER BY c.last_activity_at DESC LIMIT 200").bind(`%${query}%`, `%${query}%`, `%${query}%`).all()
-    : await c.env.DB.prepare("SELECT c.*,ct.display_name,ct.phone,ct.email FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id ORDER BY c.last_activity_at DESC LIMIT 200").all();
+    ? await c.env.DB.prepare(`SELECT c.*,ct.display_name,ct.phone,ct.email FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE (c.external_user_id LIKE ? OR ct.display_name LIKE ? OR ct.phone LIKE ?) ${tests} ORDER BY c.last_activity_at DESC LIMIT 200`).bind(`%${query}%`, `%${query}%`, `%${query}%`).all()
+    : await c.env.DB.prepare(`SELECT c.*,ct.display_name,ct.phone,ct.email FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE 1=1 ${tests} ORDER BY c.last_activity_at DESC LIMIT 200`).all();
   return c.json(result.results);
 });
 

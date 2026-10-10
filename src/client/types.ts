@@ -63,6 +63,7 @@ export type AgentSummary = {
 
 export type AgentDetail = AgentSummary & {
   draft: AgentDraft;
+  draftMatchesLive?: boolean;
   versions: Array<{ id: string; version: number; published_at: string }>;
   sources: KnowledgeSource[];
   tools: Tool[];

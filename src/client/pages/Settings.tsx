@@ -44,19 +44,22 @@ export function SettingsPage({
       <PageHeader title="Cài đặt" />
       {error && <Banner onClose={() => setError("")}>{error}</Banner>}
       <Section
-        title="Mô hình AI"
-        footer="Gọi Anthropic qua Cloudflare AI Gateway. API key được mã hoá khi lưu và không bao giờ hiển thị lại. Lưu khoá mới sẽ áp dụng cho bản nháp; xuất bản để dùng cho khách."
+        title="Trí tuệ nhân tạo"
+        footer="API key Anthropic được mã hoá khi lưu và không hiển thị lại. Sau khi đổi khoá, bấm Xuất bản ở trang Trợ lý để khách dùng khoá mới."
       >
         <Row title="Trạng thái" detail={hasKey ? "Đã có API key" : "Chưa có API key"} />
         <FieldRow label={hasKey ? "API key mới" : "API key"}>
           <TextInput type="password" autoComplete="off" value={credential.apiKey} placeholder="sk-ant-…" onChange={(event) => setCredential({ ...credential, apiKey: event.target.value })} />
         </FieldRow>
-        <FieldRow label="Cloudflare account ID">
-          <TextInput value={credential.accountId} onChange={(event) => setCredential({ ...credential, accountId: event.target.value })} />
-        </FieldRow>
-        <FieldRow label="AI Gateway ID">
-          <TextInput value={credential.gatewayId} onChange={(event) => setCredential({ ...credential, gatewayId: event.target.value })} />
-        </FieldRow>
+        <details className="advanced in-group">
+          <summary>Nâng cao</summary>
+          <FieldRow label="Cloudflare account ID">
+            <TextInput value={credential.accountId} onChange={(event) => setCredential({ ...credential, accountId: event.target.value })} />
+          </FieldRow>
+          <FieldRow label="AI Gateway ID">
+            <TextInput value={credential.gatewayId} onChange={(event) => setCredential({ ...credential, gatewayId: event.target.value })} />
+          </FieldRow>
+        </details>
         <div className="row row-actions">
           <Button
             variant="gray"

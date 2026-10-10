@@ -58,11 +58,13 @@ export function AssistantPage({
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving">("saved");
   const [publishing, setPublishing] = useState<"" | "evaluating" | "publishing">("");
   const [evalRun, setEvalRun] = useState<EvalRun | null>(null);
+  const [editedSinceLoad, setEditedSinceLoad] = useState(false);
   const [error, setError] = useState("");
   const latest = useRef<AgentDetail | null>(null);
   latest.current = agent;
   async function load() {
     setAgent(await api<AgentDetail>(`/api/admin/agents/${agentId}`));
+    setEditedSinceLoad(false);
   }
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)));
@@ -93,10 +95,12 @@ export function AssistantPage({
   function mutate(fn: (draft: AgentDraft) => AgentDraft) {
     setAgent((current) => (current ? { ...current, draft: fn(structuredClone(current.draft)) } : current));
     setSaveState("dirty");
+    setEditedSinceLoad(true);
   }
   function rename(field: "name" | "description", value: string) {
     setAgent((current) => (current ? { ...current, [field]: value } : current));
     setSaveState("dirty");
+    setEditedSinceLoad(true);
   }
 
   // One action: save, run the evaluation gate, then publish when it passes.
@@ -128,6 +132,7 @@ export function AssistantPage({
 
   if (!agent) return error ? <Banner>{error}</Banner> : <div className="page-loading"><Spinner /></div>;
   const live = agent.versions.find((version) => version.id === agent.active_version_id);
+  const upToDate = Boolean(live) && agent.draftMatchesLive && !editedSinceLoad && saveState === "saved";
   const missing = [
     !agent.draft.modelConfig.credentialId && { text: "Chưa có API key Anthropic.", action: "Mở Cài đặt", go: openSettings },
     !agent.draft.instructions.trim() && { text: "Chưa có hướng dẫn cho trợ lý.", action: "Viết hướng dẫn", go: () => onTab("instructions") },
@@ -139,16 +144,15 @@ export function AssistantPage({
         title={agent.name}
         subtitle={
           <>
-            {live ? <Badge tone="green">Đang chạy · v{live.version}</Badge> : <Badge>Chưa xuất bản</Badge>}
-            <span>{modelLabel(agent.draft.modelConfig.model)}</span>
+            {live ? <Badge tone="green">Đang trả lời khách · v{live.version}</Badge> : <Badge>Chưa trả lời khách</Badge>}
             <span className="save-state" aria-live="polite">
-              {saveState === "saving" ? "Đang lưu…" : saveState === "dirty" ? "Chưa lưu" : "Đã lưu nháp"}
+              {saveState === "saving" ? "Đang lưu…" : upToDate ? "Khách đang dùng đúng bản này" : live ? "Có thay đổi chưa áp dụng cho khách" : "Thử xong thì bấm Xuất bản"}
             </span>
           </>
         }
         actions={
-          <Button onClick={() => void publish()} busy={Boolean(publishing)}>
-            {publishing === "evaluating" ? "Đang đánh giá…" : publishing === "publishing" ? "Đang xuất bản…" : "Xuất bản"}
+          <Button onClick={() => void publish()} busy={Boolean(publishing)} disabled={upToDate}>
+            {publishing === "evaluating" ? "Đang kiểm tra…" : publishing === "publishing" ? "Đang xuất bản…" : upToDate ? "Đã xuất bản" : "Xuất bản"}
           </Button>
         }
       />
@@ -184,7 +188,7 @@ export function AssistantPage({
           ))}
         </Banner>
       )}
-      {tab === "test" && <TestTab agent={agent} flush={flush} reload={load} run={evalRun} setRun={setEvalRun} />}
+      {tab === "test" && <TestTab agent={agent} collections={collections} flush={flush} reload={load} run={evalRun} setRun={setEvalRun} />}
       {tab === "instructions" && <BehaviorTab agent={agent} mutate={mutate} rename={rename} />}
       {tab === "sources" && (
         <>
@@ -235,6 +239,8 @@ function BehaviorTab({
             <TextInput value={agent.description} onChange={(event) => rename("description", event.target.value)} />
           </FieldRow>
         </Section>
+        <details className="advanced">
+          <summary>Nâng cao</summary>
         <Section title="Mô hình" footer={sampling ? undefined : "Model này tự điều chỉnh độ sáng tạo; nhiệt độ không áp dụng."}>
           <FieldRow label="Model">
             <select className="select" value={draft.modelConfig.model} onChange={(event) => setModel({ model: event.target.value as AnthropicModel })}>
@@ -271,6 +277,7 @@ function BehaviorTab({
             />
           </FieldRow>
         </Section>
+        </details>
       </div>
     </div>
   );
@@ -541,17 +548,24 @@ type ChatTurn = { role: "user" | "assistant"; text: string; result?: AgentResult
 
 function TestTab({
   agent,
+  collections,
   flush,
   reload,
   run,
   setRun,
 }: {
   agent: AgentDetail;
+  collections: Collection[];
   flush: () => Promise<boolean>;
   reload: () => Promise<void>;
   run: EvalRun | null;
   setRun: (run: EvalRun) => void;
 }) {
+  const toolLabel = (name: string) => {
+    const binding = agent.draft.collectionBindings.find((item) => item.toolName === name);
+    const collection = binding && collections.find((item) => item.id === binding.collectionId);
+    return collection ? `Tra ${collection.name}` : name;
+  };
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [selected, setSelected] = useState<AgentResult | null>(null);
   const [text, setText] = useState("");
@@ -648,19 +662,19 @@ function TestTab({
             </button>
           </form>
         </div>
-        <TraceInspector result={selected} />
+        <TraceInspector result={selected} toolLabel={toolLabel} />
       </div>
       <Evaluations agent={agent} flush={flush} reload={reload} run={run} setRun={setRun} />
     </>
   );
 }
 
-function TraceInspector({ result }: { result: AgentResult | null }) {
+function TraceInspector({ result, toolLabel }: { result: AgentResult | null; toolLabel: (name: string) => string }) {
   if (!result?.trace)
     return (
       <aside className="inspector">
         <h3>Chi tiết</h3>
-        <p className="text-secondary">Chọn một câu trả lời để xem mô hình, nguồn kiến thức, công cụ và thời gian xử lý.</p>
+        <p className="text-secondary">Chọn một câu trả lời để xem trợ lý đã dựa vào đâu.</p>
       </aside>
     );
   const { trace } = result;
@@ -672,26 +686,26 @@ function TraceInspector({ result }: { result: AgentResult | null }) {
         <Row title="Thời gian" detail={`${(trace.latencyMs / 1000).toFixed(1)} giây`} />
         <Row title="Mô hình" detail={modelLabel(trace.model)} />
       </Section>
-      <Section title="Kiến thức đã dùng">
+      <Section title="Kiến thức đã đọc">
         {trace.sources.length ? (
           trace.sources.map((source, index) => <Row key={index} icon="doc" iconTint="var(--indigo)" title={source.name} detail={source.score ? `${Math.round(source.score * 100)}%` : undefined} />)
         ) : (
-          <Row title={<span className="text-secondary">Không dùng nguồn nào</span>} />
+          <Row title={<span className="text-secondary">Không đọc kiến thức</span>} />
         )}
       </Section>
-      <Section title="Công cụ đã gọi">
+      <Section title="Dữ liệu đã tra">
         {trace.toolCalls.length ? (
           trace.toolCalls.map((tool, index) => (
             <details className="disclosure" key={index}>
               <summary>
-                <code>{tool.name}</code>
+                <span>{toolLabel(tool.name)}</span>
                 <span className="text-secondary">{Array.isArray(tool.output) ? `${tool.output.length} kết quả` : ""}</span>
               </summary>
               <pre>{JSON.stringify({ input: tool.input, output: tool.output }, null, 2)}</pre>
             </details>
           ))
         ) : (
-          <Row title={<span className="text-secondary">Không gọi công cụ</span>} />
+          <Row title={<span className="text-secondary">Không tra dữ liệu</span>} />
         )}
       </Section>
       {trace.error && <Banner>{trace.error}</Banner>}
