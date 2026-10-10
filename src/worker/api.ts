@@ -147,7 +147,8 @@ app.post("/api/admin/settings/anthropic", async (c) => {
   const encrypted = await encryptCredential(body.apiKey, c.env.CREDENTIAL_ENCRYPTION_KEY);
   await c.env.DB.batch([
     c.env.DB.prepare("INSERT INTO credentials(id,label,kind,ciphertext,iv,key_version) VALUES(?,?,'anthropic_api_key',?,?,?)").bind(credentialId, body.label, encrypted.ciphertext, encrypted.iv, encrypted.keyVersion),
-    c.env.DB.prepare("INSERT OR REPLACE INTO settings(key,value_json,updated_at) VALUES('model_defaults',?,datetime('now'))").bind(JSON.stringify({ credentialId, gatewayId: body.gatewayId, accountId: body.accountId })),
+    // keyHint (last 4 characters) only lets the owner recognise which key is saved; the key itself stays encrypted.
+    c.env.DB.prepare("INSERT OR REPLACE INTO settings(key,value_json,updated_at) VALUES('model_defaults',?,datetime('now'))").bind(JSON.stringify({ credentialId, gatewayId: body.gatewayId, accountId: body.accountId, keyHint: body.apiKey.slice(-4), savedAt: now() })),
   ]);
   const draftAgents = await c.env.DB.prepare("SELECT id,draft_json FROM agents").all<{ id: string; draft_json: string }>();
   if (draftAgents.results.length) await c.env.DB.batch(draftAgents.results.map((agent) => {

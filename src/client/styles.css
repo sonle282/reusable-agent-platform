@@ -575,33 +575,17 @@ button.mini-item { width: calc(100% + 12px); border: 0; background: transparent;
 .copy-field code { flex: 1; min-width: 0; overflow-wrap: anywhere; font: var(--text-mono); }
 .code-block { margin: 0; padding: 12px 14px; overflow: auto; border-radius: var(--radius-lg); background: var(--color-surface); font: var(--text-mono); }
 
-/* ---------- Transitional: classes pages still use until phase 4 rewrites them ---------- */
-.text-secondary, .caption { color: var(--color-label-2); }
-.caption { font: var(--text-subhead); }
-.text-tint { color: var(--color-link); }
-.center { text-align: center; }
+/* ---------- Small shared helpers ---------- */
 .page-loading { display: grid; place-items: center; padding: 48px; color: var(--color-label-2); }
 .page-loading.full { min-height: 100vh; }
-.inline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.save-state { font: var(--text-subhead); }
-.toolbar { display: flex; overflow-x: auto; }
 .row-actions, .row.field-editor { padding: 8px 16px; gap: 8px; }
 .row-actions { justify-content: flex-end; }
 .section-card > * + .row-actions, .section-card > * + .field-editor { border-top: 1px solid var(--color-separator); }
 .field-editor .text-input { flex: 1; height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius-md); background: var(--color-fill); outline: none; color: var(--color-label); }
 .field-editor .select { width: 150px; flex: none; text-align: left; color: var(--color-label); }
-.icon-button { display: inline-grid; place-items: center; width: 28px; height: 28px; flex: none; border: 0; border-radius: 50%; background: var(--color-fill); color: var(--color-label-2); cursor: pointer; }
-.icon-button:disabled { color: var(--color-label-3); cursor: default; }
-.color-input { width: 44px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; cursor: pointer; }
-.search-field { display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: var(--radius-md); background: var(--color-fill); color: var(--color-label-2); }
-.search-field.compact { width: 220px; }
-.search-field input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; color: var(--color-label); }
-.banner-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sheet-form { display: flex; flex-direction: column; gap: 16px; }
-.sheet-text { margin: 0; color: var(--color-label-2); font: var(--text-callout); }
-.sheet-actions { display: grid; gap: 8px; }
-:not(.page):not(.sheet-body):not(.sheet-form):not(.form-col):not(.editor-pane):not(.section-plain) > .section + .section { margin-top: 28px; }
-:not(.page):not(.sheet-body):not(.sheet-form):not(.form-col):not(.section-plain) > .banner:not(:last-child) { margin-bottom: 16px; }
+.auth-panel > .section + .section { margin-top: 28px; }
+.auth-panel > .banner:not(:last-child) { margin-bottom: 16px; }
 
 /* ---------- App shell (design §4) ---------- */
 .app-shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; }
@@ -622,8 +606,6 @@ button.mini-item { width: calc(100% + 12px); border: 0; background: transparent;
 
 .brand-tile { overflow: hidden; }
 .brand-tile img { width: 100%; height: 100%; object-fit: contain; }
-.page-loading.full { min-height: 100vh; }
-
 /* ---------- Compact sidebar 860–1079 (design §23, shell part) ---------- */
 @container app (max-width: 1079px) {
   .app-shell { grid-template-columns: var(--sidebar-w-compact) minmax(0, 1fr); }
@@ -781,7 +763,7 @@ button.bubble { border: 0; text-align: left; cursor: pointer; }
 .add-row .row-body { padding-left: 0; }
 .row-open { border: 0; padding: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .playbook { display: block; padding: 12px 16px; }
-.disclosure + .disclosure, .disclosure-body + .disclosure { border-top: 1px solid var(--color-separator); }
+.disclosure + .disclosure, .disclosure-body + .disclosure, .row + .disclosure, .field + .disclosure, .key-form + .disclosure { border-top: 1px solid var(--color-separator); }
 .preview-empty { padding-top: 40px; }
 .starters { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; width: 100%; max-width: 300px; }
 .btn.starter { height: auto; min-height: 36px; padding: 8px 14px; white-space: normal; font-weight: 500; font-size: 14px; }
@@ -832,6 +814,17 @@ button.scen-item { width: 100%; border: 0; border-top: 1px solid var(--color-sep
 .badge.badge-count-red { background: var(--color-red); color: var(--color-on-tile); }
 .mono-value { font: var(--text-mono); }
 .code-block.flush { margin: 0; padding: 4px 16px 14px; border-radius: 0; background: transparent; }
+
+/* Settings page */
+.field-label.spacer { flex: 1; }
+.check-line { gap: 5px; }
+.key-form { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 14px 58px; }
+.key-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.swatch { position: relative; flex: none; width: 28px; height: 28px; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px var(--color-separator), inset 0 0 0 2px var(--color-surface); cursor: pointer; }
+.swatch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.row.signout-row { padding: 0; }
+.signout-row .row-body { justify-content: center; padding: 11px 16px; }
+.signout-row .row-title { color: var(--color-red); }
 
 /* Conversations page */
 .conversations-page { gap: 20px; }
@@ -900,41 +893,6 @@ button.scen-item { width: 100%; border: 0; border-top: 1px solid var(--color-sep
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-.advanced > summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px 10px;
-  color: var(--tint);
-  font-size: 15px;
-  cursor: pointer;
-  list-style: none;
-}
-
-.advanced > summary::-webkit-details-marker {
-  display: none;
-}
-
-.advanced > summary::after {
-  content: "›";
-  font-size: 18px;
-  transition: transform 150ms var(--ease);
-}
-
-.advanced[open] > summary::after {
-  transform: rotate(90deg);
-}
-
-.advanced.in-group > summary {
-  min-height: 44px;
-  padding: 10px 16px;
-  border-top: 0.5px solid var(--separator);
-}
-
-.footer-leading {
-  margin-right: auto;
 }
 
 

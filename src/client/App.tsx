@@ -7,7 +7,7 @@ import { ConversationsPage } from "./pages/Conversations";
 import { DataPage } from "./pages/Data";
 import { HomePage } from "./pages/Home";
 import { SettingsPage } from "./pages/Settings";
-import { useTheme } from "./theme";
+import { useTheme, type ThemeChoice } from "./theme";
 import type { Bootstrap, Brand } from "./types";
 import { Banner, Button, FieldRow, Icon, Section, Segmented, Spinner, TextInput, ToastProvider, errorMessage } from "./ui";
 
@@ -63,7 +63,7 @@ function BrandTile({ brand }: { brand: Brand }) {
   );
 }
 
-function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promise<void>; logout: () => void }) {
+function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bootstrap; reload: () => Promise<void>; logout: () => void; themeChoice: ThemeChoice; setThemeChoice: (choice: ThemeChoice) => void }) {
   const { page, tab, params, go } = useRoute();
   // One assistant per workspace; the backend still stores agents generically.
   const agent = data.agents[0];
@@ -122,7 +122,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
         {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
         {page === "conversations" && <ConversationsPage connections={data.connections} openId={params[0]} onOpen={(id) => go("conversations", undefined, id)} />}
         {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} onOpenAssistant={() => go("assistant")} />}
-        {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} />}
+        {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
       </main>
       {/* Phone tab bar: unchanged for now; the phone layout is a later pass. */}
       <nav className="tab-bar" aria-label="Main">
@@ -200,7 +200,7 @@ export function App() {
   const [state, setState] = useState<"loading" | "setup" | "login" | "ready">("loading");
   const [brand, setBrand] = useState<Brand>(defaultBrand);
   const [data, setData] = useState<Bootstrap | null>(null);
-  const { theme } = useTheme();
+  const { theme, choice, setChoice } = useTheme();
   async function loadAdmin() {
     try {
       const session = await api<{ csrfToken: string }>("/api/admin/session");
@@ -243,6 +243,8 @@ export function App() {
         <Shell
           data={data}
           reload={reload}
+          themeChoice={choice}
+          setThemeChoice={setChoice}
           logout={async () => {
             await post("/api/admin/logout").catch(() => undefined);
             setData(null);
