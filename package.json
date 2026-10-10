@@ -1,0 +1,58 @@
+{
+  "name": "cloudflare-reusable-agent-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A deployable, single-tenant agent builder and runtime for Cloudflare Workers.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "check": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cf:typegen": "wrangler types src/worker-configuration.d.ts",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy:dry": "npm run build && wrangler deploy --dry-run",
+    "deploy": "npm run build && wrangler deploy && wrangler d1 migrations apply DB --remote",
+    "migrate:mrspa": "node scripts/migrate-mrspa.mjs"
+  },
+  "dependencies": {
+    "agents": "^0.28.0",
+    "hono": "^4.9.8",
+    "papaparse": "^5.5.3",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.15.2",
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "@cloudflare/workers-types": "^5.20261010.1",
+    "@types/papaparse": "^5.3.16",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3",
+    "wrangler": "^4.45.0"
+  },
+  "overrides": {
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@modelcontextprotocol/sdk": "^1.32.1"
+  },
+  "cloudflare": {
+    "bindings": {
+      "BOOTSTRAP_TOKEN": {
+        "description": "One-time token used to create the first admin. Generate a random 32+ character value."
+      },
+      "SESSION_SIGNING_KEY": {
+        "description": "Random 32+ character secret used to sign admin sessions."
+      },
+      "CREDENTIAL_ENCRYPTION_KEY": {
+        "description": "Base64-encoded 32-byte AES key used to encrypt connector credentials."
+      }
+    }
+  }
+}
