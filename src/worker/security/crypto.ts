@@ -29,7 +29,7 @@ export async function constantTimeEqual(left: string, right: string): Promise<bo
   return different === 0;
 }
 
-export async function hashPassword(password: string, salt = randomToken(18), iterations = 210_000) {
+export async function hashPassword(password: string, salt = randomToken(18), iterations = 100_000) {
   const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits(
     { name: "PBKDF2", hash: "SHA-256", salt: encoder.encode(salt), iterations },

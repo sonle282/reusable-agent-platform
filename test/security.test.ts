@@ -15,10 +15,14 @@ describe("credential and password security", () => {
     await expect(verifyPassword("wrong password", result.salt, result.iterations, result.hash)).resolves.toBe(false);
   });
 
+  it("keeps the default PBKDF2 cost within the Workers runtime limit", async () => {
+    const result = await hashPassword("a sufficiently long password");
+    expect(result.iterations).toBe(100_000);
+  });
+
   it("produces stable HMAC signatures", async () => {
     const signature = await hmacHex("secret", "payload");
     expect(signature).toMatch(/^[a-f0-9]{64}$/);
     await expect(constantTimeEqual(signature, await hmacHex("secret", "payload"))).resolves.toBe(true);
   });
 });
-
