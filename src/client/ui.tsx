@@ -586,6 +586,8 @@ const statusMap: Record<string, { tone: BadgeTone; label: string } | null> = {
   draft: { tone: "neutral", label: "Not live" },
   archived: { tone: "neutral", label: "Off" },
   disabled: { tone: "neutral", label: "Off" },
+  paused: { tone: "neutral", label: "Off" },
+  error: { tone: "red", label: "Not working" },
   pending: { tone: "orange", label: "Processing" },
   processing: { tone: "orange", label: "Processing" },
   accepted: { tone: "orange", label: "Processing" },

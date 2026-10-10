@@ -485,7 +485,8 @@ app.post("/api/admin/connections", async (c) => {
   const connectionToken = randomToken(24);
   const apiKey = randomToken(32);
   let credentialId: string | null = null;
-  const config = { ...body.config };
+  // Only the last 4 characters are kept so the admin can tell keys apart; the key itself is stored as a hash.
+  const config: Record<string, unknown> = { ...body.config, ...(body.type === "generic_api" ? { keyHint: apiKey.slice(-4) } : {}) };
   const statements: D1PreparedStatement[] = [];
   if (body.apiCredential) {
     credentialId = id("cred");
@@ -518,12 +519,30 @@ app.post("/api/admin/connections/:id/activate", async (c) => {
 });
 
 app.post("/api/admin/connections/:id/rotate", async (c) => {
-  const connection = await c.env.DB.prepare("SELECT id FROM connections WHERE id=?").bind(c.req.param("id")).first();
+  const connection = await c.env.DB.prepare("SELECT id,type,config_json FROM connections WHERE id=?").bind(c.req.param("id")).first<{ id: string; type: string; config_json: string }>();
   if (!connection) return c.json({ error: "Connection not found" }, 404);
   const apiKey = randomToken(32);
   const webhookToken = randomToken(24);
-  await c.env.DB.prepare("UPDATE connections SET api_key_hash=?,token_hash=?,updated_at=datetime('now') WHERE id=?").bind(await sha256(apiKey), await sha256(webhookToken), c.req.param("id")).run();
+  const config = { ...parseJson(connection.config_json, {} as Record<string, unknown>), ...(connection.type === "generic_api" ? { keyHint: apiKey.slice(-4) } : {}) };
+  await c.env.DB.prepare("UPDATE connections SET api_key_hash=?,token_hash=?,config_json=?,updated_at=datetime('now') WHERE id=?").bind(await sha256(apiKey), await sha256(webhookToken), JSON.stringify(config), c.req.param("id")).run();
+  await writeAudit(c.env.DB, "connection.rotate", "connection", connection.id, c.get("adminId"));
   return c.json({ apiKey, webhookToken });
+});
+
+// Turning a channel off makes its key and webhook URL stop working until it is turned on again.
+app.post("/api/admin/connections/:id/deactivate", async (c) => {
+  const connection = await c.env.DB.prepare("SELECT id FROM connections WHERE id=?").bind(c.req.param("id")).first<{ id: string }>();
+  if (!connection) return c.json({ error: "Connection not found" }, 404);
+  await c.env.DB.prepare("UPDATE connections SET status='paused',updated_at=datetime('now') WHERE id=?").bind(connection.id).run();
+  await writeAudit(c.env.DB, "connection.deactivate", "connection", connection.id, c.get("adminId"));
+  return c.json({ id: connection.id, status: "paused" });
+});
+
+app.patch("/api/admin/connections/:id", async (c) => {
+  const body = z.object({ name: z.string().trim().min(1).max(100) }).parse(await c.req.json());
+  const result = await c.env.DB.prepare("UPDATE connections SET name=?,updated_at=datetime('now') WHERE id=?").bind(body.name, c.req.param("id")).run();
+  if (!result.meta.changes) return c.json({ error: "Connection not found" }, 404);
+  return c.json({ id: c.req.param("id"), name: body.name });
 });
 
 app.get("/api/admin/conversations", async (c) => {

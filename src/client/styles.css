@@ -828,6 +828,11 @@ button.scen-item { width: 100%; border: 0; border-top: 1px solid var(--color-sep
 .data-details { font: var(--text-callout); }
 .data-foot { font: var(--text-footnote); }
 
+/* Channels page */
+.badge.badge-count-red { background: var(--color-red); color: var(--color-on-tile); }
+.mono-value { font: var(--text-mono); }
+.code-block.flush { margin: 0; padding: 4px 16px 14px; border-radius: 0; background: transparent; }
+
 /* Conversations page */
 .conversations-page { gap: 20px; }
 .conversation-time { font: var(--text-footnote); }
