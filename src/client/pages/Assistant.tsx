@@ -4,7 +4,7 @@ import { modelSupportsTemperature, type AnthropicModel } from "../../shared/mode
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
 import { titleField } from "../format";
 import { RichBubbles } from "../RichMessage";
-import type { AgentDetail, AgentDraft, AgentResult, Collection, Dashboard, EvalCase, EvalRun, KnowledgeSource } from "../types";
+import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import {
   Badge,
   Banner,
@@ -159,7 +159,6 @@ export function AssistantPage({
           </Button>
         }
       />
-      <TodaySummary navigate={navigate} />
       {missing.length > 0 && (
         <Banner tone="orange">
           {missing.map((item) => (
@@ -1174,30 +1173,5 @@ function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSour
         {error && <Banner>{error}</Banner>}
       </form>
     </Sheet>
-  );
-}
-
-// Three numbers an owner checks every morning; each opens the place to act.
-function TodaySummary({ navigate }: { navigate: Navigate }) {
-  const [summary, setSummary] = useState<Dashboard | null>(null);
-  useEffect(() => {
-    void api<Dashboard>("/api/admin/dashboard").then(setSummary).catch(() => undefined);
-  }, []);
-  if (!summary) return null;
-  const tiles = [
-    { label: "Chats in the last 24 hours", value: summary.chats24h, hint: `${summary.chats7d} this week`, go: () => navigate("conversations"), tone: "" },
-    { label: "Waiting for your team", value: summary.waitingForTeam, hint: summary.waitingForTeam ? "Reply in Conversations" : "All handled", go: () => navigate("conversations"), tone: summary.waitingForTeam ? "orange" : "" },
-    { label: "Replies not delivered", value: summary.failedDeliveries, hint: summary.failedDeliveries ? "Retry in Channels" : "All delivered", go: () => navigate("connections"), tone: summary.failedDeliveries ? "red" : "" },
-  ];
-  return (
-    <div className="summary">
-      {tiles.map((tile) => (
-        <button key={tile.label} className={`summary-tile ${tile.tone}`} onClick={tile.go}>
-          <span className="summary-value">{tile.value}</span>
-          <span className="summary-label">{tile.label}</span>
-          <span className="summary-hint">{tile.hint}</span>
-        </button>
-      ))}
-    </div>
   );
 }

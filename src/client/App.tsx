@@ -5,13 +5,15 @@ import { AssistantPage, type AssistantTab } from "./pages/Assistant";
 import { ConnectionsPage } from "./pages/Connections";
 import { ConversationsPage } from "./pages/Conversations";
 import { DataPage } from "./pages/Data";
+import { HomePage } from "./pages/Home";
 import { SettingsPage } from "./pages/Settings";
 import type { Bootstrap, Brand } from "./types";
 import { Banner, Button, FieldRow, Icon, Section, Segmented, Spinner, TextInput, ToastProvider, errorMessage } from "./ui";
 
-type Page = "assistant" | "data" | "conversations" | "connections" | "settings";
+type Page = "home" | "assistant" | "data" | "conversations" | "connections" | "settings";
 
 const nav: Array<{ id: Page; label: string; icon: string }> = [
+  { id: "home", label: "Home", icon: "overview" },
   { id: "assistant", label: "Assistant", icon: "assistant" },
   { id: "data", label: "Data", icon: "data" },
   { id: "conversations", label: "Conversations", icon: "conversations" },
@@ -27,7 +29,7 @@ function readRoute(): { page: Page; tab: AssistantTab; params: string[] } {
   const [page, ...rest] = window.location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   const known = nav.some((item) => item.id === page);
   return {
-    page: known ? (page as Page) : "assistant",
+    page: known ? (page as Page) : "home",
     tab: page === "assistant" && assistantTabs.includes(rest[0] as AssistantTab) ? (rest[0] as AssistantTab) : "test",
     params: known && page !== "assistant" ? rest : [],
   };
@@ -75,6 +77,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
         </div>
       </aside>
       <main className="content">
+        {page === "home" && <HomePage agent={agent} go={(target) => go(target)} />}
         {page === "assistant" && (
           <AssistantPage
             agentId={agent.id}

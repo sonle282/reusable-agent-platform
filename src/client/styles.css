@@ -1567,7 +1567,7 @@ tr:last-child td {
     inset: auto 0 0;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
     background: var(--sidebar);
     backdrop-filter: saturate(180%) blur(24px);
@@ -1763,6 +1763,11 @@ tr.clickable:focus-visible {
 .summary-hint {
   color: var(--label-secondary);
   font-size: 12px;
+}
+
+.summary-tile.placeholder {
+  min-height: 94px;
+  background: var(--fill);
 }
 
 .summary-tile.orange .summary-value {
