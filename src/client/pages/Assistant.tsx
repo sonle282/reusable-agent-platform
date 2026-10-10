@@ -149,7 +149,7 @@ export function AssistantPage({
           const failing = agent.evalCases.filter((item) => run.results.some((result) => result.caseId === item.id && !result.passed));
           // A broken fix is the most important one to show: it passed once and regressed.
           const failed = failing.find((item) => (JSON.parse(item.assertions_json || "{}") as Assertions).fromFix) ?? failing[0];
-          const reply = run.results.find((result) => result.caseId === failed?.id)?.text ?? "";
+          const reply = run.results.find((result) => result.caseId === failed?.id)?.output?.messages?.map((message) => message.text).join("\n") ?? "";
           setPublishFailure({ name: failed?.name ?? "A scenario", fromFix: Boolean(failed && (JSON.parse(failed.assertions_json || "{}") as Assertions).fromFix), input: failed?.input ?? "", reply });
           setScenOpen(true);
           return;
