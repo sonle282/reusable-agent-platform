@@ -4,7 +4,7 @@ import { displayName, formatDate, previewSnippet, timeSeparator } from "../forma
 import { useFixAnswer } from "../FixSheet";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { Connection, Conversation, TranscriptMessage } from "../types";
-import { Avatar, Badge, Banner, Button, EmptyState, Icon, PageHeader, SearchField, Skeleton, SkeletonLine, Toggle, errorMessage, useToast } from "../ui";
+import { Alert, Avatar, Badge, Banner, Button, EmptyState, Icon, Menu, PageHeader, SearchField, Skeleton, SkeletonLine, Toggle, errorMessage, useToast } from "../ui";
 
 const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 
@@ -22,6 +22,7 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [openMessage, setOpenMessage] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
+  const [erasing, setErasing] = useState<"ask" | "busy" | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const selectedId = openId ?? items?.[0]?.id;
 
@@ -68,6 +69,33 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
       toast(errorMessage(caught, "Couldn't change who replies"), "error");
     } finally {
       setSwitching(false);
+    }
+  }
+
+  // Hands the owner a JSON file of everything we hold about this customer (all their chats).
+  async function exportCustomer(conversation: Conversation) {
+    try {
+      const data = await api<unknown>(`/api/admin/conversations/${encodeURIComponent(conversation.id)}/customer-data`);
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      link.download = `customer-data-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast("Customer data downloaded");
+    } catch (caught) {
+      toast(errorMessage(caught, "Couldn't export the customer data"), "error");
+    }
+  }
+  async function eraseCustomer(conversation: Conversation) {
+    setErasing("busy");
+    try {
+      await post(`/api/admin/conversations/${encodeURIComponent(conversation.id)}/erase`, { confirm: true });
+      toast("Customer data erased");
+      await Promise.all([load(), loadDetail(conversation.id)]);
+    } catch (caught) {
+      toast(errorMessage(caught, "Couldn't erase the customer data"), "error");
+    } finally {
+      setErasing(null);
     }
   }
 
@@ -145,12 +173,31 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
                     <div id="transcript-name" className="pane-title truncate">
                       {displayName(selected)}
                     </div>
-                    <div className="pane-sub truncate">{[selected.phone, selected.email, channelName(selected.connection_id)].filter(Boolean).join(" · ") || "No contact details yet"}</div>
+                    <div className="pane-sub truncate">{selected.erased_at ? `Customer data erased ${formatDate(selected.erased_at)}` : [selected.phone, selected.email, channelName(selected.connection_id)].filter(Boolean).join(" · ") || "No contact details yet"}</div>
                   </div>
                   <label className="takeover">
                     <span>Your team replies</span>
                     <Toggle label="Your team replies" checked={Boolean(selected.human_takeover)} disabled={switching} onChange={(enabled) => void setTakeover(selected, enabled)} />
                   </label>
+                  <Menu
+                    label="Customer data"
+                    items={[
+                      { group: "Customer data" },
+                      { label: "Export", icon: "download", onSelect: () => void exportCustomer(selected) },
+                      { label: "Erase…", icon: "trash", destructive: true, onSelect: () => setErasing("ask") },
+                    ]}
+                  />
+                  {erasing && (
+                    <Alert
+                      title="Erase this customer's data?"
+                      text="Their name, phone, email and every chat with them are deleted for good. Export first if you need a copy. Business data and fixes you made stay."
+                      confirmLabel="Erase"
+                      destructive
+                      busy={erasing === "busy"}
+                      onCancel={() => setErasing(null)}
+                      onConfirm={() => void eraseCustomer(selected)}
+                    />
+                  )}
                 </div>
                 {Boolean(selected.human_takeover) && (
                   <div className="banner banner-info takeover-banner" role="status">

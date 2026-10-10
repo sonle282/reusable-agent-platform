@@ -97,6 +97,13 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     this.setState({ ...this.state, humanTakeover: enabled, stage: enabled ? "human_handoff" : "engaged" });
   }
 
+  // Customer asked to be forgotten: drop the transcript and what we remembered about them. The version pointer stays.
+  async eraseCustomerData() {
+    this.sql`DELETE FROM conversation_messages`;
+    this.sql`UPDATE processed_events SET result_json = '{"status":"completed","messages":[]}'`;
+    if (this.state.initialized) this.setState({ ...this.state, profile: {}, rollingSummary: "" });
+  }
+
   async getTranscript() {
     return this.sql<{ id: string; role: string; content: string; created_at: string }>`SELECT id,role,content,created_at FROM conversation_messages ORDER BY created_at ASC LIMIT 500`;
   }

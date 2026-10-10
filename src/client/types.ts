@@ -113,6 +113,7 @@ export type Conversation = {
   display_name?: string | null;
   phone?: string | null;
   email?: string | null;
+  erased_at?: string | null;
   stage: string;
   human_takeover: number;
   last_message_preview: string;
