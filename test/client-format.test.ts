@@ -63,3 +63,13 @@ describe("formatDate", () => {
     expect(timeSeparator(a, at(new Date(2026, 9, 10, 15, 0)), now)).toBe("Today 3:00 PM");
   });
 });
+
+describe("readable fix reply", async () => {
+  const { readable } = await import("../src/client/FixSheet");
+  it("shows only the customer-facing text of structured replies", () => {
+    const payload = JSON.stringify({ version: "v2", content: { messages: [{ type: "text", text: "Dạ thứ Bảy mở theo hẹn ạ." }] }, meta: { stage: "new" } });
+    expect(readable(payload)).toBe("Dạ thứ Bảy mở theo hẹn ạ.");
+    expect(readable(`${payload}\n${payload}`)).toBe("Dạ thứ Bảy mở theo hẹn ạ.\nDạ thứ Bảy mở theo hẹn ạ.");
+    expect(readable("Plain answer")).toBe("Plain answer");
+  });
+});

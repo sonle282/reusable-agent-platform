@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { post } from "./api";
 import { maskContact } from "../shared/mask";
 import { publishWithChecks } from "./publish";
+import { parseRichMessage } from "./RichMessage";
 import { Alert, Badge, Banner, Button, Diff, Icon, Section, Segmented, Sheet, Spinner, Steps, TextArea, errorMessage, useToast } from "./ui";
 
 type Kind = "data" | "knowledge" | "rule";
@@ -37,6 +38,26 @@ const places: Record<Kind, { title: string; tile: string; icon: string; choice: 
   rule: { title: "Add a line to Instructions", tile: "soft-orange", icon: "sparkles", choice: "A rule for every conversation" },
 };
 const stepLabels = ["What it should say", "Where to fix it", "Result"];
+
+// Assistants may reply with a structured channel payload; show only the text a customer would read.
+// The server joins several messages with new lines, so try the whole reply first, then each line.
+export function readable(value: string) {
+  const textOf = (chunk: string) =>
+    parseRichMessage(chunk)
+      .map((part) => part.text ?? "")
+      .filter(Boolean)
+      .join("\n");
+  const whole = textOf(value);
+  if (whole !== value || !value.includes('"content"')) return whole.trim() || value;
+  return (
+    value
+      .split("\n")
+      .map(textOf)
+      .filter(Boolean)
+      .join("\n")
+      .trim() || value
+  );
+}
 
 function friendlyFailure(failures: string[]) {
   const first = failures[0] ?? "";
@@ -111,7 +132,8 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
         keep,
       });
       if (result.kept) return onFinished({ kind, kept: true });
-      setOutcome(result.passed ? { state: "pass", reply: result.reply ?? "", scenario: result.scenario?.name ?? name } : { state: "fail", reply: result.reply ?? "", failures: result.failures ?? [] });
+      const reply = readable(result.reply ?? "");
+      setOutcome(result.passed ? { state: "pass", reply, scenario: result.scenario?.name ?? name } : { state: "fail", reply, failures: result.failures ?? [] });
     } catch (caught) {
       setStep(2);
       setOutcome(null);
