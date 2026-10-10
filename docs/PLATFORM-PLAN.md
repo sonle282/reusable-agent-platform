@@ -171,6 +171,10 @@ The runtime calls a provider abstraction rather than Anthropic directly. v1 uses
 
 After onboarding, the navigation is: Assistant, Data, Conversations, Connections, Settings. The Assistant page has four tabs — Test (default, chat preview + trace + evaluations), Instructions, Sources (knowledge, data collections, read-only tools), Versions.
 
+### Assistant profile (2026-10-10)
+
+The builder is industry-neutral: any business can use it for an AI customer-facing assistant (front desk, page inbox, sales, support). Instructions are a short owner-editable profile — business (name, offering, contact and hours, website), the assistant's job, voice and style, Always / Never rules, hand-off triggers, contact details to collect — composed into the system prompt by `src/shared/prompt.ts`. A long-form "Detailed playbook" is optional under Advanced; owner sections win when they disagree. Starter templates (Sales, Support, Blank) are English and contain no industry assumptions. The admin UI is English; the assistant replies in the customer's language.
+
 ### UX principles (2026-10-10 redesign)
 
 - Apple Human Interface Guidelines on the web: system font, semantic system colors with automatic dark mode, inset grouped lists, segmented controls, switches, sheets, sidebar on desktop and tab bar on mobile.

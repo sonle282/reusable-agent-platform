@@ -66,8 +66,8 @@ Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original a
 - Brand: `Mr Spa AI`, support URL `https://mrspainc.com`
 - Admin email: `sonle@nhi.sg` (password held by the owner, never in Git)
 - Assistant: `Mr Spa Consultant` (`agent_9ba698281216469095698ed4c28c928a`), model `claude-haiku-5-5`, max tokens 4096
-- **Production version v2 live** (`ver_57fb65a347a1488fb6e2476a8fe03f16`); v1 (`ver_647de5c138cc459aa0d0716d6b72356e`) kept for rollback
-- Collections: 5; records 82 — 72 products, 7 standing offers `OF-001`…`OF-008` (no OF-005) active in `Mr Spa Offers`, 3 example offers `U001`–`U003` archived
+- **Production version v3 live** (`ver_52d5f01207a24833beaf77ad739b03ae`) — first version driven by the structured profile; v2 (`ver_57fb65a3…`) and v1 (`ver_647de5c1…`) kept for rollback
+- Collections: 5 (`Mr Spa Products`, `Mr Spa Offers`, empty starters Products/Offers/Policies); records 82 — 72 products, 7 standing offers `OF-001`…`OF-008` (no OF-005) active, 3 example offers `U001`–`U003` off. Column labels are English; customer-facing content stays Vietnamese
 - Knowledge sources: 9, re-ingested with the lowercase AI Search metadata schema, all `ready`
 - Eval cases: 2 critical (`search_products` price guard, `search_offers` offer guard)
 - Anthropic key stored encrypted in D1; model calls go through the Workers `AI` binding to AI Gateway `default` (Authenticated Gateway compatible)
@@ -111,7 +111,7 @@ Secrets remain on the Cloudflare account across laptop changes and normal Git de
 Owner direction (2026-10-10): finish the agent builder first; plug in channels (Zernio, other integrations) only after that.
 
 1. Agent builder polish from the owner walkthrough (P0 shipped in `f536f4c`, `4fe6408`). Open P1, in order:
-   - Instructions are a 33,000-character, 258-line prompt with English headings and 79 internal codes; an owner cannot edit it safely. Split into a few plain Vietnamese sections (Giọng điệu, Luôn làm, Không bao giờ, Khi nào chuyển nhân viên, Thông tin cửa hàng) with the technical prompt kept under Nâng cao.
+   - Done (`6b29fbc`, v3): structured profile replaces the wall of prompt for owners; the 33,000-character Mr Spa prompt stays as the Detailed playbook. UI switched to English and made industry-neutral.
    - "Sửa từ câu trả lời": from a Test reply, jump to the record or knowledge source it used.
    - A small daily summary (khách hôm nay, đang chờ nhân viên, gửi lỗi) on the Assistant page.
    - Three unused starter collections (Products, Offers, Policies) clutter Data; allow hiding/archiving unused collections.

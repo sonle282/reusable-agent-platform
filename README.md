@@ -16,7 +16,7 @@ This is a public source template. Production secrets and customer credentials li
 
 ## What is implemented
 
-- React admin UI (Apple HIG style, one assistant per instance) with first-run setup, Assistant, Data, Conversations, Connections, and Settings.
+- React admin UI in English (Apple HIG style, one assistant per instance) with first-run setup, Assistant, Data, Conversations, Channels, and Settings. Industry-neutral: the assistant is configured from a short profile (business, job, voice, always/never, hand-off, contact details) plus an optional detailed playbook.
 - Hono API and static assets in one Cloudflare Worker deployment.
 - Agent draft, immutable versions, publish, rollback, Preview traces, and critical eval gates.
 - Conversation-scoped Cloudflare Agent/Durable Object state with persistent message history and pinned agent version.
