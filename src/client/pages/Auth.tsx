@@ -5,7 +5,7 @@ import { Banner, Button, FieldRow, Section, TextInput, errorMessage } from "../u
 
 export function AppIcon({ brand, size = 64 }: { brand: Brand; size?: number }) {
   return (
-    <span className="app-icon" style={{ width: size, height: size, borderRadius: size * 0.225, background: brand.logoUrl ? "#fff" : brand.primaryColor }}>
+    <span className="app-icon" style={{ width: size, height: size, borderRadius: size * 0.225, background: brand.logoUrl ? "var(--color-surface)" : brand.primaryColor }}>
       {brand.logoUrl ? <img src={brand.logoUrl} alt="" /> : <b style={{ fontSize: size * 0.42 }}>{brand.name.slice(0, 1)}</b>}
     </span>
   );
