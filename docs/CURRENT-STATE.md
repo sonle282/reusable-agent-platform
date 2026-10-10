@@ -66,8 +66,8 @@ Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original a
 - Brand: `Mr Spa AI`, support URL `https://mrspainc.com`
 - Admin email: `sonle@nhi.sg` (password held by the owner, never in Git)
 - Assistant: `Mr Spa Consultant` (`agent_9ba698281216469095698ed4c28c928a`), model `claude-haiku-5-5`, max tokens 4096
-- **Production version v1 published** (`ver_647de5c138cc459aa0d0716d6b72356e`) after both critical evals passed
-- Collections: 5; records 75 (72 products + 3 example offers that are `archived`)
+- **Production version v2 live** (`ver_57fb65a347a1488fb6e2476a8fe03f16`); v1 (`ver_647de5c138cc459aa0d0716d6b72356e`) kept for rollback
+- Collections: 5; records 82 — 72 products, 7 standing offers `OF-001`…`OF-008` (no OF-005) active in `Mr Spa Offers`, 3 example offers `U001`–`U003` archived
 - Knowledge sources: 9, re-ingested with the lowercase AI Search metadata schema, all `ready`
 - Eval cases: 2 critical (`search_products` price guard, `search_offers` offer guard)
 - Anthropic key stored encrypted in D1; model calls go through the Workers `AI` binding to AI Gateway `default` (Authenticated Gateway compatible)
@@ -83,7 +83,7 @@ Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original a
 ### Production behaviours worth knowing
 
 - Requests from Vietnam reach the HKG colo, where Anthropic answers 403 "Request not allowed". The Worker uses `placement.region = aws:us-east-1`, and new ConversationAgent Durable Objects get location hint `enam` (`CONVERSATION_LOCATION_HINT`). Do not remove either without a replacement.
-- The three real standing offers (OF-001 free shipping from 6 chairs, OF-002 $100/chair self-install, OF-003 volume discount) currently live inside the compiled Behavior instructions, not in the Offers collection. Moving them into the collection is the open data-modelling follow-up.
+- v2 moved all seven standing offers out of the Behavior instructions into `Mr Spa Offers` (content and conditions verbatim). The instructions now say: always call `search_offers` (limit 10) before mentioning any offer, and always call `search_products` before answering about a specific product. With the product rule the price eval called the tool 5/5 times (1/4 before). Edit offers in Data, not in Instructions; no republish is needed for record changes.
 - The imported instructions make the assistant answer in the structured `v2` message JSON; the admin UI renders it, API clients receive the JSON string in `messages[].text`.
 
 ## Worker secrets present remotely
@@ -108,9 +108,11 @@ Secrets remain on the Cloudflare account across laptop changes and normal Git de
 
 ## Immediate next work
 
-1. Zernio: when the owner provides the Inbox API URL, API token and webhook signing secret, create the Zernio connection in the UI and verify invalid HMAC → 401, duplicate event ignored, webhook 202 quickly, queue → outbound delivery, idempotent retry.
-2. Move the three standing offers from Behavior into the Offers collection with validity dates, remove them from the instructions, re-run evals and publish v2.
-3. Exercise contact capture, human takeover on a real channel conversation, and a forced failed delivery → inspect → retry.
+Owner direction (2026-10-10): finish the agent builder first; plug in channels (Zernio, other integrations) only after that.
+
+1. Agent builder polish driven by real use of the redesigned UI (Instructions, Sources, Test, Versions, Data); keep KISS and fewest steps.
+2. Then Zernio: create the connection in the UI with the owner's Inbox API URL, API token and webhook secret; verify invalid HMAC → 401, duplicate ignored, fast 202, queue → outbound, idempotent retry.
+3. Contact capture, human takeover on a real channel conversation, forced failed delivery → inspect → retry.
 4. Backup/export validation and public-template release gates.
 
 ## Known v1 boundaries
