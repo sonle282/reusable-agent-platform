@@ -110,7 +110,12 @@ Secrets remain on the Cloudflare account across laptop changes and normal Git de
 
 Owner direction (2026-10-10): finish the agent builder first; plug in channels (Zernio, other integrations) only after that.
 
-1. Agent builder polish driven by real use of the redesigned UI (Instructions, Sources, Test, Versions, Data); keep KISS and fewest steps.
+1. Agent builder polish from the owner walkthrough (P0 shipped in `f536f4c`, `4fe6408`). Open P1, in order:
+   - Instructions are a 33,000-character, 258-line prompt with English headings and 79 internal codes; an owner cannot edit it safely. Split into a few plain Vietnamese sections (Giọng điệu, Luôn làm, Không bao giờ, Khi nào chuyển nhân viên, Thông tin cửa hàng) with the technical prompt kept under Nâng cao.
+   - "Sửa từ câu trả lời": from a Test reply, jump to the record or knowledge source it used.
+   - A small daily summary (khách hôm nay, đang chờ nhân viên, gửi lỗi) on the Assistant page.
+   - Three unused starter collections (Products, Offers, Policies) clutter Data; allow hiding/archiving unused collections.
+   - Knowledge sources show file names (`kb-after-sales.md`); allow renaming to plain titles.
 2. Then Zernio: create the connection in the UI with the owner's Inbox API URL, API token and webhook secret; verify invalid HMAC → 401, duplicate ignored, fast 202, queue → outbound, idempotent retry.
 3. Contact capture, human takeover on a real channel conversation, forced failed delivery → inspect → retry.
 4. Backup/export validation and public-template release gates.
