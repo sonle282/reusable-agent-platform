@@ -1399,6 +1399,24 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fix, setFix] = useState<{ undoable: boolean; target_kind: string | null } | null>(null);
+  const [undo, setUndo] = useState<{ reason: string; busy: boolean } | null>(null);
+  const toast = useToast();
+  useEffect(() => {
+    if (form.fromFix) void api<{ undoable: boolean; target_kind: string | null }>(`/api/admin/fixes/${form.fromFix}`).then(setFix, () => setFix(null));
+  }, [form.fromFix]);
+  async function undoFix() {
+    if (!undo || !form.fromFix) return;
+    setUndo({ ...undo, busy: true });
+    try {
+      const result = await post<{ live: boolean }>(`/api/admin/fixes/${form.fromFix}/undo`, { reason: undo.reason });
+      toast(result.live ? "Fix undone — customers see the old value again" : "Fix undone — publish to remove it for customers");
+      onDone();
+    } catch (caught) {
+      setUndo(null);
+      setError(errorMessage(caught, "Couldn't undo the fix"));
+    }
+  }
   const list = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -1434,10 +1452,16 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
         onClose={onClose}
         footer={
           <>
-            {existing && (
-              <Button variant="plain" destructive onClick={() => setConfirmDelete(true)}>
-                Delete
+            {existing && fix?.undoable ? (
+              <Button variant="plain" destructive onClick={() => setUndo({ reason: "", busy: false })}>
+                Undo fix
               </Button>
+            ) : (
+              existing && (
+                <Button variant="plain" destructive onClick={() => setConfirmDelete(true)}>
+                  Delete
+                </Button>
+              )
             )}
             <span className="spacer" />
             <Button variant="gray" onClick={onClose}>
@@ -1485,6 +1509,22 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
           {error && <Banner tone="error" title="Couldn't save it" text={error} />}
         </form>
       </Sheet>
+      {undo && (
+        <Alert
+          title="Undo this fix?"
+          text={
+            <>
+              {fix?.target_kind === "data" ? "The data row goes back to its old value right away." : "The added answer or rule is removed from your changes."} This scenario is removed too.
+              <TextInput aria-label="Why (optional)" placeholder="Why (optional)" value={undo.reason} onChange={(event) => setUndo({ ...undo, reason: event.target.value })} style={{ marginTop: 12 }} />
+            </>
+          }
+          confirmLabel="Undo fix"
+          destructive
+          busy={undo.busy}
+          onCancel={() => setUndo(null)}
+          onConfirm={() => void undoFix()}
+        />
+      )}
       {confirmDelete && existing && (
         <Alert
           title="Delete this scenario?"

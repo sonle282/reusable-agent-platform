@@ -223,6 +223,7 @@ type AttentionItem = {
   waitingDays?: number;
 };
 
+const undoable = (fix: { status: string; applied_at: string | null }) => ["verified", "kept_failing", "published"].includes(fix.status) && Boolean(fix.applied_at) && ageDays(fix.applied_at!) < 7;
 const ageDays = (value: string) => Math.floor((Date.now() - new Date(/Z|[+-]\d\d:?\d\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`).getTime()) / 86_400_000);
 
 export function registerFixRoutes(app: Hono<AppEnv>) {
@@ -333,8 +334,50 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
   });
 
   app.get("/api/admin/fixes/:fixId", async (c) => {
-    const fix = await c.env.DB.prepare("SELECT id,origin,conversation_id,customer_message,bad_reply,correct_reply,status,target_kind FROM answer_fixes WHERE id=?").bind(c.req.param("fixId")).first();
-    return fix ? c.json(fix) : c.json({ error: "Fix not found" }, 404);
+    const fix = await c.env.DB.prepare("SELECT id,origin,conversation_id,customer_message,bad_reply,correct_reply,status,target_kind,applied_at FROM answer_fixes WHERE id=?").bind(c.req.param("fixId")).first<{ status: string; applied_at: string | null }>();
+    return fix ? c.json({ ...fix, undoable: undoable(fix) }) : c.json({ error: "Fix not found" }, 404);
+  });
+
+  // Undo within 7 days: put the old value or line back and remove the fix's scenario. Data rows change for customers at once; instructions on the next Publish.
+  app.post("/api/admin/fixes/:fixId/undo", async (c) => {
+    const body = z.object({ reason: z.string().trim().max(300).default("") }).parse(await c.req.json().catch(() => ({})));
+    const fix = await c.env.DB.prepare("SELECT id,agent_id,status,applied_at,target_kind,change_json,eval_case_id FROM answer_fixes WHERE id=?").bind(c.req.param("fixId"))
+      .first<{ id: string; agent_id: string; status: string; applied_at: string | null; target_kind: string | null; change_json: string | null; eval_case_id: string | null }>();
+    if (!fix) return c.json({ error: "Fix not found" }, 404);
+    if (!undoable(fix)) return c.json({ error: fix.status === "undone" ? "This fix was already undone" : "Fixes can be undone for 7 days after they're applied" }, 409);
+    const change = parseJson(fix.change_json ?? "{}", {} as Record<string, unknown>);
+    let live = false;
+    if (fix.target_kind === "data") {
+      const record = await c.env.DB.prepare("SELECT data_json FROM data_records WHERE id=? AND collection_id=?").bind(String(change.recordId), String(change.collectionId)).first<{ data_json: string }>();
+      if (record) {
+        const data = parseJson(record.data_json, {} as Record<string, unknown>);
+        const field = String(change.field);
+        if (String(data[field] ?? "") !== String(change.after ?? "")) return c.json({ error: "That data row was edited after the fix. Change it on the Data page instead." }, 409);
+        const restored = { ...data, [field]: change.before ?? "" };
+        await c.env.DB.prepare("UPDATE data_records SET data_json=?,search_text=?,updated_at=datetime('now') WHERE id=?").bind(JSON.stringify(restored), Object.values(restored).join(" ").toLowerCase(), String(change.recordId)).run();
+        live = true;
+      }
+    } else {
+      const agent = await getAgent(c.env.DB, fix.agent_id);
+      if (agent) {
+        const draft = agentDraftSchema.parse(JSON.parse(agent.draft_json));
+        if (fix.target_kind === "knowledge") draft.correctedAnswers = draft.correctedAnswers.filter((item) => item.fixId !== fix.id);
+        else if (fix.target_kind === "rule") {
+          const section = change.section as RuleSection;
+          const lines = [...(draft.profile[section] ?? [])];
+          const index = lines.lastIndexOf(String(change.line));
+          if (index >= 0) lines.splice(index, 1);
+          draft.profile = { ...draft.profile, [section]: lines };
+        }
+        await saveDraft(c.env, fix.agent_id, draft);
+      }
+    }
+    await c.env.DB.batch([
+      ...(fix.eval_case_id ? [c.env.DB.prepare("DELETE FROM eval_cases WHERE id=?").bind(fix.eval_case_id)] : []),
+      c.env.DB.prepare("UPDATE answer_fixes SET status='undone' WHERE id=?").bind(fix.id),
+    ]);
+    await writeAudit(c.env.DB, "fix.undone", "answer_fix", fix.id, c.get("adminId"), { kind: fix.target_kind, reason: body.reason });
+    return c.json({ undone: true, live });
   });
 
   app.post("/api/admin/attention/dismiss", async (c) => {
