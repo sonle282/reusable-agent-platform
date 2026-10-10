@@ -14,12 +14,12 @@ import { Banner, Button, FieldRow, Icon, Section, Segmented, Spinner, TextInput,
 type Page = "home" | "assistant" | "data" | "conversations" | "connections" | "settings";
 
 const nav: Array<{ id: Page; label: string; icon: string }> = [
-  { id: "home", label: "Home", icon: "overview" },
-  { id: "assistant", label: "Assistant", icon: "assistant" },
-  { id: "data", label: "Data", icon: "data" },
-  { id: "conversations", label: "Conversations", icon: "conversations" },
-  { id: "connections", label: "Channels", icon: "connections" },
-  { id: "settings", label: "Settings", icon: "settings" },
+  { id: "home", label: "Home", icon: "house" },
+  { id: "assistant", label: "Assistant", icon: "sparkles" },
+  { id: "data", label: "Data", icon: "table" },
+  { id: "conversations", label: "Conversations", icon: "bubbles" },
+  { id: "connections", label: "Channels", icon: "link" },
+  { id: "settings", label: "Settings", icon: "gear" },
 ];
 const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "versions"];
 
@@ -49,34 +49,63 @@ function useRoute() {
   return { ...route, go };
 }
 
+function BrandTile({ brand }: { brand: Brand }) {
+  const initials = brand.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+  return (
+    <span className="brand-tile" role="img" aria-label={`${brand.name} logo`}>
+      {brand.logoUrl ? <img src={brand.logoUrl} alt="" /> : initials}
+    </span>
+  );
+}
+
 function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promise<void>; logout: () => void }) {
   const { page, tab, params, go } = useRoute();
   // One assistant per workspace; the backend still stores agents generically.
   const agent = data.agents[0];
+  const [unpublished, setUnpublished] = useState(Boolean(data.attention?.unpublished));
+  useEffect(() => setUnpublished(Boolean(data.attention?.unpublished)), [data.attention?.unpublished]);
+  const failed = data.attention?.failedDeliveries ?? 0;
   useEffect(() => {
     document.title = `${nav.find((item) => item.id === page)?.label ?? ""} · ${data.brand.name}`;
   }, [page, data.brand.name]);
   if (!agent) return <CreateAssistant brand={data.brand} onDone={reload} />;
+  const signal = (id: Page) => ({
+    dot: id === "assistant" && unpublished,
+    badge: id === "connections" && failed > 0 ? failed : 0,
+    hint: id === "assistant" && unpublished ? ", unpublished changes" : id === "connections" && failed > 0 ? `, ${failed} not delivered` : "",
+  });
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <AppIcon brand={data.brand} size={30} />
-          <b>{data.brand.name}</b>
+      <nav className="sidebar" aria-label="Main">
+        <div className="brand">
+          <BrandTile brand={data.brand} />
+          <span className="brand-name truncate">{data.brand.name}</span>
         </div>
-        <nav aria-label="Main">
-          {nav.map((item) => (
-            <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => go(item.id)}>
+        {nav.map((item) => {
+          const { dot, badge, hint } = signal(item.id);
+          return (
+            <button
+              type="button"
+              key={item.id}
+              className="nav-item"
+              aria-current={page === item.id ? "page" : undefined}
+              aria-label={`${item.label}${hint}`}
+              title={item.label}
+              onClick={() => go(item.id)}
+            >
               <Icon name={item.icon} size={18} />
-              <span>{item.label}</span>
+              <span className="nav-label">{item.label}</span>
+              {dot && <span className="nav-dot" aria-hidden="true" />}
+              {badge > 0 && <span className="nav-badge" aria-hidden="true">{badge}</span>}
             </button>
-          ))}
-        </nav>
-        <div className="sidebar-footer">
-          <span className={`live-dot ${agent.active_version_id ? "on" : ""}`} />
-          {agent.active_version_id ? "Assistant is live" : "Not live yet"}
-        </div>
-      </aside>
+          );
+        })}
+      </nav>
       <main className="content">
         {page === "home" && <HomePage agent={agent} go={(target) => go(target)} />}
         {page === "assistant" && (
@@ -87,6 +116,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
             onTab={(next) => go("assistant", next)}
             refresh={reload}
             navigate={(target, ...rest) => go(target, undefined, ...rest)}
+            onUnpublished={setUnpublished}
           />
         )}
         {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
@@ -94,6 +124,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
         {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} />}
         {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} />}
       </main>
+      {/* Phone tab bar: unchanged for now; the phone layout is a later pass. */}
       <nav className="tab-bar" aria-label="Main">
         {nav.map((item) => (
           <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => go(item.id)}>

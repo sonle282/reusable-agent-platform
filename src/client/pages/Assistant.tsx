@@ -48,6 +48,7 @@ export function AssistantPage({
   onTab,
   refresh,
   navigate,
+  onUnpublished,
 }: {
   agentId: string;
   collections: Collection[];
@@ -55,6 +56,7 @@ export function AssistantPage({
   onTab: (tab: AssistantTab) => void;
   refresh: () => Promise<void>;
   navigate: Navigate;
+  onUnpublished?: (value: boolean) => void;
 }) {
   const toast = useToast();
   const [agent, setAgent] = useState<AgentDetail | null>(null);
@@ -133,9 +135,12 @@ export function AssistantPage({
     }
   }
 
+  const live = agent?.versions.find((version) => version.id === agent.active_version_id);
+  const upToDate = Boolean(live) && Boolean(agent?.draftMatchesLive) && !editedSinceLoad && saveState === "saved";
+  useEffect(() => {
+    if (agent) onUnpublished?.(!upToDate);
+  }, [agent, upToDate, onUnpublished]);
   if (!agent) return error ? <Banner>{error}</Banner> : <div className="page-loading"><Spinner /></div>;
-  const live = agent.versions.find((version) => version.id === agent.active_version_id);
-  const upToDate = Boolean(live) && agent.draftMatchesLive && !editedSinceLoad && saveState === "saved";
   const missing = [
     !agent.draft.modelConfig.credentialId && { text: "No Anthropic API key yet.", action: "Open Settings", go: () => navigate("settings") },
     !agent.draft.instructions.trim() && !hasProfile(agent.draft) && { text: "Tell the assistant what its job is.", action: "Write instructions", go: () => onTab("instructions") },
