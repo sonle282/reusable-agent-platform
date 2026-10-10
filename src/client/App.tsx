@@ -7,6 +7,7 @@ import {
 } from "react";
 import Papa from "papaparse";
 import { api, patch, post, setCsrf } from "./api";
+import { modelSupportsTemperature, type AnthropicModel } from "../shared/contracts";
 
 type Page = "agents" | "data" | "connections" | "conversations" | "settings";
 type Brand = {
@@ -38,11 +39,7 @@ type Agent = {
 type AgentDraft = {
   instructions: string;
   modelConfig: {
-    model:
-      | "claude-sonnet-5"
-      | "claude-sonnet-4-6"
-      | "claude-haiku-4-5-20251001"
-      | "claude-opus-5";
+    model: AnthropicModel;
     credentialId?: string | null;
     accountId?: string | null;
     gatewayId?: string | null;
@@ -663,6 +660,9 @@ function AgentBuilder({
                   }))
                 }
               >
+                <option value="claude-sonnet-5-5">Claude Sonnet 5.5</option>
+                <option value="claude-opus-5-5">Claude Opus 5.5</option>
+                <option value="claude-haiku-5-5">Claude Haiku 5.5</option>
                 <option value="claude-sonnet-5">Claude Sonnet 5</option>
                 <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
                 <option value="claude-haiku-4-5-20251001">
@@ -672,12 +672,20 @@ function AgentBuilder({
               </select>
             </Field>
             <div className="two-col">
-              <Field label="Temperature">
+              <Field
+                label="Temperature"
+                hint={
+                  modelSupportsTemperature(draft.modelConfig.model)
+                    ? undefined
+                    : "Model này dùng sampling mặc định"
+                }
+              >
                 <input
                   type="number"
                   min="0"
                   max="1"
                   step="0.1"
+                  disabled={!modelSupportsTemperature(draft.modelConfig.model)}
                   value={draft.modelConfig.temperature}
                   onChange={(e) =>
                     mutate((value) => ({

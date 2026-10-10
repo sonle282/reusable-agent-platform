@@ -15,3 +15,13 @@ describe("agent contracts", () => {
   });
 });
 
+
+describe("model sampling compatibility", () => {
+  it("only sends temperature to models that accept sampling parameters", async () => {
+    const { modelSupportsTemperature, anthropicModelSchema } = await import("../src/shared/contracts");
+    expect(modelSupportsTemperature("claude-sonnet-4-6")).toBe(true);
+    expect(modelSupportsTemperature("claude-sonnet-5")).toBe(false);
+    expect(modelSupportsTemperature("claude-sonnet-5-5")).toBe(false);
+    expect(anthropicModelSchema.parse("claude-opus-5-5")).toBe("claude-opus-5-5");
+  });
+});

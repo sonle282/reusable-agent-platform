@@ -1,4 +1,4 @@
-import type { AgentVersionSnapshot } from "../../shared/contracts";
+import { modelSupportsTemperature, type AgentVersionSnapshot } from "../../shared/contracts";
 import { decryptCredential } from "../security/crypto";
 
 export type ModelMessage = {
@@ -63,7 +63,7 @@ export async function generateWithAnthropic(
       body: JSON.stringify({
         model: config.model,
         max_tokens: config.maxTokens,
-        temperature: config.temperature,
+        temperature: modelSupportsTemperature(config.model) ? config.temperature : undefined,
         system,
         messages,
         tools: tools.length ? tools : undefined,
