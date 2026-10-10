@@ -135,7 +135,7 @@ The pending production task is to provide an Anthropic API key securely.
 1. Sign in at `https://reusable-agent-platform.mrspaoffice.workers.dev`.
 2. Open model/provider settings.
 3. Set Cloudflare account ID `759105f65ba94c85759b0b2a03f1c39a`.
-4. Set AI Gateway ID `default` unless a named gateway has been deliberately created.
+4. Set AI Gateway ID `default` unless a named gateway has been deliberately created. Model calls go through the Worker `AI` binding (`env.AI.gateway(id).run`), which is pre-authenticated, so Authenticated Gateway works without an extra `AI Gateway Run` API token. `AI_GATEWAY_TOKEN` is only used by the direct-HTTP fallback.
 5. Paste the Anthropic API key without exposing it to terminal output or Git.
 6. Select an allowlisted Claude model and test the connection.
 7. Preview the imported Mr Spa agent with product, offer, and policy questions.
@@ -165,7 +165,14 @@ There are two independent rollback concepts:
 
 Before Worker rollback, determine whether the prior code is compatible with all migrations already applied. Never assume a code rollback reverses schema or data changes.
 
-For lost admin access, use the repository's supported operational recovery implementation or add a reviewed recovery command. Do not directly replace password fields with ad hoc SQL and do not expose password hashes.
+For lost admin access, use the supported recovery command. It verifies the Wrangler account, rotates `BOOTSTRAP_TOKEN` (the new value is copied to the clipboard, never printed), removes the admin, sessions and login lockouts, and reopens first-run setup. Agents, data, knowledge, credentials, connections and conversations are kept.
+
+```powershell
+$env:EXPECTED_CF_ACCOUNT_ID='759105f65ba94c85759b0b2a03f1c39a'
+npm run admin:reset -- --confirm
+```
+
+Complete setup immediately afterwards: until it is done, anyone holding the new bootstrap token can claim the instance. Re-enter the brand values in the setup wizard. Do not directly replace password fields with ad hoc SQL and do not expose password hashes.
 
 Before destructive migrations or bulk imports, create appropriate D1/R2 backups or exports according to the customer's recovery requirement. Exported agent configuration must omit credentials and raw secrets.
 
