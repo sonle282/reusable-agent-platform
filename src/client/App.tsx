@@ -120,7 +120,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
           />
         )}
         {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
-        {page === "conversations" && <ConversationsPage />}
+        {page === "conversations" && <ConversationsPage connections={data.connections} openId={params[0]} onOpen={(id) => go("conversations", undefined, id)} />}
         {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} />}
         {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} />}
       </main>

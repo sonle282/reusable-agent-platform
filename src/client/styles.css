@@ -828,22 +828,18 @@ button.scen-item { width: 100%; border: 0; border-top: 1px solid var(--color-sep
 .data-details { font: var(--text-callout); }
 .data-foot { font: var(--text-footnote); }
 
-/* Legacy (Conversations, until its rewrite) */
-.master-detail {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.transcript {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px;
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-}
+/* Conversations page */
+.conversations-page { gap: 20px; }
+.conversation-time { font: var(--text-footnote); }
+.conversation-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.pane-head.transcript-head { gap: 12px; flex-wrap: wrap; }
+.transcript-who { min-width: 140px; }
+.takeover { display: flex; align-items: center; gap: 10px; font: var(--text-callout); cursor: pointer; }
+.banner.takeover-banner { border-radius: 0; padding: 10px 16px; }
+.takeover-banner .banner-text { color: var(--color-label); }
+.reply-meta { align-self: flex-end; font: var(--text-footnote); color: var(--color-label-2); }
+.transcript-foot { padding: 10px 16px; border-top: 1px solid var(--color-separator); font: var(--text-footnote); color: var(--color-label-2); }
+.pane-banner-top { padding-top: 12px; }
 
 /* ---------- Responsive ---------- */
 
@@ -888,32 +884,6 @@ button.scen-item { width: 100%; border: 0; border-top: 1px solid var(--color-sep
 
   .tab-bar button.active {
     color: var(--tint);
-  }
-
-  .master-detail {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .master {
-    position: static;
-    max-height: none;
-  }
-
-  .master-detail:not(.stack).has-detail .master {
-    display: none;
-  }
-
-  .master-detail:not(.stack):not(.has-detail) .detail {
-    display: none;
-  }
-
-  .mobile-only {
-    display: inline-flex;
-  }
-
-  .detail-header {
-    flex-direction: column;
-    align-items: stretch;
   }
 
 }
