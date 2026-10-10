@@ -2,7 +2,17 @@
 
 A single-tenant, multi-agent control plane and runtime. Deploy one instance per customer, configure it in the browser, then connect the same agent to Preview, Generic API/webhooks, or Zernio.
 
+This is a public source template. Production secrets and customer credentials live only in Cloudflare or an approved password manager and are never committed.
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/sonle282/reusable-agent-platform)
+
+## Project handoff
+
+- [Full product and architecture plan](./docs/PLATFORM-PLAN.md)
+- [Current implementation and production state](./docs/CURRENT-STATE.md)
+- [Operations and new-machine runbook](./docs/OPERATIONS-RUNBOOK.md)
+- [Master prompt for a new Codex session](./docs/MASTER-PROMPT.md)
+- [Documentation index](./docs/README.md)
 
 ## What is implemented
 
@@ -50,13 +60,13 @@ Prerequisites:
 - An AI Gateway and its ID.
 - An Anthropic API key (or adapt the provider to use a key already stored in AI Gateway).
 
-The Deploy button asks for three secrets:
+The deployment requires three Worker secrets:
 
 - `BOOTSTRAP_TOKEN`: one-time first-admin token, 32+ random characters.
 - `SESSION_SIGNING_KEY`: independent 32+ character session signing secret.
 - `CREDENTIAL_ENCRYPTION_KEY`: independent 32+ character credential encryption secret.
 
-`wrangler` auto-provisions D1, R2, and Queue resources. The deploy script then applies idempotent D1 migrations. Durable Object and AI Search bindings are declared in [wrangler.jsonc](./wrangler.jsonc).
+For the existing Mr Spa instance, resources have already been provisioned and Git push to `main` is the normal release path. For a new customer instance, create or bind the Cloudflare resources described in [wrangler.jsonc](./wrangler.jsonc), set the secrets outside Git, then apply D1 migrations before deployment.
 
 After deployment:
 
@@ -78,6 +88,19 @@ Deploy command: npm run deploy:ci
 ```
 
 The build gate runs type checking, tests, and the production build. The deploy step applies pending remote D1 migrations before publishing the Worker.
+
+### Continue on another machine
+
+```bash
+gh auth login
+gh repo clone sonle282/reusable-agent-platform
+cd reusable-agent-platform
+npm ci
+npm run ci
+npx wrangler whoami
+```
+
+Read [the operations runbook](./docs/OPERATIONS-RUNBOOK.md) before deploying or rotating secrets. Cloudflare production secrets are stored remotely and are intentionally not present in this public repository.
 
 ## Local development
 
