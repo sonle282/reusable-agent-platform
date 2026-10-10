@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-label)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+    <div class="page">
+      <header class="page-header">
+        <div class="page-heading">
+          <h1 class="large-title">Home</h1>
+          <p class="page-subtitle">Saturday, October 10</p>
+        </div>
+      </header>
+
+      <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+        <div class="banner banner-error" role="alert">
+          <svg class="icon" aria-hidden="true"><use href="#i-offline"></use></svg>
+          <div class="banner-body">
+            <span class="banner-title">Couldn’t refresh Home</span>
+            <span class="banner-text">Showing what we had at 2:41 PM. Check your connection, then try again.</span>
+            <div class="banner-actions"><button type="button" class="btn btn-sm btn-gray" onClick="{{retry}}">Try again</button></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+        <div class="section-card" aria-busy="true" aria-label="Loading">
+          <div class="skel-row"><span class="skel" style="width: 40px; height: 40px; border-radius: 10px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 40%"></span><span class="skel skel-line" style="width: 60%"></span></span></div>
+        </div>
+        <div class="section">
+          <span class="section-header">Needs attention</span>
+          <div class="section-card">
+            <div class="skel-row"><span class="skel" style="width: 30px; height: 30px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 50%"></span><span class="skel skel-line" style="width: 75%"></span></span></div>
+            <div class="skel-row"><span class="skel" style="width: 30px; height: 30px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 35%"></span><span class="skel skel-line" style="width: 65%"></span></span></div>
+          </div>
+        </div>
+        <div class="section-card metrics">
+          <div class="metric"><span class="skel" style="width: 32px; height: 28px"></span><span class="skel skel-line" style="width: 70%; margin-top: 8px"></span></div>
+          <div class="metric"><span class="skel" style="width: 32px; height: 28px"></span><span class="skel skel-line" style="width: 70%; margin-top: 8px"></span></div>
+          <div class="metric"><span class="skel" style="width: 32px; height: 28px"></span><span class="skel skel-line" style="width: 70%; margin-top: 8px"></span></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{st.ready}}" hint-placeholder-val="{{ true }}">
+        <section class="section-card" aria-label="Assistant status">
+          <button type="button" class="status-card" onClick="{{goAssistant}}">
+            <span class="tile tile-lg tile-green"><svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg></span>
+            <span class="row-text">
+              <span class="status-card-title">Mr Spa Consultant</span>
+              <span class="row-subtitle">{{statusText}}</span>
+            </span>
+            <svg class="icon row-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+          </button>
+        </section>
+
+        <section class="section" aria-labelledby="na-h">
+          <div class="section-header">
+            <h2 id="na-h" style="margin: 0; font: inherit">Needs attention</h2>
+            <sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}"><span class="badge badge-count">{{itemCount}}</span></sc-if>
+            <span class="spacer"></span>
+            <sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}"><span class="badge example">Example</span></sc-if>
+          </div>
+          <div class="section-card" style="overflow: visible">
+            <sc-for list="{{items}}" as="it" hint-placeholder-count="3">
+              <div class="row">
+                <span class="{{it.tileClass}}"><svg class="icon" aria-hidden="true"><use href="{{it.href}}"></use></svg></span>
+                <div class="row-body">
+                  <div class="row-text">
+                    <span class="row-title strong">{{it.title}}</span>
+                    <span class="row-subtitle truncate">{{it.sub}}</span>
+                  </div>
+                  <div class="attn-actions">
+                    <button type="button" class="{{it.btnClass}}" onClick="{{it.primary}}">{{it.primaryLabel}}</button>
+                    <div class="menu-anchor">
+                      <button type="button" class="btn btn-sm btn-gray btn-icon" aria-label="More actions" aria-haspopup="menu" aria-expanded="{{it.menuOpen}}" onClick="{{it.toggleMenu}}">
+                        <svg class="icon" aria-hidden="true"><use href="#i-ellipsis"></use></svg>
+                      </button>
+                      <sc-if value="{{it.menuOpen}}" hint-placeholder-val="{{ false }}">
+                        <div class="menu" role="menu">
+                          <button type="button" class="menu-item" role="menuitem" onClick="{{it.open}}"><svg class="icon" aria-hidden="true"><use href="#i-bubbles"></use></svg>Open conversation</button>
+                          <div class="menu-sep"></div>
+                          <span class="menu-label">Dismiss because…</span>
+                          <sc-for list="{{it.reasons}}" as="r" hint-placeholder-count="3">
+                            <button type="button" class="menu-item" role="menuitem" onClick="{{r.pick}}">{{r.label}}</button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{noItems}}" hint-placeholder-val="{{ false }}">
+              <div class="row">
+                <span class="tile tile-soft-green"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg></span>
+                <div class="row-body">
+                  <div class="row-text">
+                    <span class="row-title strong">Nothing needs you</span>
+                    <span class="row-subtitle">Wrong answers, new leads and missed replies show up here.</span>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="m-h">
+          <h2 id="m-h" class="section-header">Last 24 hours</h2>
+          <div class="section-card metrics">
+            <div class="metric">
+              <span class="{{m.chatsClass}}">{{m.chats}}</span>
+              <span class="metric-label">Chats</span>
+              <span class="metric-sub">{{m.chatsSub}}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-value is-zero">0</span>
+              <span class="metric-label">Waiting for your team</span>
+              <span class="metric-sub">All handled</span>
+            </div>
+            <div class="metric">
+              <span class="metric-value is-zero">0</span>
+              <span class="metric-label">Replies not delivered</span>
+              <span class="metric-sub">All delivered</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="rc-h">
+          <div class="section-header">
+            <h2 id="rc-h" style="margin: 0; font: inherit">Recent conversations</h2>
+            <span class="spacer"></span>
+            <sc-if value="{{hasRecent}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-plain" onClick="{{goConversations}}">See all</button></sc-if>
+          </div>
+          <div class="section-card">
+            <sc-if value="{{hasRecent}}" hint-placeholder-val="{{ true }}">
+              <button type="button" class="row top" onClick="{{goConversations}}">
+                <span class="avatar"><svg class="icon" aria-hidden="true"><use href="#i-person"></use></svg></span>
+                <div class="row-body" style="align-items: flex-start">
+                  <div class="row-text">
+                    <span style="display: flex; align-items: baseline; gap: 8px"><span class="row-title strong">Visitor 9875</span><span class="row-subtitle">API</span><span class="spacer"></span><span class="row-detail">2:39 PM</span></span>
+                    <span class="row-subtitle clamp-2" style="font: var(--text-callout); margin-top: 2px">Dạ ghế pedicure bảo hành 12 tháng lỗi sản xuất và 3 năm cho hệ thống massage ạ. Trong 2 giờ lái xe thì kỹ thuật đến bảo hành trực tiếp, ở xa thì em hỗ trợ video call và gửi miễn phí linh kiện cần thay.</span>
+                  </div>
+                </div>
+              </button>
+              <button type="button" class="row top" onClick="{{goConversations}}">
+                <span class="avatar avatar-indigo">ST</span>
+                <div class="row-body" style="align-items: flex-start">
+                  <div class="row-text">
+                    <span style="display: flex; align-items: baseline; gap: 8px"><span class="row-title strong">Smoke Test</span><span class="row-subtitle">API</span><span class="spacer"></span><span class="row-detail">2:38 PM</span></span>
+                    <span class="row-subtitle clamp-2" style="font: var(--text-callout); margin-top: 2px">Dạ có anh/chị, ghế Birkin M4 có massage ạ. Ghế có đỡ toàn thân, đệm êm ôm dáng, gác chân và lưng ngả đều chỉnh được. Anh/chị đang tìm ghế cho tiệm mới hay thay ghế cũ ạ?</span>
+                  </div>
+                </div>
+              </button>
+            </sc-if>
+            <sc-if value="{{noRecent}}" hint-placeholder-val="{{ false }}">
+              <div class="empty">
+                <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-bubbles"></use></svg></span>
+                <h3 class="empty-title">No conversations yet</h3>
+                <p class="empty-text">When customers message you on a connected channel, their chats show up here.</p>
+                <button type="button" class="btn btn-filled" onClick="{{goChannels}}">Add a channel</button>
+              </div>
+            </sc-if>
+          </div>
+        </section>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"published":{"editor":null},"version":{"editor":null},"fixPending":{"editor":null},"fixFailing":{"editor":null},"onGo":{"editor":null},"onFix":{"editor":null},"onPublish":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dismissed: {}, menuFor: null };
+  }
+  renderVals() {
+    const p = this.props;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const published = p.published !== false;
+    const version = p.version || 3;
+    const go = (x) => { this.setState({ menuFor: null }); if (p.onGo) p.onGo(x); };
+    const toast = (m, a, f) => { if (p.onToast) p.onToast(m, a, f); };
+    const fix = () => { this.setState({ menuFor: null }); if (p.onFix) p.onFix(); else toast('Opens “Fix this answer”'); };
+    const quote = '“Có ưu đãi gì nếu mua 8 ghế không?”';
+    let list = [];
+    if (p.fixFailing) list.push({ id: 'failing', tone: 'red', icon: 'error', title: 'Fix kept but failing', sub: quote + ' still fails its test scenario', label: 'Try again', kind: 'tinted', act: fix });
+    if (p.fixPending) list.push({ id: 'pending', tone: 'blue', icon: 'wrench', title: 'Fix not live yet', sub: 'The corrected answer is in the draft · customers still see version ' + version, label: 'Publish', kind: 'filled', act: () => { if (p.onPublish) p.onPublish(); } });
+    if (ui !== 'empty') {
+      list.push({ id: 'price', tone: 'orange', icon: 'warning', title: 'Price given without checking Data', sub: quote + ' · Visitor 9875 · 2 hours ago', label: 'Fix', kind: 'tinted', act: fix });
+      list.push({ id: 'lead', tone: 'blue', icon: 'person-plus', title: 'New lead to contact', sub: 'Visitor 4F2A left a phone number · reply within 19 hours', label: 'Open', kind: 'gray', act: () => go('conversations') });
+      list.push({ id: 'team', tone: 'gray', icon: 'pause', title: 'Your team is replying', sub: 'Smoke Test · assistant paused for 3 hours', label: 'Open', kind: 'gray', act: () => go('conversations') });
+    }
+    list = list.filter((x) => !this.state.dismissed[x.id]);
+    const reasons = ['The answer was fine', 'Already handled', 'Not a real customer'];
+    const items = list.map((x) => ({
+      title: x.title, sub: x.sub, primaryLabel: x.label,
+      href: '#i-' + x.icon,
+      tileClass: 'tile tile-soft-' + x.tone,
+      btnClass: 'btn btn-sm btn-' + x.kind,
+      primary: x.act,
+      menuOpen: this.state.menuFor === x.id,
+      toggleMenu: () => this.setState({ menuFor: this.state.menuFor === x.id ? null : x.id }),
+      open: () => go('conversations'),
+      reasons: reasons.map((r) => ({
+        label: r,
+        pick: () => {
+          const d = Object.assign({}, this.state.dismissed); d[x.id] = true;
+          this.setState({ dismissed: d, menuFor: null });
+          toast('Dismissed', 'Undo', () => { const u = Object.assign({}, this.state.dismissed); delete u[x.id]; this.setState({ dismissed: u }); });
+        }
+      }))
+    }));
+    const empty = ui === 'empty';
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', loading: ui === 'loading', ready: ui !== 'loading' },
+      statusText: published ? 'Live · version ' + version + ' · answering on 1 channel' : 'Live · version ' + version + ' · the draft has unpublished changes',
+      items: items,
+      hasItems: items.length > 0,
+      noItems: items.length === 0,
+      itemCount: String(items.length),
+      m: empty ? { chats: '0', chatsSub: 'None this week', chatsClass: 'metric-value is-zero' } : { chats: '2', chatsSub: '2 this week', chatsClass: 'metric-value' },
+      hasRecent: !empty,
+      noRecent: empty,
+      goAssistant: () => go('assistant'),
+      goConversations: () => go('conversations'),
+      goChannels: () => go('channels'),
+      retry: () => { if (p.onRetry) p.onRetry(); else toast('Trying again…'); }
+    };
+  }
+}
+</script>
+</body>
+</html>

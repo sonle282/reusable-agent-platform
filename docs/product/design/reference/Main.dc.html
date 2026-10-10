@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mr Spa Admin — prototype</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-label)">
+  <dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import>
+
+  <div class="proto-bar" role="region" aria-label="Prototype controls">
+    <b>Prototype</b>
+    <div class="proto-group" role="group" aria-label="State">
+      <span>State</span>
+      <sc-for list="{{states}}" as="s" hint-placeholder-count="4">
+        <button type="button" class="proto-btn" aria-pressed="{{s.on}}" onClick="{{s.pick}}">{{s.label}}</button>
+      </sc-for>
+    </div>
+    <div class="proto-group" role="group" aria-label="Theme">
+      <span>Theme</span>
+      <sc-for list="{{themes}}" as="t" hint-placeholder-count="2">
+        <button type="button" class="proto-btn" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button>
+      </sc-for>
+    </div>
+    <button type="button" class="proto-btn" onClick="{{reset}}">Reset</button>
+    <span class="spacer"></span>
+    <span style="color: var(--color-proto-dim)">Example data · resize below 860px for the phone layout</span>
+  </div>
+
+  <div class="app-shell">
+    <nav class="sidebar" aria-label="Main">
+      <div class="brand">
+        <div class="brand-tile" role="img" aria-label="Mr Spa logo">MS</div>
+        <span class="brand-name">Mr Spa AI</span>
+      </div>
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="6">
+        <button type="button" class="nav-item" aria-current="{{n.current}}" aria-label="{{n.label}}" onClick="{{n.go}}">
+          <svg class="icon" aria-hidden="true"><use href="{{n.href}}"></use></svg>
+          <span class="nav-label">{{n.label}}</span>
+          <sc-if value="{{n.dot}}" hint-placeholder-val="{{ false }}"><span class="nav-dot"></span></sc-if>
+          <sc-if value="{{n.badge}}" hint-placeholder-val="{{ false }}"><span class="nav-badge">{{n.badge}}</span></sc-if>
+        </button>
+      </sc-for>
+    </nav>
+
+    <main class="content">
+      <sc-if value="{{is.home}}" hint-placeholder-val="{{ true }}">
+        <dc-import name="PHome" embedded="{{yes}}" ui-state="{{ui}}" published="{{published}}" version="{{version}}" fix-pending="{{fixPending}}" fix-failing="{{fixFailing}}" on-go="{{go}}" on-fix="{{openFix}}" on-publish="{{publish}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.assistant}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PAssistant" embedded="{{yes}}" ui-state="{{ui}}" published="{{published}}" version="{{version}}" publishing="{{publishing}}" publish-error="{{publishError}}" on-publish="{{publish}}" on-dirty="{{markDirty}}" on-fix="{{openFix}}" on-toast="{{showToast}}" on-dismiss-error="{{clearPublishError}}" on-retry="{{retry}}" hint-size="100%,860px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.data}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PData" embedded="{{yes}}" ui-state="{{ui}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.conversations}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PConversations" embedded="{{yes}}" ui-state="{{ui}}" on-fix="{{openFix}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.channels}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PChannels" embedded="{{yes}}" ui-state="{{ui}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,700px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.settings}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PSettings" embedded="{{yes}}" ui-state="{{ui}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,800px"></dc-import>
+      </sc-if>
+    </main>
+
+    <nav class="tabbar" aria-label="Main">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="6">
+        <button type="button" class="tab" aria-current="{{n.current}}" onClick="{{n.go}}">
+          <svg class="icon" aria-hidden="true"><use href="{{n.href}}"></use></svg>
+          <span>{{n.short}}</span>
+          <sc-if value="{{n.dot}}" hint-placeholder-val="{{ false }}"><span class="nav-dot" aria-label="Unpublished changes"></span></sc-if>
+          <sc-if value="{{n.badge}}" hint-placeholder-val="{{ false }}"><span class="nav-badge">{{n.badge}}</span></sc-if>
+        </button>
+      </sc-for>
+    </nav>
+  </div>
+
+  <sc-if value="{{fixOpen}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop">
+      <dc-import name="FixSheet" embedded="{{yes}}" on-close="{{closeFix}}" on-done="{{fixDone}}" on-kept="{{fixKept}}" hint-size="560px,640px"></dc-import>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}">
+    <div class="{{toast.cls}}" role="status" aria-live="polite">
+      <svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg>
+      <span>{{toast.msg}}</span>
+      <sc-if value="{{toast.hasAction}}" hint-placeholder-val="{{ false }}">
+        <button type="button" class="toast-action" onClick="{{toast.act}}">{{toast.actionLabel}}</button>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = this.initial(props);
+  }
+  initial(props) {
+    return {
+      page: 'home', theme: (props && props.theme) || 'light', ui: 'normal',
+      published: true, version: 3, publishing: false, publishError: false,
+      fixOpen: false, fixPending: false, fixFailing: false,
+      toast: null
+    };
+  }
+  componentWillUnmount() { clearTimeout(this.tt); clearTimeout(this.pt); }
+  showToast(msg, actionLabel, action) {
+    clearTimeout(this.tt);
+    this.setState({ toast: { msg: msg, actionLabel: actionLabel || '', action: action || null } });
+    this.tt = setTimeout(() => this.setState({ toast: null }), 3600);
+  }
+  publish() {
+    if (this.state.publishing) return;
+    if (this.state.ui === 'error') { this.setState({ publishError: true, page: 'assistant' }); return; }
+    this.setState({ publishing: true, publishError: false });
+    this.pt = setTimeout(() => {
+      const v = this.state.version + 1;
+      this.setState({ publishing: false, published: true, version: v, fixPending: false });
+      this.showToast('Version ' + v + ' is live');
+    }, 1500);
+  }
+  renderVals() {
+    const s = this.state;
+    const go = (p) => this.setState({ page: p });
+    const pages = [
+      { id: 'home', label: 'Home', short: 'Home', icon: 'house' },
+      { id: 'assistant', label: 'Assistant', short: 'Assistant', icon: 'sparkles', dot: !s.published },
+      { id: 'data', label: 'Data', short: 'Data', icon: 'table' },
+      { id: 'conversations', label: 'Conversations', short: 'Chats', icon: 'bubbles' },
+      { id: 'channels', label: 'Channels', short: 'Channels', icon: 'link', badge: s.ui === 'error' ? '2' : '' },
+      { id: 'settings', label: 'Settings', short: 'Settings', icon: 'gear' }
+    ];
+    const is = {};
+    pages.forEach((p) => { is[p.id] = s.page === p.id; });
+    const t = s.toast;
+    return {
+      yes: true,
+      theme: s.theme,
+      ui: s.ui,
+      is: is,
+      published: s.published,
+      version: s.version,
+      publishing: s.publishing,
+      publishError: s.publishError,
+      fixOpen: s.fixOpen,
+      fixPending: s.fixPending,
+      fixFailing: s.fixFailing,
+      nav: pages.map((p) => ({
+        label: p.label, short: p.short, href: '#i-' + p.icon,
+        current: s.page === p.id ? 'page' : undefined,
+        dot: !!p.dot, badge: p.badge || '',
+        go: () => go(p.id)
+      })),
+      states: ['normal', 'empty', 'loading', 'error'].map((k) => ({
+        label: k.charAt(0).toUpperCase() + k.slice(1), on: s.ui === k,
+        pick: () => this.setState({ ui: k, publishError: false })
+      })),
+      themes: ['light', 'dark'].map((k) => ({
+        label: k === 'light' ? 'Light' : 'Dark', on: s.theme === k,
+        pick: () => this.setState({ theme: k })
+      })),
+      reset: () => { clearTimeout(this.tt); clearTimeout(this.pt); this.setState(Object.assign(this.initial(this.props), { theme: s.theme })); },
+      go: go,
+      openFix: () => this.setState({ fixOpen: true }),
+      closeFix: () => this.setState({ fixOpen: false }),
+      fixDone: (place) => {
+        if (place === 'data') {
+          this.setState({ fixOpen: false, fixFailing: false });
+          this.showToast('Fixed. Data changes are live now.');
+        } else {
+          this.setState({ fixOpen: false, fixFailing: false, fixPending: true, published: false });
+          this.showToast('Fixed in the draft', 'Publish', () => { this.setState({ toast: null }); this.publish(); });
+        }
+      },
+      fixKept: () => {
+        this.setState({ fixOpen: false, fixFailing: true, published: false });
+        this.showToast('Kept. It stays in Needs attention until it passes.');
+      },
+      publish: () => this.publish(),
+      retry: () => { this.setState({ ui: 'normal', publishError: false }); this.showToast('Back up to date'); },
+      clearPublishError: () => this.setState({ publishError: false }),
+      markDirty: () => { if (this.state.published) this.setState({ published: false }); },
+      showToast: (m, a, f) => this.showToast(m, a, f),
+      toast: {
+        show: !!t,
+        msg: t ? t.msg : '',
+        hasAction: !!(t && t.action),
+        actionLabel: t ? t.actionLabel : '',
+        act: () => { if (t && t.action) t.action(); },
+        cls: t && t.action ? 'toast' : 'toast no-action'
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

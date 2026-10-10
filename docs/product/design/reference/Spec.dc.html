@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spec</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-label)">
+  <dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import>
+  <div style="max-width: 1180px; margin: 0 auto; padding: 56px 40px 96px; display: flex; flex-direction: column; gap: 56px">
+
+    <header style="display: flex; flex-direction: column; gap: 8px">
+      <h1 class="large-title">Spec</h1>
+      <p class="page-subtitle" style="max-width: 760px">Everything here maps onto <code>src/client/styles.css</code> (tokens and classes, same names as <code>styles.css</code> on this canvas) and <code>src/client/ui.tsx</code> (primitives). Components use tokens only — no raw colors, sizes or durations.</p>
+    </header>
+
+    <!-- ===================== TOKENS ===================== -->
+    <section style="display: flex; flex-direction: column; gap: 20px">
+      <h2 style="margin: 0; font: var(--text-title-2); letter-spacing: var(--track-title-2)">1 · Color tokens</h2>
+      <div class="section-card">
+        <div style="display: grid; grid-template-columns: 220px 1fr 1fr minmax(0, 1.4fr); gap: 0; font: var(--text-subhead)">
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">Token</div>
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">Light</div>
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">Dark</div>
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">Use</div>
+          <sc-for list="{{colors}}" as="c" hint-placeholder-count="20">
+            <div style="padding: 8px 16px; border-top: 1px solid var(--color-separator); font: var(--text-mono)">{{c.name}}</div>
+            <div style="padding: 8px 16px; border-top: 1px solid var(--color-separator); display: flex; align-items: center; gap: 8px"><span style="{{c.lightSw}}"></span><span style="font: var(--text-mono)">{{c.light}}</span></div>
+            <div style="padding: 8px 16px; border-top: 1px solid var(--color-separator); display: flex; align-items: center; gap: 8px"><span style="{{c.darkSw}}"></span><span style="font: var(--text-mono)">{{c.dark}}</span></div>
+            <div style="padding: 8px 16px; border-top: 1px solid var(--color-separator); color: var(--color-label-2)">{{c.use}}</div>
+          </sc-for>
+        </div>
+      </div>
+      <p class="section-footer">Text pairs pass WCAG AA: label-2 on surface 5.0:1 (light) / 6.3:1 (dark); link on tint-soft ≥ 4.6:1; white on tint #0071E3 4.6:1 in both themes. label-3 is for glyphs and placeholders only. Theme: <code>[data-theme]</code> on the root; default follows <code>prefers-color-scheme</code> when the owner hasn’t chosen.</p>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 20px">
+      <h2 style="margin: 0; font: var(--text-title-2); letter-spacing: var(--track-title-2)">2 · Type</h2>
+      <div class="section-card">
+        <sc-for list="{{type}}" as="t" hint-placeholder-count="10">
+          <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 300px; align-items: center; gap: 16px; padding: 12px 16px; border-top: 1px solid var(--color-separator)">
+            <span style="font: var(--text-mono)">{{t.token}}</span>
+            <span style="{{t.sample}}" lang="vi">{{t.text}}</span>
+            <span style="font: var(--text-subhead); color: var(--color-label-2)">{{t.spec}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <p class="section-footer">Font stack: SF Pro on Apple devices, Inter (Google Fonts, opsz 14–32, weights 400–700) everywhere else, then Segoe UI Variable. Tracking is per size, never global. Vietnamese diacritics need line-height ≥ 1.3 — every style above meets it.</p>
+    </section>
+
+    <section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+      <div class="section">
+        <h2 class="section-header" style="font: var(--text-headline); color: var(--color-label); padding: 0">Spacing (4-pt)</h2>
+        <div class="section-card" style="padding: 12px 16px; display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{space}}" as="s" hint-placeholder-count="10">
+            <div style="display: flex; align-items: center; gap: 12px"><span style="font: var(--text-mono); width: 92px">{{s.name}}</span><span style="{{s.bar}}"></span><span class="muted" style="font: var(--text-footnote)">{{s.px}}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div class="section">
+        <h2 class="section-header" style="font: var(--text-headline); color: var(--color-label); padding: 0">Radii</h2>
+        <div class="section-card" style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{radii}}" as="r" hint-placeholder-count="7">
+            <div style="display: flex; align-items: center; gap: 12px"><span style="{{r.box}}"></span><span style="font: var(--text-mono); flex: 1">{{r.name}}</span><span class="muted" style="font: var(--text-footnote)">{{r.use}}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div class="section">
+        <h2 class="section-header" style="font: var(--text-headline); color: var(--color-label); padding: 0">Shadows and motion</h2>
+        <div class="section-card" style="padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; font: var(--text-subhead)">
+          <div><b style="font: var(--text-mono)">--shadow-card</b><br><span class="muted">Sections and panes. none in dark (separation by surface color).</span></div>
+          <div><b style="font: var(--text-mono)">--shadow-seg</b><br><span class="muted">Selected segment, toggle knob.</span></div>
+          <div><b style="font: var(--text-mono)">--shadow-popover</b><br><span class="muted">Menus, toast.</span></div>
+          <div><b style="font: var(--text-mono)">--shadow-sheet</b><br><span class="muted">Sheets and alerts.</span></div>
+          <div style="border-top: 1px solid var(--color-separator); padding-top: 10px"><b style="font: var(--text-mono)">--dur-fast 120ms</b> <span class="muted">hover, press, chevrons</span><br><b style="font: var(--text-mono)">--dur-base 200ms</b> <span class="muted">toggles, fades</span><br><b style="font: var(--text-mono)">--dur-sheet 340ms</b> <span class="muted">sheet and toast in, --ease-spring cubic-bezier(.32,.72,0,1)</span><br><span class="muted">All durations become 0 under prefers-reduced-motion; skeletons and spinners stop.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== PRIMITIVES ===================== -->
+    <section style="display: flex; flex-direction: column; gap: 20px">
+      <h2 style="margin: 0; font: var(--text-title-2); letter-spacing: var(--track-title-2)">3 · Primitives (ui.tsx)</h2>
+
+      <div class="section-card" style="padding: 20px; display: flex; flex-direction: column; gap: 16px">
+        <h3 style="margin: 0; font: var(--text-headline)">Button</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+          <button type="button" class="btn btn-filled">Publish</button>
+          <button type="button" class="btn btn-tinted"><svg class="icon" aria-hidden="true"><use href="#i-wrench"></use></svg>Fix this answer</button>
+          <button type="button" class="btn btn-gray">Cancel</button>
+          <button type="button" class="btn btn-plain">See all</button>
+          <button type="button" class="btn btn-destructive">Keep it</button>
+          <button type="button" class="btn btn-plain is-destructive">Delete row</button>
+          <button type="button" class="btn btn-filled" disabled="{{yes}}">Disabled</button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+          <button type="button" class="btn btn-sm btn-filled">Small</button>
+          <button type="button" class="btn btn-filled">Regular</button>
+          <button type="button" class="btn btn-lg btn-filled">Large</button>
+          <button type="button" class="btn btn-sm btn-gray btn-icon" aria-label="More"><svg class="icon" aria-hidden="true"><use href="#i-ellipsis"></use></svg></button>
+          <button type="button" class="btn btn-gray btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-xmark"></use></svg></button>
+        </div>
+        <div style="{{tbl}}">
+          <sc-for list="{{specs.button}}" as="r" hint-placeholder-count="8"><span style="{{cellK}}">{{r.k}}</span><span style="{{cellV}}">{{r.v}}</span></sc-for>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+        <div class="section-card" style="padding: 20px; display: flex; flex-direction: column; gap: 16px">
+          <h3 style="margin: 0; font: var(--text-headline)">Section + Row</h3>
+          <div style="background: var(--color-bg); padding: 16px; border-radius: 12px">
+            <div class="section">
+              <span class="section-header">Knowledge</span>
+              <div class="section-card">
+                <div class="row"><span class="tile tile-soft-indigo"><svg class="icon" aria-hidden="true"><use href="#i-doc"></use></svg></span><div class="row-body"><div class="row-text"><span class="row-title">Policies</span><span class="row-subtitle">Updated today</span></div><svg class="icon row-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg></div></div>
+                <div class="row"><span class="tile tile-green"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span><div class="row-body"><span class="row-title spacer">Mr Spa Offers</span><span class="row-detail">10</span><svg class="icon row-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg></div></div>
+              </div>
+              <p class="section-footer">Footer explains, never warns.</p>
+            </div>
+          </div>
+          <div style="{{tbl}}"><sc-for list="{{specs.row}}" as="r" hint-placeholder-count="8"><span style="{{cellK}}">{{r.k}}</span><span style="{{cellV}}">{{r.v}}</span></sc-for></div>
+        </div>
+
+        <div class="section-card" style="padding: 20px; display: flex; flex-direction: column; gap: 16px">
+          <h3 style="margin: 0; font: var(--text-headline)">FieldRow · Toggle · Segmented · SearchField</h3>
+          <div style="background: var(--color-bg); padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px">
+            <div class="section-card">
+              <label class="field"><span class="field-label">Business name</span><input class="field-input" type="text" defaultValue="Mr Spa Inc."></label>
+              <label class="field stacked"><span class="field-label">What you offer</span><textarea class="field-textarea" rows="2">Pedicure chairs, nail salon furniture and salon design for nail salon owners in the US.</textarea></label>
+              <div class="field"><span class="field-label spacer">Active</span><button type="button" class="toggle" role="switch" aria-checked="true" aria-label="Active"></button></div>
+            </div>
+            <div class="segmented" role="tablist" aria-label="Example"><button type="button" role="tab" aria-selected="true">Instructions</button><button type="button" role="tab" aria-selected="false">Sources</button><button type="button" role="tab" aria-selected="false">Versions</button></div>
+            <label class="search"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span class="sr-only">Search</span><input type="search" placeholder="Search"></label>
+          </div>
+          <div style="{{tbl}}"><sc-for list="{{specs.field}}" as="r" hint-placeholder-count="8"><span style="{{cellK}}">{{r.k}}</span><span style="{{cellV}}">{{r.v}}</span></sc-for></div>
+        </div>
+
+        <div class="section-card" style="padding: 20px; display: flex; flex-direction: column; gap: 16px">
+          <h3 style="margin: 0; font: var(--text-headline)">Badge · Banner</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <span class="badge badge-green">Live</span><span class="badge badge-orange">Not live</span><span class="badge badge-red">Failed</span><span class="badge badge-blue">Starts Nov 27</span><span class="badge badge-neutral">Ended Sep 30</span><span class="badge badge-outline">Required</span><span class="badge badge-count">2</span><span class="badge example">Example</span>
+          </div>
+          <div class="banner banner-error"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="banner-body"><span class="banner-title">Not published — a required scenario failed</span><span class="banner-text">Customers still see version 3.</span><div class="banner-actions"><button type="button" class="btn btn-sm btn-gray">Show scenario</button></div></div></div>
+          <div style="{{tbl}}"><sc-for list="{{specs.badge}}" as="r" hint-placeholder-count="6"><span style="{{cellK}}">{{r.k}}</span><span style="{{cellV}}">{{r.v}}</span></sc-for></div>
+        </div>
+
+        <div class="section-card" style="padding: 20px; display: flex; flex-direction: column; gap: 16px">
+          <h3 style="margin: 0; font: var(--text-headline)">EmptyState · Toast · Spinner · Skeleton</h3>
+          <div style="background: var(--color-bg); border-radius: 12px">
+            <div class="empty" style="padding: 24px"><span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-bubbles"></use></svg></span><h4 class="empty-title">No conversations yet</h4><p class="empty-text">When customers message you on a connected channel, their chats show up here.</p><button type="button" class="btn btn-filled">Add a channel</button></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+            <div class="toast" style="position: static; transform: none; animation: none"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg><span>Fixed in the draft</span><button type="button" class="toast-action">Publish</button></div>
+            <span class="spinner" style="color: var(--color-link)"></span>
+            <span class="skel skel-line" style="width: 120px"></span>
+          </div>
+          <div style="{{tbl}}"><sc-for list="{{specs.empty}}" as="r" hint-placeholder-count="6"><span style="{{cellK}}">{{r.k}}</span><span style="{{cellV}}">{{r.v}}</span></sc-for></div>
+        </div>
+      </div>
+
+      <div class="section-card" style="padding: 20px; display: flex; flex-direction: column; gap: 16px">
+        <h3 style="margin: 0; font: var(--text-headline)">Sheet · Alert · Menu</h3>
+        <p class="muted" style="margin: 0; font: var(--text-subhead)">See the “Fix this answer” artboard and the Data row editor in the prototype for live sheets.</p>
+        <div style="{{tbl}}"><sc-for list="{{specs.sheet}}" as="r" hint-placeholder-count="12"><span style="{{cellK}}">{{r.k}}</span><span style="{{cellV}}">{{r.v}}</span></sc-for></div>
+      </div>
+
+      <div class="section-card" style="padding: 20px; display: flex; flex-direction: column; gap: 16px">
+        <h3 style="margin: 0; font: var(--text-headline)">New primitives to add to ui.tsx</h3>
+        <div style="{{tbl}}"><sc-for list="{{specs.newPrims}}" as="r" hint-placeholder-count="8"><span style="{{cellK}}">{{r.k}}</span><span style="{{cellV}}">{{r.v}}</span></sc-for></div>
+      </div>
+    </section>
+
+    <!-- ===================== LAYOUTS ===================== -->
+    <section style="display: flex; flex-direction: column; gap: 20px">
+      <h2 style="margin: 0; font: var(--text-title-2); letter-spacing: var(--track-title-2)">4 · Screens per breakpoint</h2>
+      <p class="muted" style="margin: 0; font: var(--text-subhead)">Breakpoints are container queries on <code>.app</code>: desktop ≥ 1080, compact 860–1079 (icon-only sidebar 72 px), phone &lt; 860 (tab bar, 6 items, 56 px + safe area). Page max width 1040 px, centered, on every page; forms max 720 px, left-aligned. <code>scrollbar-gutter: stable</code> stops content jumping between pages.</p>
+      <div class="section-card">
+        <div style="display: grid; grid-template-columns: 150px repeat(3, minmax(0, 1fr)); font: var(--text-subhead)">
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">Screen</div>
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">≥ 1080</div>
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">860–1079</div>
+          <div style="padding: 10px 16px; font-weight: 600; color: var(--color-label-2)">&lt; 860 (phone, 390 reference)</div>
+          <sc-for list="{{layouts}}" as="l" hint-placeholder-count="8">
+            <div style="padding: 12px 16px; border-top: 1px solid var(--color-separator); font-weight: 600">{{l.name}}</div>
+            <div style="padding: 12px 16px; border-top: 1px solid var(--color-separator)">{{l.d}}</div>
+            <div style="padding: 12px 16px; border-top: 1px solid var(--color-separator)">{{l.c}}</div>
+            <div style="padding: 12px 16px; border-top: 1px solid var(--color-separator)">{{l.p}}</div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 20px">
+      <h2 style="margin: 0; font: var(--text-title-2); letter-spacing: var(--track-title-2)">5 · Content rules</h2>
+      <div class="section-card">
+        <sc-for list="{{rules}}" as="r" hint-placeholder-count="10">
+          <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; padding: 12px 16px; border-top: 1px solid var(--color-separator); font: var(--text-subhead)"><b style="font-weight: 600">{{r.k}}</b><span class="muted">{{r.v}}</span></div>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":7200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const sw = (c) => 'width: 22px; height: 22px; border-radius: 6px; flex: none; background: ' + c + '; box-shadow: inset 0 0 0 1px rgba(127,127,127,0.25)';
+    const colors = [
+      ['--color-bg', '#F2F2F7', '#000000', 'Page ground behind sections'],
+      ['--color-surface', '#FFFFFF', '#1C1C1E', 'Sections, panes, cards (#2C2C2E inside dark sheets)'],
+      ['--color-surface-raised', '#FFFFFF', '#2C2C2E', 'Menus, alerts'],
+      ['--color-sheet-bg', '#F2F2F7', '#1C1C1E', 'Sheet ground'],
+      ['--color-sidebar', '#F6F6F9', '#141416', 'Sidebar'],
+      ['--color-bar', 'rgba(249,249,251,.86)', 'rgba(22,22,24,.86)', 'Phone tab bar, with 20px blur'],
+      ['--color-label', '#1D1D1F', '#F5F5F7', 'Primary text'],
+      ['--color-label-2', '#6E6E73', '#98989D', 'Secondary text, section headers, footers'],
+      ['--color-label-3', '#AEAEB2', '#636366', 'Chevrons, disabled glyphs (not text)'],
+      ['--color-placeholder', '#8E8E93', '#7C7C80', 'Input placeholders'],
+      ['--color-separator', 'rgba(60,60,67,.14)', 'rgba(84,84,88,.55)', '1px inset row lines'],
+      ['--color-fill', 'rgba(118,118,128,.12)', 'rgba(118,118,128,.24)', 'Gray buttons, search, segmented track, selected row'],
+      ['--color-fill-2', 'rgba(118,118,128,.20)', 'rgba(118,118,128,.34)', 'Pressed/hover fill, toggle off'],
+      ['--color-tint', '#0071E3', '#0071E3', 'Filled button, outgoing bubble, selected nav'],
+      ['--color-link', '#0066CC', '#4DA3FF', 'Tint used as text: plain/tinted buttons, links'],
+      ['--color-tint-soft', 'rgba(0,113,227,.09)', 'rgba(10,132,255,.20)', 'Tinted button, selected reply, info banner'],
+      ['--color-green', '#1E7A34', '#30D158', 'Live, passed (text-safe)'],
+      ['--color-orange', '#B32F00', '#FF9F0A', 'Needs action (text-safe)'],
+      ['--color-red', '#C4000F', '#FF453A', 'Failed, destructive'],
+      ['--color-indigo', '#4B49C8', '#8E8CFF', 'Knowledge'],
+      ['--color-tile-*', '#007AFF #34C759 #FF9500 #5856D6 #8E8E93', '#0A84FF #30D158 #FF9F0A #5E5CE6 #636366', 'Solid icon tiles with white glyphs'],
+      ['--color-switch-on', '#34C759', '#30D158', 'Toggle on'],
+      ['--color-bubble-in', '#E9E9EB', '#2C2C2E', 'Incoming chat bubble'],
+      ['--color-overlay', 'rgba(0,0,0,.28)', 'rgba(0,0,0,.52)', 'Behind sheets'],
+      ['--color-toast-bg', 'rgba(29,29,31,.94)', 'rgba(58,58,60,.96)', 'Toast']
+    ].map((c) => ({ name: c[0], light: c[1], dark: c[2], use: c[3], lightSw: sw(c[1].split(' ')[0]), darkSw: sw(c[2].split(' ')[0]) }));
+    const type = [
+      ['--text-large-title', 'font: var(--text-large-title); letter-spacing: var(--track-large-title)', 'Mr Spa Consultant', '34/41 · 700 · −0.025em · phone 30/36'],
+      ['--text-title-2', 'font: var(--text-title-2); letter-spacing: var(--track-title-2)', 'Mr Spa Offers', '22/28 · 700 · −0.02em · detail titles'],
+      ['--text-title-3', 'font: var(--text-title-3); letter-spacing: var(--track-title-3)', 'Fix this answer', '20/25 · 600 · −0.017em · sheet titles'],
+      ['--text-headline', 'font: var(--text-headline); letter-spacing: var(--track-headline)', 'Mr Spa Consultant', '17/22 · 600 · −0.012em'],
+      ['--text-body', 'font: var(--text-body); letter-spacing: var(--track-body)', 'Ưu đãi free giao hàng từ 6 ghế pedicure', '15/20 · 400 · −0.009em · default'],
+      ['--text-callout', 'font: var(--text-callout); letter-spacing: var(--track-callout)', 'Dạ ghế pedicure bảo hành 12 tháng', '14/19 · 400 · previews, details'],
+      ['--text-subhead', 'font: var(--text-subhead); letter-spacing: var(--track-subhead)', 'Updated today · 7 active rows', '13/18 · 400 · subtitles; 600 for section headers'],
+      ['--text-footnote', 'font: var(--text-footnote)', 'Each version is a frozen copy.', '12/16 · 400 · section footers'],
+      ['--text-caption', 'font: var(--text-caption); letter-spacing: var(--track-caption)', 'LIVE · TODAY 3:52 PM', '11/14 · 600 · +0.01em · badges, time separators'],
+      ['--text-metric', 'font: var(--text-metric); letter-spacing: var(--track-metric)', '2', '28/34 · 700 · tabular · Home metrics; phone 24/30']
+    ].map((t) => ({ token: t[0], sample: t[1], text: t[2], spec: t[3] }));
+    const space = [4, 8, 12, 16, 20, 24, 32, 40, 48, 56].map((n, i) => ({ name: '--space-' + [1, 2, 3, 4, 5, 6, 8, 10, 12, 14][i], px: n + ' px', bar: 'height: 10px; border-radius: 3px; background: var(--color-tint-soft); box-shadow: inset 0 0 0 1px var(--color-link); width: ' + n * 2 + 'px' }));
+    const radii = [['--radius-xs', 5, 'badges'], ['--radius-sm', 7, 'tiles, menu items'], ['--radius-md', 10, 'inputs, search'], ['--radius-lg', 12, 'sections, panes'], ['--radius-xl', 16, 'sheets'], ['--radius-bubble', 18, 'chat bubbles'], ['--radius-full', 999, 'buttons, toast']]
+      .map((r) => ({ name: r[0] + ' · ' + (r[1] === 999 ? 'pill' : r[1] + ' px'), use: r[2], box: 'width: 32px; height: 32px; flex: none; background: var(--color-fill-2); border-radius: ' + Math.min(r[1], 16) + 'px' }));
+    const kv = (rows) => rows.map((r) => ({ k: r[0], v: r[1] }));
+    const specs = {
+      button: kv([
+        ['Variants', 'filled (one per screen) · tinted · gray · plain · destructive (tinted red) · plain.is-destructive'],
+        ['Small', 'h 28 · padding-x 12 · 13/18 600 · icon 15 · gap 5 · hit area extended to 44 with ::after inset −8px'],
+        ['Regular', 'h 36 · padding-x 16 · 15/20 600 · icon 17 · gap 6'],
+        ['Large', 'h 44 · padding-x 22 · 17/22 600 · phone sheet footers'],
+        ['Shape', 'radius pill · icon-only: square (28 / 36), aria-label required'],
+        ['States', 'hover: tint-hover or fill-2 · active scale 0.97 · focus 3px --color-focus ring, offset 2'],
+        ['Disabled', 'background fill, label-3 text — never a faded tint. A finished state is status text, not a disabled button (e.g. “✓ Published”).'],
+        ['Busy', 'keep width, show spinner + verb (“Checking 2 scenarios…”)']
+      ]),
+      row: kv([
+        ['Section', 'header 13/18 600 label-2, sentence case, padding-x 16 · gap 8 · card radius 12, surface, shadow-card · footer 12/16 label-2 · 28 px between sections (22 phone)'],
+        ['Row', 'min-h 44 · padding-left 16 · body padding 11 16 11 0 · gap 12'],
+        ['Separator', '1px --color-separator on the body, so it starts at the text (inset), never under the icon'],
+        ['Icon tile', '30 × 30 · radius 7 · glyph 18 · solid (white glyph) or soft (tinted glyph); large tile 40/r10/22'],
+        ['Avatar', '36 circle · initials 13/700 or person glyph 20'],
+        ['Text', 'title 15/20 (600 when it is a list item with a subtitle) · subtitle 13/18 label-2 · detail 13 label-2 right'],
+        ['Accessory', 'chevron 14, stroke 2.2, label-3 · or Toggle / small button · whole row is the tap target (no separate “Edit” link)'],
+        ['Selected', 'background fill (master lists)']
+      ]),
+      field: kv([
+        ['FieldRow inline', 'label 15 left · value right-aligned label-2 (label when focused) · min-h 44 · inset 16'],
+        ['FieldRow stacked', 'label 13/18 600 label-2 above · gap 4 · padding-y 11 · textarea grows with content (field-sizing: content), no fill, no resize grip, no inner scroll'],
+        ['Rule list', 'one inline FieldRow per rule with a 6px dot, then a “+ Add a rule” row in link color'],
+        ['Toggle', '46 × 28 · knob 24 · travel 18 · off fill-2, on switch-on · role="switch" aria-checked · hit area 44'],
+        ['Segmented', 'track fill, radius 9, padding 2 · item h 28, radius 7, padding-x 16, 13/18 500 · selected seg-selected + shadow-seg + 600 · full-width on phone'],
+        ['SearchField', 'h 36 · radius 10 · fill · icon 16 · padding-x 10 · gap 6 · type="search" with a visually hidden label']
+      ]),
+      badge: kv([
+        ['Badge', 'h 20 · padding-x 7 · radius 5 · 11/14 600 +0.01em · green / orange / red / blue / neutral / outline'],
+        ['Count', '18 × 18 min · radius 9 · orange tile color, white 11/700'],
+        ['Rule', 'Normal is silent. No “Ready”, “Active”, “Completed” badges — only exceptions (Failed, Not live, Starts…, Ended…, Off).'],
+        ['Banner', 'padding 12 16 · radius 12 · icon 22 · title 15/600 · text 13 label-2 · actions: small buttons, gap 8, margin-top 8'],
+        ['Banner variants', 'info tint-soft · warning orange-soft · error red-soft · success green-soft — soft fill, no border, no shadow'],
+        ['Banner rule', 'Every banner names what happened, its effect on customers, and one next step.']
+      ]),
+      empty: kv([
+        ['EmptyState', 'padding 48 24 · icon circle 56 fill, glyph 28 label-2 · title 17/22 600 · text 13/18 label-2 max 340 · one action, margin-top 10'],
+        ['Toast', 'bottom 24 (phone: above tab bar +16) · min-h 44 · radius 22 · padding 0 8 0 16 · toast-bg · check glyph 18 green · 14/19 500 · optional action 32h · auto-hides after 3.6 s · role="status"'],
+        ['Spinner', '16 (lg 28) · 2px (3px) ring, current color'],
+        ['Skeleton', 'skeleton fill, radius 6, line height 12, pulse 1.4 s; replaces content in place with the same layout'],
+        ['Loading rule', 'Skeletons for first load; spinner only inside the control that is busy'],
+        ['Error rule', 'Keep showing the last data, put a banner on top with Try again']
+      ]),
+      sheet: kv([
+        ['Sheet · desktop', 'width min(560, 100%) · max-h min(780, 100vh − 48) · radius 16 · sheet-bg · shadow-sheet · centered on overlay'],
+        ['Header', 'padding 16 16 8 20 · title 20/25 600 · optional subtitle 13 label-2 · close: small gray icon button 28 (×)'],
+        ['Body', 'padding 8 20 20 · gap 20 · the only scroll area · uses Section/FieldRow inside'],
+        ['Footer', 'padding 12 20 16 · 1px top separator · destructive plain on the left · gray Cancel then filled primary on the right'],
+        ['Sheet · phone', 'bottom sheet, full width, top radius 16, grabber 36 × 5 · footer buttons stack full width, large (44), primary on top'],
+        ['Motion', 'in: 340 ms --ease-spring (desktop scale 0.98 → 1 + fade, phone slides up) · reduced motion: no animation'],
+        ['Behavior', 'role="dialog" aria-modal · focus first field · trap focus · Esc and × close · return focus to the trigger'],
+        ['Alert', '300 wide · radius 14 · padding 20 20 16 · title 17/22 600 · text 13 label-2 · two equal buttons (gray + filled or destructive)'],
+        ['Menu', 'min-w 230 · padding 6 · radius 12 · surface-raised · shadow-popover · item h 36, radius 7, 15/20, icon 18 · group label 12/16 600 · separator inset 10'],
+        ['Steps', '3 bars, h 4, radius 2, gap 6 · done = tint · subtitle “Step 2 of 3 · Where to fix it”'],
+        ['Diff', 'radius 10 · 1px separator ring · head 12/16 600 · removed line red-soft + strikethrough · added line green-soft · sign column 12 px'],
+        ['Fix this answer', 'Step 1 Continue → Step 2 Apply and test → Step 3 Done · fail: Keep it anyway (plain destructive, asks with Alert) + Try another fix (filled)']
+      ]),
+      newPrims: kv([
+        ['Menu / MenuItem', 'Replaces rows of loose actions (Data: Import CSV, Rename, Hide table; Home: Dismiss reasons).'],
+        ['Alert', 'Confirmations: Restore version, Keep a failing fix.'],
+        ['Steps', 'Progress for multi-step sheets.'],
+        ['Diff', 'Before/after preview in Fix this answer.'],
+        ['Skeleton', 'Replaces full-page Spinner on first load.'],
+        ['MetaChip + DetailsCard', 'Under a selected reply in Preview: “Read 5 sources · looked up 2 offers” expands inline details with Fix this answer.'],
+        ['Disclosure', 'Collapsed advanced areas (playbook, model, live lookups, Settings Advanced).'],
+        ['StatusLine', '8px dot + 13 label-2 text for Live / Unpublished changes; replaces the “Live · v3” pill and the sidebar footer.']
+      ])
+    };
+    const layouts = [
+      { name: 'Shell', d: 'Sidebar 240 (brand 32 tile + 6 nav items 36h, selected = tint fill, white label) · content padding 40 40 56', c: 'Sidebar 72, icons only, 44 × 40 items, dot/badge on the icon · content padding 32 24 48', p: 'No sidebar · tab bar 6 items (icon 24, label 10/12), translucent · content padding 12 16 24' },
+      { name: 'Home', d: 'Large title + date · status card (tile 40) · Needs attention section (rows with Fix / Open + ••• menu) · Last 24 hours: one card, 3 metric cells with dividers · Recent conversations (2-line previews)', c: 'Same, single column', p: 'Same order; metrics stay 3-up at 24/30; row actions keep the primary button and the ••• menu' },
+      { name: 'Assistant', d: 'Header: name (large title) + status line, Publish on the right (only when there are changes). Segmented Instructions · Sources · Versions. Grid: editor 1fr + Preview 400 (sticky, full height, chat + Test scenarios bar + composer)', c: 'Preview 340, gap 16', p: 'Segmented Test · Instructions · Sources · Versions (full width). Test shows Preview at viewport height; other tabs show the editor' },
+      { name: 'Data', d: 'Large title + one-line subtitle · split: Tables list 300 + detail · detail header: title 22 + count, Search 220, Add (small filled), ••• menu · rows: offer title, 2-line details, type; badge only for exceptions', c: 'Tables list 260', p: 'Tables list first; tapping a table pushes the rows with a “‹ Tables” back button · row editor is a bottom sheet' },
+      { name: 'Conversations', d: 'Split: list 300 (search + rows with 2-line previews, tags) + transcript pane (sticky, own scroll): header with avatar, contact, “Your team replies” switch · paused banner · time separators · customer left (gray), assistant right (blue)', c: 'List 260', p: 'List first; tapping pushes the transcript with “‹ Conversations” · transcript pane fills the screen' },
+      { name: 'Channels', d: 'Large title + Add channel (filled). Form column 720: Replies not delivered (only when present, Retry all) · Connected · Add another channel (3 options)', c: 'Same', p: 'Same, single column; Add channel stays in the header' },
+      { name: 'Settings', d: 'Form column 720, left-aligned with the title: AI (Connection status, AI key + Replace inline, Advanced) · Brand · Backup · Sign out', c: 'Same', p: 'Same, full width' },
+      { name: 'Fix this answer', d: 'Sheet 560 centered · Steps · footer actions right', c: 'Same', p: 'Bottom sheet, full width, stacked large buttons' }
+    ];
+    const rules = kv([
+      ['Names', 'Never show machine IDs. Fallback order: contact name → phone → “Visitor” + last 4 characters of the ID (Visitor 9875). Sheet titles use the row’s own name, not its ID.'],
+      ['Dates', 'Today → “2:39 PM” · yesterday → “Yesterday” · this week → weekday · older → “Oct 3” · year only when it is not this year. Chats use time separators, not a timestamp under every bubble.'],
+      ['Status', 'Normal is silent. Show a badge or banner only when something is different or needs action.'],
+      ['Actions', 'One filled button per screen. Secondary actions are gray, tinted or plain; rare actions go in a ••• menu.'],
+      ['Warnings', 'Every warning says what happened, what customers see, and one next step.'],
+      ['Words', 'Plain English: source, data, scenario, version, publish. Never tool, eval, prompt, LLM, trace, webhook config, score, latency, model in primary UI.'],
+      ['Customer text', 'Vietnamese and other customer languages render with lang="vi" inside bubbles and data rows; text wraps (overflow-wrap: anywhere), previews clamp to 2 lines, never cut mid-word in titles.'],
+      ['Example data', 'Anything not read from the live app is marked “Example” in this prototype and must come from real data in the build.'],
+      ['Accessibility', '44 pt targets · visible focus ring · role="switch" on toggles · dialogs trap and return focus · both themes AA · reduced motion respected · icon-only buttons have aria-label.']
+    ]);
+    const tbl = 'display: grid; grid-template-columns: 170px minmax(0, 1fr); border-top: 1px solid var(--color-separator); font: var(--text-subhead)';
+    return {
+      yes: true,
+      theme: this.props.theme || 'light',
+      colors: colors, type: type, space: space, radii: radii, specs: specs, layouts: layouts, rules: rules,
+      tbl: tbl,
+      cellK: 'padding: 8px 12px 8px 0; border-bottom: 1px solid var(--color-separator); font-weight: 600',
+      cellV: 'padding: 8px 0; border-bottom: 1px solid var(--color-separator); color: var(--color-label-2)'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import { ConversationsPage } from "./pages/Conversations";
 import { DataPage } from "./pages/Data";
 import { HomePage } from "./pages/Home";
 import { SettingsPage } from "./pages/Settings";
+import { useTheme } from "./theme";
 import type { Bootstrap, Brand } from "./types";
 import { Banner, Button, FieldRow, Icon, Section, Segmented, Spinner, TextInput, ToastProvider, errorMessage } from "./ui";
 
@@ -57,7 +58,7 @@ function Shell({ data, reload, logout }: { data: Bootstrap; reload: () => Promis
   }, [page, data.brand.name]);
   if (!agent) return <CreateAssistant brand={data.brand} onDone={reload} />;
   return (
-    <div className="app">
+    <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
           <AppIcon brand={data.brand} size={30} />
@@ -168,6 +169,7 @@ export function App() {
   const [state, setState] = useState<"loading" | "setup" | "login" | "ready">("loading");
   const [brand, setBrand] = useState<Brand>(defaultBrand);
   const [data, setData] = useState<Bootstrap | null>(null);
+  const { theme } = useTheme();
   async function loadAdmin() {
     try {
       const session = await api<{ csrfToken: string }>("/api/admin/session");
@@ -197,6 +199,7 @@ export function App() {
     })();
   }, []);
   return (
+    <div className="app" data-theme={theme}>
     <ToastProvider>
       {state === "loading" && (
         <div className="page-loading full">
@@ -217,5 +220,6 @@ export function App() {
         />
       )}
     </ToastProvider>
+    </div>
   );
 }

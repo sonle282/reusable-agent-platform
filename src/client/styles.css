@@ -1,69 +1,300 @@
-/* Apple Human Interface Guidelines, translated to the web:
-   system font stack, semantic system colors with dark mode, inset grouped lists,
-   44pt touch targets, 8pt spacing grid, restrained motion. */
+/* =====================================================================
+   Admin design tokens (source: docs/product/design/styles.css)
+   Maps 1:1 onto src/client/styles.css. Components never use raw colors:
+   every color, size, radius, shadow and duration is a token below.
+   ===================================================================== */
 
-:root {
-  color-scheme: light dark;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI Variable Text", "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+/* ---------- 1. Tokens: light (default) ---------- */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
 
-  --tint: #007aff;
-  --tint-hover: #0068d9;
-  --tint-soft: rgba(0, 122, 255, 0.12);
-  --blue: #007aff;
-  --green: #34c759;
-  --orange: #ff9500;
-  --red: #ff3b30;
-  --purple: #af52de;
-  --indigo: #5856d6;
-  --teal: #30b0c7;
-  --gray: #8e8e93;
+  /* Grounds */
+  --color-bg: #F2F2F7;              /* page ground (grouped background) */
+  --color-surface: #FFFFFF;         /* cards, sections, panes */
+  --color-surface-raised: #FFFFFF;  /* popovers, menus */
+  --color-sheet-bg: #F2F2F7;        /* sheet ground, cards sit on it */
+  --color-sidebar: #F6F6F9;
+  --color-bar: rgba(249, 249, 251, 0.86); /* phone tab bar, translucent */
 
-  --bg: #f2f2f7;
-  --bg-elevated: #ffffff;
-  --bg-secondary: #ffffff;
-  --fill: rgba(120, 120, 128, 0.12);
-  --fill-strong: rgba(120, 120, 128, 0.2);
-  --label: #1d1d1f;
-  --label-secondary: rgba(60, 60, 67, 0.6);
-  --label-tertiary: rgba(60, 60, 67, 0.3);
-  --separator: rgba(60, 60, 67, 0.18);
-  --sidebar: rgba(246, 246, 248, 0.82);
-  --bubble-in: #e9e9eb;
-  --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
+  /* Labels */
+  --color-label: #1D1D1F;
+  --color-label-2: #6E6E73;         /* secondary text, AA on surface and bg */
+  --color-label-3: #AEAEB2;         /* glyphs/placeholders only, never body text */
+  --color-placeholder: #8E8E93;
 
-  --radius: 12px;
-  --radius-small: 8px;
-  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* Lines and fills */
+  --color-separator: rgba(60, 60, 67, 0.14);
+  --color-fill: rgba(118, 118, 128, 0.12);
+  --color-fill-2: rgba(118, 118, 128, 0.20);
+  --color-skeleton: rgba(118, 118, 128, 0.14);
+
+  /* Accent */
+  --color-tint: #0071E3;            /* fills (filled buttons, outgoing bubble, selected nav) */
+  --color-tint-hover: #0062C4;
+  --color-link: #0066CC;            /* tint used as TEXT: plain/tinted buttons, links */
+  --color-tint-soft: rgba(0, 113, 227, 0.09);
+  --color-on-tint: #FFFFFF;
+  --color-focus: rgba(0, 113, 227, 0.45);
+
+  /* Status (text-safe on surface and on their -soft fills) */
+  --color-green: #1E7A34;
+  --color-green-soft: rgba(52, 199, 89, 0.14);
+  --color-orange: #B32F00;
+  --color-orange-soft: rgba(255, 149, 0, 0.14);
+  --color-red: #C4000F;
+  --color-red-soft: rgba(255, 59, 48, 0.10);
+  --color-indigo: #4B49C8;
+  --color-indigo-soft: rgba(88, 86, 214, 0.11);
+
+  /* Icon tiles (solid, white glyph) */
+  --color-tile-blue: #007AFF;
+  --color-tile-green: #34C759;
+  --color-tile-orange: #FF9500;
+  --color-tile-indigo: #5856D6;
+  --color-tile-gray: #8E8E93;
+  --color-on-tile: #FFFFFF;
+
+  /* Controls */
+  --color-switch-on: #34C759;
+  --color-knob: #FFFFFF;
+  --color-seg-selected: #FFFFFF;
+  --color-bubble-in: #E9E9EB;
+  --color-overlay: rgba(0, 0, 0, 0.28);
+  --color-toast-bg: rgba(29, 29, 31, 0.94);
+  --color-toast-label: #FFFFFF;
+  --color-toast-action: #64B5FF;
+
+  /* Prototype-only chrome (not part of the product) */
+  --color-proto-bg: #1D1D1F;
+  --color-proto-label: #F5F5F7;
+  --color-proto-dim: rgba(245, 245, 247, 0.62);
+  --color-proto-on: rgba(255, 255, 255, 0.18);
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.025);
+  --shadow-seg: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --shadow-knob: 0 2px 6px rgba(0, 0, 0, 0.16), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --shadow-popover: 0 10px 30px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.20), 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --tint: #0a84ff;
-    --tint-hover: #409cff;
-    --tint-soft: rgba(10, 132, 255, 0.2);
-    --blue: #0a84ff;
-    --green: #30d158;
-    --orange: #ff9f0a;
-    --red: #ff453a;
-    --purple: #bf5af2;
-    --indigo: #5e5ce6;
-    --teal: #40c8e0;
-    --gray: #98989d;
+/* ---------- 1b. Tokens: dark ---------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #000000;
+  --color-surface: #1C1C1E;
+  --color-surface-raised: #2C2C2E;
+  --color-sheet-bg: #1C1C1E;
+  --color-sidebar: #141416;
+  --color-bar: rgba(22, 22, 24, 0.86);
 
-    --bg: #000000;
-    --bg-elevated: #1c1c1e;
-    --bg-secondary: #1c1c1e;
-    --fill: rgba(118, 118, 128, 0.24);
-    --fill-strong: rgba(118, 118, 128, 0.36);
-    --label: #f5f5f7;
-    --label-secondary: rgba(235, 235, 245, 0.6);
-    --label-tertiary: rgba(235, 235, 245, 0.3);
-    --separator: rgba(84, 84, 88, 0.6);
-    --sidebar: rgba(28, 28, 30, 0.78);
-    --bubble-in: #26252a;
-    --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.6);
-  }
+  --color-label: #F5F5F7;
+  --color-label-2: #98989D;
+  --color-label-3: #636366;
+  --color-placeholder: #7C7C80;
+
+  --color-separator: rgba(84, 84, 88, 0.55);
+  --color-fill: rgba(118, 118, 128, 0.24);
+  --color-fill-2: rgba(118, 118, 128, 0.34);
+  --color-skeleton: rgba(118, 118, 128, 0.22);
+
+  --color-tint: #0071E3;
+  --color-tint-hover: #1A85F0;
+  --color-link: #4DA3FF;
+  --color-tint-soft: rgba(10, 132, 255, 0.20);
+  --color-on-tint: #FFFFFF;
+  --color-focus: rgba(77, 163, 255, 0.6);
+
+  --color-green: #30D158;
+  --color-green-soft: rgba(48, 209, 88, 0.16);
+  --color-orange: #FF9F0A;
+  --color-orange-soft: rgba(255, 159, 10, 0.16);
+  --color-red: #FF453A;
+  --color-red-soft: rgba(255, 69, 58, 0.16);
+  --color-indigo: #8E8CFF;
+  --color-indigo-soft: rgba(94, 92, 230, 0.24);
+
+  --color-tile-blue: #0A84FF;
+  --color-tile-green: #30D158;
+  --color-tile-orange: #FF9F0A;
+  --color-tile-indigo: #5E5CE6;
+  --color-tile-gray: #636366;
+
+  --color-switch-on: #30D158;
+  --color-knob: #FFFFFF;
+  --color-seg-selected: #636366;
+  --color-bubble-in: #2C2C2E;
+  --color-overlay: rgba(0, 0, 0, 0.52);
+  --color-toast-bg: rgba(58, 58, 60, 0.96);
+
+  --shadow-card: none;
+  --shadow-seg: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-popover: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+/* Inside a dark sheet, cards lift one step. */
+[data-theme="dark"] .sheet { --color-surface: #2C2C2E; --color-bubble-in: #3A3A3C; }
+
+/* ---------- 1c. Type, space, radii, motion, layout ---------- */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI Variable Text", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI Variable Display", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* size/line-height · weight · tracking */
+  --text-large-title: 700 34px/41px var(--font-display);  --track-large-title: -0.025em;
+  --text-title-2: 700 22px/28px var(--font-display);      --track-title-2: -0.02em;
+  --text-title-3: 600 20px/25px var(--font-display);      --track-title-3: -0.017em;
+  --text-headline: 600 17px/22px var(--font-sans);        --track-headline: -0.012em;
+  --text-body: 400 15px/20px var(--font-sans);            --track-body: -0.009em;
+  --text-callout: 400 14px/19px var(--font-sans);         --track-callout: -0.006em;
+  --text-subhead: 400 13px/18px var(--font-sans);         --track-subhead: -0.003em;
+  --text-footnote: 400 12px/16px var(--font-sans);        --track-footnote: 0;
+  --text-caption: 600 11px/14px var(--font-sans);         --track-caption: 0.01em;
+  --text-metric: 700 28px/34px var(--font-display);       --track-metric: -0.02em;
+  --text-mono: 400 13px/19px var(--font-mono);
+
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-14: 56px;
+
+  --radius-xs: 5px;   /* badges */
+  --radius-sm: 7px;   /* icon tiles, menu items, segmented item */
+  --radius-md: 10px;  /* inputs, search, diff, small cards */
+  --radius-lg: 12px;  /* sections, panes */
+  --radius-xl: 16px;  /* sheets */
+  --radius-bubble: 18px;
+  --radius-full: 999px;
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-sheet: 340ms;
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --sidebar-w: 240px;
+  --sidebar-w-compact: 72px;
+  --page-max: 1040px;
+  --form-max: 720px;
+  --master-w: 300px;
+  --preview-w: 400px;
+  --tabbar-h: 56px;
+  --row-min: 44px;
+  --hit-min: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-sheet: 0ms; }
+}
+
+/* First paint follows the OS until the app sets data-theme (owner choice or OS). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --color-bg: #000000;
+  --color-surface: #1C1C1E;
+  --color-surface-raised: #2C2C2E;
+  --color-sheet-bg: #1C1C1E;
+  --color-sidebar: #141416;
+  --color-bar: rgba(22, 22, 24, 0.86);
+
+  --color-label: #F5F5F7;
+  --color-label-2: #98989D;
+  --color-label-3: #636366;
+  --color-placeholder: #7C7C80;
+
+  --color-separator: rgba(84, 84, 88, 0.55);
+  --color-fill: rgba(118, 118, 128, 0.24);
+  --color-fill-2: rgba(118, 118, 128, 0.34);
+  --color-skeleton: rgba(118, 118, 128, 0.22);
+
+  --color-tint: #0071E3;
+  --color-tint-hover: #1A85F0;
+  --color-link: #4DA3FF;
+  --color-tint-soft: rgba(10, 132, 255, 0.20);
+  --color-on-tint: #FFFFFF;
+  --color-focus: rgba(77, 163, 255, 0.6);
+
+  --color-green: #30D158;
+  --color-green-soft: rgba(48, 209, 88, 0.16);
+  --color-orange: #FF9F0A;
+  --color-orange-soft: rgba(255, 159, 10, 0.16);
+  --color-red: #FF453A;
+  --color-red-soft: rgba(255, 69, 58, 0.16);
+  --color-indigo: #8E8CFF;
+  --color-indigo-soft: rgba(94, 92, 230, 0.24);
+
+  --color-tile-blue: #0A84FF;
+  --color-tile-green: #30D158;
+  --color-tile-orange: #FF9F0A;
+  --color-tile-indigo: #5E5CE6;
+  --color-tile-gray: #636366;
+
+  --color-switch-on: #30D158;
+  --color-knob: #FFFFFF;
+  --color-seg-selected: #636366;
+  --color-bubble-in: #2C2C2E;
+  --color-overlay: rgba(0, 0, 0, 0.52);
+  --color-toast-bg: rgba(58, 58, 60, 0.96);
+
+  --shadow-card: none;
+  --shadow-seg: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-popover: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+  :root:not([data-theme="light"]) .sheet { --color-surface: #2C2C2E; --color-bubble-in: #3A3A3C; }
+}
+
+/* Legacy names kept as aliases while pages move to the new primitives (phases 2-4). Remove after phase 4. */
+:root,
+[data-theme] {
+  --font: var(--font-sans);
+  --mono: var(--font-mono);
+  --tint: var(--color-tint);
+  --tint-hover: var(--color-tint-hover);
+  --tint-soft: var(--color-tint-soft);
+  --blue: var(--color-tile-blue);
+  --green: var(--color-tile-green);
+  --orange: var(--color-tile-orange);
+  --red: var(--color-red);
+  --purple: var(--color-tile-indigo);
+  --indigo: var(--color-tile-indigo);
+  --teal: var(--color-tile-blue);
+  --gray: var(--color-tile-gray);
+  --bg: var(--color-bg);
+  --bg-elevated: var(--color-surface-raised);
+  --bg-secondary: var(--color-surface);
+  --fill: var(--color-fill);
+  --fill-strong: var(--color-fill-2);
+  --label: var(--color-label);
+  --label-secondary: var(--color-label-2);
+  --label-tertiary: var(--color-label-3);
+  --separator: var(--color-separator);
+  --sidebar: var(--color-sidebar);
+  --bubble-in: var(--color-bubble-in);
+  --radius: var(--radius-lg);
+  --radius-small: 8px;
+  --ease: var(--ease-standard);
+}
+
+/* Root container: theme scope, container queries for every breakpoint, stable scrollbar gutter. */
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: var(--color-bg);
+}
+
+.app {
+  container: app / inline-size;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-label);
+  font-family: var(--font-sans);
+  scrollbar-gutter: stable;
 }
 
 * {
@@ -152,7 +383,7 @@ pre {
 
 /* ---------- App layout ---------- */
 
-.app {
+.app-shell {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
   min-height: 100vh;
@@ -759,16 +990,11 @@ pre {
 }
 
 .segmented button.active {
-  background: var(--bg-elevated);
+  background: var(--color-seg-selected);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.04);
   font-weight: 600;
 }
 
-@media (prefers-color-scheme: dark) {
-  .segmented button.active {
-    background: #636366;
-  }
-}
 
 .search-field {
   display: flex;
@@ -1542,15 +1768,15 @@ tr:last-child td {
 
 /* ---------- Responsive ---------- */
 
-@media (max-width: 1080px) {
+@container app (max-width: 1079px) {
   .split,
   .test-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@media (max-width: 860px) {
-  .app {
+@container app (max-width: 859px) {
+  .app-shell {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1794,7 +2020,7 @@ tr.clickable:focus-visible {
   margin-top: 12px;
 }
 
-@media (max-width: 860px) {
+@container app (max-width: 859px) {
   .summary {
     grid-template-columns: minmax(0, 1fr);
   }

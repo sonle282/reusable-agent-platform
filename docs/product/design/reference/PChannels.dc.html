@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Channels</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-label)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page">
+    <header class="page-header">
+      <div class="page-heading">
+        <h1 class="large-title">Channels</h1>
+        <p class="page-subtitle">Where customers reach your assistant.</p>
+      </div>
+      <button type="button" class="btn btn-filled" onClick="{{addAny}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add channel</button>
+    </header>
+
+    <div class="form-col">
+      <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+        <section class="section" aria-labelledby="fd-h">
+          <div class="section-header"><h2 id="fd-h" style="margin: 0; font: inherit">Replies not delivered</h2><span class="badge badge-count" style="background: var(--color-red)">2</span><span class="spacer"></span><button type="button" class="btn btn-plain" onClick="{{retryAll}}">Retry all</button></div>
+          <div class="section-card">
+            <div class="row">
+              <span class="tile tile-soft-red"><svg class="icon" aria-hidden="true"><use href="#i-warning"></use></svg></span>
+              <div class="row-body"><div class="row-text"><span class="row-title">Reply to Visitor 9875 · 2:39 PM</span><span class="row-subtitle">Generic API smoke test didn’t answer in time</span></div><button type="button" class="btn btn-sm btn-gray" onClick="{{retryOne}}">Retry</button></div>
+            </div>
+            <div class="row">
+              <span class="tile tile-soft-red"><svg class="icon" aria-hidden="true"><use href="#i-warning"></use></svg></span>
+              <div class="row-body"><div class="row-text"><span class="row-title">Reply to Smoke Test · 2:38 PM</span><span class="row-subtitle">Generic API smoke test didn’t answer in time</span></div><button type="button" class="btn btn-sm btn-gray" onClick="{{retryOne}}">Retry</button></div>
+            </div>
+          </div>
+          <p class="section-footer">Customers haven’t received these replies yet. We retry automatically for 24 hours.</p>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+        <div class="section-card" aria-busy="true"><div class="skel-row"><span class="skel" style="width: 30px; height: 30px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 45%"></span><span class="skel skel-line" style="width: 30%"></span></span></div></div>
+      </sc-if>
+
+      <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+        <div class="section-card">
+          <div class="empty">
+            <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-link"></use></svg></span>
+            <h2 class="empty-title">No channels yet</h2>
+            <p class="empty-text">Connect a channel so customers can reach your assistant. Every channel uses the live version.</p>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{st.connected}}" hint-placeholder-val="{{ true }}">
+        <section class="section" aria-labelledby="cn-h">
+          <h2 id="cn-h" class="section-header">Connected</h2>
+          <div class="section-card">
+            <button type="button" class="row" onClick="{{openChannel}}">
+              <span class="tile tile-blue"><svg class="icon" aria-hidden="true"><use href="#i-bolt"></use></svg></span>
+              <span class="row-body">
+                <span class="row-text"><span class="row-title">Generic API smoke test</span><span class="row-subtitle">API · last message today 2:39 PM</span></span>
+                <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}"><span class="badge badge-red">2 not delivered</span></sc-if>
+                <svg class="icon row-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </span>
+            </button>
+          </div>
+          <p class="section-footer">Every channel uses the same assistant and its live version.</p>
+        </section>
+      </sc-if>
+
+      <section class="section" aria-labelledby="ad-h">
+        <h2 id="ad-h" class="section-header">{{addTitle}}</h2>
+        <div class="section-card">
+          <sc-for list="{{kinds}}" as="k" hint-placeholder-count="3">
+            <button type="button" class="row" onClick="{{k.add}}">
+              <span class="{{k.tile}}"><svg class="icon" aria-hidden="true"><use href="{{k.href}}"></use></svg></span>
+              <span class="row-body"><span class="row-text"><span class="row-title">{{k.name}}</span><span class="row-subtitle">{{k.sub}}</span></span><svg class="icon row-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg></span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+  </div>
+  </div>
+
+  <sc-if value="{{chan.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ch-t">
+        <span class="sheet-grabber" aria-hidden="true"></span>
+        <div class="sheet-header">
+          <div class="spacer"><h2 id="ch-t" class="sheet-title">Generic API smoke test</h2><p class="sheet-sub">API · connected</p></div>
+          <button type="button" class="btn btn-sm btn-gray btn-icon" aria-label="Close" onClick="{{chan.close}}"><svg class="icon" aria-hidden="true"><use href="#i-xmark"></use></svg></button>
+        </div>
+        <div class="sheet-body">
+          <div class="section">
+            <div class="section-card">
+              <label class="field"><span class="field-label">Name</span><input class="field-input" type="text" defaultValue="Generic API smoke test"></label>
+              <div class="field"><span class="field-label">Address</span><span class="field-value truncate" style="font: var(--text-mono)">[your endpoint]/api/chat</span><button type="button" class="btn btn-sm btn-gray btn-icon" aria-label="Copy address" onClick="{{chan.copy}}"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg></button></div>
+              <div class="field"><span class="field-label">Key</span><span class="field-value" style="font: var(--text-mono)">•••• •••• 7Qx</span><button type="button" class="btn btn-sm btn-gray" onClick="{{chan.rotate}}">New key</button></div>
+            </div>
+            <p class="section-footer">A new key stops the old one right away. Update your app before you make one.</p>
+          </div>
+        </div>
+        <div class="sheet-footer">
+          <button type="button" class="btn btn-plain is-destructive" onClick="{{chan.off}}">Turn off channel</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-filled" onClick="{{chan.close}}">Done</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{add.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="add-t">
+        <span class="sheet-grabber" aria-hidden="true"></span>
+        <div class="sheet-header">
+          <h2 id="add-t" class="sheet-title">Add channel</h2>
+          <button type="button" class="btn btn-sm btn-gray btn-icon" aria-label="Close" onClick="{{add.close}}"><svg class="icon" aria-hidden="true"><use href="#i-xmark"></use></svg></button>
+        </div>
+        <div class="sheet-body">
+          <div class="segmented full" role="tablist" aria-label="Channel type">
+            <sc-for list="{{add.kinds}}" as="k" hint-placeholder-count="3">
+              <button type="button" role="tab" aria-selected="{{k.on}}" onClick="{{k.pick}}">{{k.short}}</button>
+            </sc-for>
+          </div>
+          <div class="section">
+            <div class="section-card">
+              <label class="field"><span class="field-label">Name</span><input class="field-input" type="text" placeholder="{{add.placeholder}}"></label>
+              <sc-if value="{{add.isWebhook}}" hint-placeholder-val="{{ false }}"><label class="field"><span class="field-label">Send replies to</span><input class="field-input" type="url" placeholder="https://"></label></sc-if>
+            </div>
+            <p class="section-footer">{{add.help}}</p>
+          </div>
+        </div>
+        <div class="sheet-footer">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-gray" onClick="{{add.close}}">Cancel</button>
+          <button type="button" class="btn btn-filled" onClick="{{add.create}}">{{add.cta}}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { chan: false, add: null };
+  }
+  toast(m, a, f) { if (this.props.onToast) this.props.onToast(m, a, f); }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const kinds = [
+      { id: 'zernio', name: 'Zernio inbox', short: 'Zernio inbox', sub: 'Connect the shared inbox your team already uses', tile: 'tile tile-green', href: '#i-inbox', placeholder: 'Shop inbox', help: 'You’ll sign in to Zernio next to allow replies.', cta: 'Continue' },
+      { id: 'webhook', name: 'Webhook', short: 'Webhook', sub: 'Send each reply to an address you choose', tile: 'tile tile-indigo', href: '#i-webhook', placeholder: 'Website chat', help: 'We send each reply to this address. You get a key after adding it.', cta: 'Add' },
+      { id: 'api', name: 'API', short: 'API', sub: 'Connect another app or website of yours', tile: 'tile tile-blue', href: '#i-bolt', placeholder: 'Mobile app', help: 'You get an address and a key to use in your app.', cta: 'Add' }
+    ];
+    const a = s.add;
+    const ak = a ? kinds.filter((k) => k.id === a)[0] : kinds[0];
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', loading: ui === 'loading', empty: ui === 'empty', connected: ui === 'normal' || ui === 'error' },
+      addTitle: ui === 'empty' ? 'Choose a channel' : 'Add another channel',
+      kinds: kinds.map((k) => Object.assign({}, k, { add: () => this.setState({ add: k.id }) })),
+      addAny: () => this.setState({ add: 'zernio' }),
+      openChannel: () => this.setState({ chan: true }),
+      retryAll: () => { if (p.onRetry) p.onRetry(); this.toast('2 replies delivered'); },
+      retryOne: () => this.toast('Reply delivered'),
+      chan: {
+        show: s.chan,
+        close: () => this.setState({ chan: false }),
+        copy: () => this.toast('Address copied'),
+        rotate: () => this.toast('New key made — the old one stops working now'),
+        off: () => { this.setState({ chan: false }); this.toast('Channel turned off', 'Undo', () => {}); }
+      },
+      add: {
+        show: !!a,
+        kinds: kinds.map((k) => ({ short: k.short, on: k.id === ak.id, pick: () => this.setState({ add: k.id }) })),
+        placeholder: ak.placeholder, help: ak.help, cta: ak.cta,
+        isWebhook: ak.id === 'webhook',
+        close: () => this.setState({ add: null }),
+        create: () => { this.setState({ add: null }); this.toast(ak.name + ' added'); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

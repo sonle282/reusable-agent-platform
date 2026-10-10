@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Data</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" lang="en" style="font-family: var(--font-sans); color: var(--color-label)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page" style="gap: 20px">
+    <header class="page-header">
+      <div class="page-heading">
+        <h1 class="large-title">Data</h1>
+        <p class="page-subtitle">Prices, offers and stock. Edits reach customers right away.</p>
+      </div>
+    </header>
+
+    <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+      <div class="banner banner-error" role="alert">
+        <svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg>
+        <div class="banner-body">
+          <span class="banner-title">Couldn’t save “Ưu đãi tự lắp đặt trừ $100 mỗi ghế”</span>
+          <span class="banner-text">Your edit is kept here. Customers still see the old row until it saves.</span>
+          <div class="banner-actions"><button type="button" class="btn btn-sm btn-gray" onClick="{{retry}}">Try again</button></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+      <div class="section-card">
+        <div class="empty">
+          <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span>
+          <h2 class="empty-title">No tables yet</h2>
+          <p class="empty-text">Keep prices, offers and stock here. The assistant checks them before it quotes anything, so answers stay current.</p>
+          <div style="display: flex; gap: 8px; margin-top: 10px">
+            <button type="button" class="btn btn-filled" onClick="{{newTable}}">New table</button>
+            <button type="button" class="btn btn-gray" onClick="{{importCsv}}">Import CSV</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{st.list}}" hint-placeholder-val="{{ true }}">
+      <div class="split">
+        <div class="{{masterClass}}">
+          <div class="section">
+            <h2 class="section-header">Tables</h2>
+            <div class="section-card">
+              <sc-for list="{{tables}}" as="t" hint-placeholder-count="2">
+                <button type="button" class="{{t.cls}}" aria-current="{{t.current}}" onClick="{{t.pick}}">
+                  <span class="tile tile-green"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span>
+                  <span class="row-body"><span class="row-text"><span class="row-title">{{t.name}}</span></span><span class="row-detail tabular">{{t.count}}</span><svg class="icon row-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg></span>
+                </button>
+              </sc-for>
+              <button type="button" class="row" onClick="{{hiddenTables}}">
+                <span class="tile tile-soft-gray"><svg class="icon" aria-hidden="true"><use href="#i-eye-slash"></use></svg></span>
+                <span class="row-body"><span class="row-text"><span class="row-title muted">Hidden tables</span></span><span class="row-detail">3</span><svg class="icon row-chevron" aria-hidden="true"><use href="#i-chevron-right"></use></svg></span>
+              </button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-plain" style="align-self: flex-start; margin-left: 8px" onClick="{{newTable}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New table</button>
+        </div>
+
+        <div class="{{detailClass}}">
+          <button type="button" class="btn btn-plain back-link" style="align-self: flex-start; margin-left: -8px" onClick="{{back}}"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg>Tables</button>
+          <div class="detail-head">
+            <div style="flex: 1 1 200px; min-width: 0">
+              <h2 class="detail-title truncate">{{table.name}}</h2>
+              <p class="status-line" style="margin-top: 2px">{{table.meta}}</p>
+            </div>
+            <label class="search" style="flex: 0 1 220px">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+              <span class="sr-only">Search rows</span>
+              <input type="search" placeholder="Search" value="{{q}}" onChange="{{typeQ}}">
+            </label>
+            <button type="button" class="btn btn-sm btn-filled" onClick="{{addRow}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add</button>
+            <div class="menu-anchor">
+              <button type="button" class="btn btn-sm btn-gray btn-icon" aria-label="More table actions" aria-haspopup="menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}"><svg class="icon" aria-hidden="true"><use href="#i-ellipsis"></use></svg></button>
+              <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+                <div class="menu" role="menu">
+                  <button type="button" class="menu-item" role="menuitem" onClick="{{importCsv}}"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>Import CSV</button>
+                  <button type="button" class="menu-item" role="menuitem" onClick="{{rename}}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>Rename</button>
+                  <div class="menu-sep"></div>
+                  <button type="button" class="menu-item" role="menuitem" onClick="{{hideTable}}"><svg class="icon" aria-hidden="true"><use href="#i-eye-slash"></use></svg>Hide table</button>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+            <div class="section-card" aria-busy="true">
+              <div class="skel-row"><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 45%"></span><span class="skel skel-line" style="width: 80%"></span></span></div>
+              <div class="skel-row"><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 55%"></span><span class="skel skel-line" style="width: 70%"></span></span></div>
+              <div class="skel-row"><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 40%"></span><span class="skel skel-line" style="width: 75%"></span></span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{st.rows}}" hint-placeholder-val="{{ true }}">
+            <div class="section">
+              <div class="section-card" lang="vi">
+                <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                  <button type="button" class="row top" onClick="{{r.open}}">
+                    <span class="row-body" style="align-items: flex-start">
+                      <span class="row-text" style="gap: 2px">
+                        <span style="display: flex; align-items: center; gap: 8px; min-width: 0"><span class="row-title strong truncate">{{r.title}}</span><sc-if value="{{r.example}}" hint-placeholder-val="{{ false }}"><span class="badge example">Example</span></sc-if></span>
+                        <span class="row-subtitle clamp-2" style="font: var(--text-callout)">{{r.details}}</span>
+                        <span class="row-subtitle" style="font: var(--text-footnote)">{{r.type}}</span>
+                      </span>
+                      <sc-if value="{{r.hasBadge}}" hint-placeholder-val="{{ false }}"><span class="{{r.badgeClass}}">{{r.badge}}</span></sc-if>
+                      <svg class="icon row-chevron" aria-hidden="true" style="margin-top: 3px"><use href="#i-chevron-right"></use></svg>
+                    </span>
+                  </button>
+                </sc-for>
+                <sc-if value="{{noMatch}}" hint-placeholder-val="{{ false }}">
+                  <div class="empty" style="padding: 32px 24px">
+                    <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg></span>
+                    <h3 class="empty-title">No rows match “{{q}}”</h3>
+                    <p class="empty-text">Try another word, or add a new row.</p>
+                  </div>
+                </sc-if>
+              </div>
+              <p class="section-footer">Rows that are off, have ended or haven’t started are never used by the assistant.</p>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </div>
+
+  <sc-if value="{{sheet.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="row-t" lang="vi">
+        <span class="sheet-grabber" aria-hidden="true"></span>
+        <div class="sheet-header">
+          <div class="spacer" style="min-width: 0">
+            <h2 id="row-t" class="sheet-title clamp-2">{{sheet.title}}</h2>
+            <p class="sheet-sub" lang="en">{{table.name}}</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-gray btn-icon" aria-label="Close" onClick="{{sheet.close}}"><svg class="icon" aria-hidden="true"><use href="#i-xmark"></use></svg></button>
+        </div>
+        <div class="sheet-body">
+          <div class="section" lang="en">
+            <h3 class="section-header">Availability</h3>
+            <div class="section-card">
+              <div class="field"><span class="field-label spacer">Active</span><button type="button" class="toggle" role="switch" aria-checked="{{sheet.active}}" aria-label="Active" onClick="{{sheet.toggleActive}}"></button></div>
+              <label class="field"><span class="field-label">Starts</span><input class="field-input" type="text" defaultValue="{{sheet.starts}}" placeholder="Right away"></label>
+              <label class="field"><span class="field-label">Ends</span><input class="field-input" type="text" defaultValue="{{sheet.ends}}" placeholder="Never"></label>
+            </div>
+            <p class="section-footer">Leave Starts and Ends empty for an offer that always applies.</p>
+          </div>
+          <div class="section">
+            <h3 class="section-header" lang="en">Offer</h3>
+            <div class="section-card">
+              <label class="field"><span class="field-label" lang="en">Type</span><input class="field-input" type="text" defaultValue="{{sheet.type}}" placeholder="Ưu đãi giảm giá"></label>
+              <label class="field stacked"><span class="field-label" lang="en">Offer</span><textarea class="field-textarea" rows="1">{{sheet.title}}</textarea></label>
+              <label class="field stacked"><span class="field-label" lang="en">Details</span><textarea class="field-textarea" rows="2">{{sheet.details}}</textarea></label>
+              <label class="field stacked"><span class="field-label" lang="en">Conditions</span><textarea class="field-textarea" rows="1" placeholder="None"></textarea></label>
+            </div>
+          </div>
+        </div>
+        <div class="sheet-footer" lang="en">
+          <sc-if value="{{sheet.editing}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-plain is-destructive" onClick="{{sheet.del}}">Delete row</button></sc-if>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-gray" onClick="{{sheet.close}}">Cancel</button>
+          <button type="button" class="btn btn-filled" onClick="{{sheet.save}}">Save</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { table: 'offers', detailOpen: false, q: '', menuOpen: false, sheet: null };
+  }
+  toast(m, a, f) { if (this.props.onToast) this.props.onToast(m, a, f); }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const data = {
+      offers: { name: 'Mr Spa Offers', meta: '7 active · 10 total', count: '10', rows: [
+        { title: 'Ưu đãi tự lắp đặt trừ $100 mỗi ghế', details: 'Tự lắp đặt thì bên em trừ $100 mỗi ghế.', type: 'Ưu đãi giảm giá' },
+        { title: 'Ưu đãi free giao hàng từ 6 ghế pedicure hoặc 6 bộ combo', details: 'Free giao hàng cho đơn từ 6 ghế pedicure hoặc 6 bộ combo trở lên.', type: 'Ưu đãi giao hàng' },
+        { title: 'Ưu đãi mua nhiều ghế pedicure có giảm', details: 'Mua nhiều ghế pedicure có giảm giá, mức giảm tuỳ số lượng.', type: 'Ưu đãi giảm giá' },
+        { title: 'Ưu đãi Black Friday', details: 'Giảm [số tiền] cho đơn đặt trong tuần lễ Black Friday.', type: 'Ưu đãi giảm giá', example: true, badge: 'Starts Nov 27', badgeClass: 'badge badge-blue', starts: 'Nov 27, 2026', ends: 'Dec 1, 2026' },
+        { title: 'Ưu đãi khai trương showroom', details: 'Tặng [quà tặng] cho khách đến showroom trong tháng khai trương.', type: 'Ưu đãi quà tặng', example: true, badge: 'Ended Sep 30', badgeClass: 'badge badge-neutral', ends: 'Sep 30, 2026' },
+        { title: 'Combo ghế pedicure và bồn ngâm chân', details: 'Mua combo ghế và bồn được giảm [số tiền].', type: 'Ưu đãi combo', example: true, badge: 'Off', badgeClass: 'badge badge-neutral', off: true }
+      ] },
+      products: { name: 'Mr Spa Products', meta: 'Example rows', count: '2', rows: [
+        { title: 'Birkin M4', details: 'Ghế pedicure có massage toàn thân, đệm êm ôm dáng, gác chân và lưng ngả chỉnh được · [giá]', type: 'Ghế pedicure', example: true },
+        { title: 'Cyber Carbon S3', details: 'Ghế pedicure · [giá] · [tồn kho]', type: 'Ghế pedicure', example: true }
+      ] }
+    };
+    const t = data[s.table];
+    const q = s.q.trim().toLowerCase();
+    const rows = t.rows.filter((r) => !q || (r.title + ' ' + r.details).toLowerCase().indexOf(q) >= 0);
+    const sh = s.sheet;
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', empty: ui === 'empty', list: ui !== 'empty', loading: ui === 'loading', rows: ui !== 'loading' },
+      retry: () => { if (p.onRetry) p.onRetry(); else this.toast('Saved'); },
+      masterClass: s.detailOpen ? 'master is-hidden-phone' : 'master',
+      detailClass: s.detailOpen ? 'detail' : 'detail is-hidden-phone',
+      back: () => this.setState({ detailOpen: false }),
+      tables: Object.keys(data).map((k) => ({
+        name: data[k].name, count: data[k].count,
+        cls: s.table === k ? 'row is-selected' : 'row',
+        current: s.table === k ? 'true' : undefined,
+        pick: () => this.setState({ table: k, detailOpen: true, q: '', menuOpen: false })
+      })),
+      table: { name: t.name, meta: t.meta },
+      q: s.q,
+      typeQ: (e) => this.setState({ q: e.target.value }),
+      rows: rows.map((r) => ({
+        title: r.title, details: r.details, type: r.type, example: !!r.example,
+        hasBadge: !!r.badge, badge: r.badge || '', badgeClass: r.badgeClass || '',
+        open: () => this.setState({ sheet: Object.assign({ editing: true, active: !r.off }, r) })
+      })),
+      noMatch: rows.length === 0,
+      menuOpen: s.menuOpen,
+      toggleMenu: () => this.setState({ menuOpen: !s.menuOpen }),
+      importCsv: () => { this.setState({ menuOpen: false }); this.toast('Choose a CSV file — columns are matched by name'); },
+      rename: () => { this.setState({ menuOpen: false }); this.toast('Rename “' + t.name + '”'); },
+      hideTable: () => { this.setState({ menuOpen: false }); this.toast('“' + t.name + '” hidden', 'Undo', () => {}); },
+      hiddenTables: () => this.toast('Shows 3 hidden tables'),
+      newTable: () => this.toast('Name your new table'),
+      addRow: () => this.setState({ sheet: { editing: false, active: true, title: '', details: '', type: '', starts: '', ends: '' } }),
+      sheet: {
+        show: !!sh,
+        title: sh ? (sh.title || 'New row') : '',
+        details: sh ? sh.details : '',
+        type: sh ? sh.type : '',
+        starts: sh ? (sh.starts || '') : '',
+        ends: sh ? (sh.ends || '') : '',
+        editing: sh ? sh.editing : false,
+        active: sh ? sh.active : true,
+        toggleActive: () => this.setState({ sheet: Object.assign({}, sh, { active: !sh.active }) }),
+        close: () => this.setState({ sheet: null }),
+        save: () => { this.setState({ sheet: null }); this.toast('Saved. Customers see it now.'); },
+        del: () => { this.setState({ sheet: null }); this.toast('Row deleted', 'Undo', () => {}); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

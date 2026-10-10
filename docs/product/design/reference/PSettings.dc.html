@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-label)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page">
+    <header class="page-header">
+      <div class="page-heading"><h1 class="large-title">Settings</h1></div>
+    </header>
+
+    <div class="form-col">
+      <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+        <div class="banner banner-error" role="alert">
+          <svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg>
+          <div class="banner-body">
+            <span class="banner-title">The AI isn’t accepting your key</span>
+            <span class="banner-text">Customers get the fallback reply until this is fixed. The key may have expired or run out of credit.</span>
+            <div class="banner-actions"><button type="button" class="btn btn-sm btn-gray" onClick="{{openKey}}">Replace key</button></div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+        <div class="banner banner-info">
+          <svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>
+          <div class="banner-body"><span class="banner-title">Add your AI key to start</span><span class="banner-text">Your assistant needs it to answer customers. It takes a minute.</span></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+        <div class="section-card" aria-busy="true">
+          <div class="skel-row"><span class="skel skel-line" style="width: 30%"></span><span class="spacer"></span><span class="skel skel-line" style="width: 20%"></span></div>
+          <div class="skel-row"><span class="skel skel-line" style="width: 25%"></span><span class="spacer"></span><span class="skel skel-line" style="width: 30%"></span></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{st.ready}}" hint-placeholder-val="{{ true }}">
+        <section class="section" aria-labelledby="ai-h">
+          <h2 id="ai-h" class="section-header">AI</h2>
+          <div class="section-card">
+            <div class="row">
+              <span class="tile tile-indigo"><svg class="icon" aria-hidden="true"><use href="#i-sparkles"></use></svg></span>
+              <div class="row-body"><span class="row-title spacer">Connection</span><span class="{{conn.cls}}"><svg class="icon icon-16" aria-hidden="true"><use href="{{conn.href}}"></use></svg>{{conn.text}}</span></div>
+            </div>
+            <div class="row">
+              <span class="tile tile-gray"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg></span>
+              <div class="row-body"><div class="row-text"><span class="row-title">AI key</span><span class="row-subtitle">{{keyText}}</span></div>
+                <sc-if value="{{keyClosed}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-sm btn-gray" onClick="{{openKey}}">{{keyCta}}</button></sc-if>
+              </div>
+            </div>
+            <sc-if value="{{keyOpen}}" hint-placeholder-val="{{ false }}">
+              <div style="padding: 4px 16px 14px 58px; display: flex; flex-direction: column; gap: 10px">
+                <label><span class="sr-only">New AI key</span><input class="input" type="password" placeholder="sk-ant-…" autocomplete="off" style="font: var(--text-mono)"></label>
+                <div style="display: flex; gap: 8px; justify-content: flex-end">
+                  <button type="button" class="btn btn-sm btn-gray" onClick="{{closeKey}}">Cancel</button>
+                  <button type="button" class="btn btn-sm btn-filled" onClick="{{saveKey}}">Test and save</button>
+                </div>
+              </div>
+            </sc-if>
+            <button type="button" class="disclosure" aria-expanded="{{advOpen}}" onClick="{{toggleAdv}}" style="border-top: 1px solid var(--color-separator)">
+              <span class="spacer">Advanced</span>
+              <svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+            </button>
+            <sc-if value="{{advOpen}}" hint-placeholder-val="{{ false }}">
+              <div style="border-top: 1px solid var(--color-separator)">
+                <label class="field"><span class="field-label">Cloudflare account ID</span><input class="field-input" type="text" placeholder="Optional" style="font: var(--text-mono)"></label>
+                <label class="field"><span class="field-label">AI Gateway ID</span><input class="field-input" type="text" placeholder="Optional" style="font: var(--text-mono)"></label>
+              </div>
+            </sc-if>
+          </div>
+          <p class="section-footer">Your key is encrypted and never shown again. A new key is used by customers after your next publish.</p>
+        </section>
+
+        <section class="section" aria-labelledby="br-h">
+          <h2 id="br-h" class="section-header">Brand</h2>
+          <div class="section-card">
+            <label class="field"><span class="field-label">Name</span><input class="field-input" type="text" defaultValue="Mr Spa AI"></label>
+            <div class="field">
+              <span class="field-label spacer">Logo</span>
+              <span class="brand-tile" role="img" aria-label="Current logo">MS</span>
+              <button type="button" class="btn btn-sm btn-gray" onClick="{{changeLogo}}">Change</button>
+            </div>
+            <div class="field">
+              <span class="field-label spacer">Accent color</span>
+              <span class="row-detail" style="font: var(--text-mono)">#1D2B36</span>
+              <button type="button" aria-label="Accent color #1D2B36, change" onClick="{{changeColor}}" style="width: 28px; height: 28px; border-radius: 14px; border: 0; padding: 0; background: #1D2B36; box-shadow: 0 0 0 1px var(--color-separator), inset 0 0 0 2px var(--color-surface); cursor: pointer"></button>
+            </div>
+          </div>
+          <p class="section-footer">Customers see your brand in the chat. This admin keeps system colors so status stays readable.</p>
+        </section>
+
+        <section class="section" aria-labelledby="bk-h">
+          <h2 id="bk-h" class="section-header">Backup</h2>
+          <div class="section-card">
+            <div class="row">
+              <span class="tile tile-gray"><svg class="icon" aria-hidden="true"><use href="#i-archive"></use></svg></span>
+              <div class="row-body"><div class="row-text"><span class="row-title">Download a backup</span><span class="row-subtitle">Instructions, knowledge, data and versions in one file</span></div><button type="button" class="btn btn-sm btn-gray" onClick="{{download}}"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Download</button></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" aria-label="Account">
+          <div class="section-card">
+            <button type="button" class="row" onClick="{{signOut}}" style="justify-content: center; padding: 0">
+              <span class="row-body" style="justify-content: center; padding: 11px 16px"><span class="row-title" style="color: var(--color-red)">Sign out</span></span>
+            </button>
+          </div>
+        </section>
+      </sc-if>
+    </div>
+  </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { keyOpen: false, advOpen: false };
+  }
+  toast(m, a, f) { if (this.props.onToast) this.props.onToast(m, a, f); }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const empty = ui === 'empty';
+    const keyOpen = s.keyOpen || empty;
+    const conn = ui === 'error'
+      ? { cls: 'status-line text-red', text: 'Key not accepted', href: '#i-error' }
+      : empty ? { cls: 'status-line', text: 'Not set up', href: '#i-info' }
+      : { cls: 'status-line text-green', text: 'Connected · checked 2:41 PM', href: '#i-check-circle' };
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', empty: empty, loading: ui === 'loading', ready: ui !== 'loading' },
+      conn: conn,
+      keyText: empty ? 'Not added yet' : 'Saved · ends in 7Qx',
+      keyCta: 'Replace',
+      keyOpen: keyOpen,
+      keyClosed: !keyOpen,
+      openKey: () => this.setState({ keyOpen: true }),
+      closeKey: () => this.setState({ keyOpen: false }),
+      saveKey: () => { this.setState({ keyOpen: false }); if (p.onRetry && ui !== 'normal') p.onRetry(); this.toast('Key works and is saved'); },
+      advOpen: s.advOpen,
+      toggleAdv: () => this.setState({ advOpen: !s.advOpen }),
+      changeLogo: () => this.toast('Choose a square image, at least 256 px'),
+      changeColor: () => this.toast('Opens the color picker'),
+      download: () => this.toast('Backup downloaded'),
+      signOut: () => this.toast('Signed out (prototype)')
+    };
+  }
+}
+</script>
+</body>
+</html>

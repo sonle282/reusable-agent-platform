@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Icons</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="light" style="font-family: var(--font-sans); color: var(--color-label)">
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position: absolute; width: 0; height: 0; overflow: hidden">
+    <defs>
+      <symbol id="i-house" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"></path></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M10 3.5l1.6 4.4 4.4 1.6-4.4 1.6L10 15.5l-1.6-4.4L4 9.5l4.4-1.6zM17.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"></path></symbol>
+      <symbol id="i-table" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 9.5h16M4 14.5h16M10 9.5V20"></path></symbol>
+      <symbol id="i-bubbles" viewBox="0 0 24 24"><path d="M7 4.5h6a2.5 2.5 0 0 1 2.5 2.5v3.5A2.5 2.5 0 0 1 13 13H9.5L6.5 15.5V13H7a2.5 2.5 0 0 1-2.5-2.5V7A2.5 2.5 0 0 1 7 4.5zM15.5 9H17a2.5 2.5 0 0 1 2.5 2.5V15a2.5 2.5 0 0 1-2.5 2.5h-.5V20l-3-2.5H11A2.5 2.5 0 0 1 8.5 15v-.5"></path></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1"></path></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"></circle><circle cx="12" cy="12" r="2.6"></circle><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6"></path></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"></path></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"></path></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"></path></symbol>
+      <symbol id="i-xmark" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"></path></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"></circle><path d="M15 15l4.5 4.5"></path></symbol>
+      <symbol id="i-ellipsis" viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01" style="stroke-width: 3"></path></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 4.5V8h-3.5"></path></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 18V6M6.5 11.5 12 6l5.5 5.5"></path></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1zM13 3.5V8.5h5M9 12.5h6M9 16h6"></path></symbol>
+      <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M20 7.2a4.5 4.5 0 0 1-6 4.3L7.6 18a1.9 1.9 0 1 1-2.7-2.7l6.5-6.4a4.5 4.5 0 0 1 5.7-5.7l-2.6 2.6.5 2.4 2.4.5z"></path></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5.5 12.5l4 4 9-9"></path></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M8.5 12.2l2.3 2.3 4.7-4.9"></path></symbol>
+      <symbol id="i-warning" viewBox="0 0 24 24"><path d="M10.3 5.2a2 2 0 0 1 3.4 0l6.6 11.4a2 2 0 0 1-1.7 3H5.4a2 2 0 0 1-1.7-3zM12 10v4M12 16.8v.2"></path></symbol>
+      <symbol id="i-error" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 8v4.5M12 15.8v.2"></path></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8v.2"></path></symbol>
+      <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"></circle><path d="M5 19.5a7 7 0 0 1 14 0"></path></symbol>
+      <symbol id="i-person-plus" viewBox="0 0 24 24"><circle cx="10" cy="8.5" r="3.5"></circle><path d="M3.5 19.5a6.5 6.5 0 0 1 13 0M18.5 8v6M15.5 11h6"></path></symbol>
+      <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3"></circle><circle cx="16.5" cy="9.5" r="2.5"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0M14.5 15.2a4.5 4.5 0 0 1 6 3.8"></path></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5.5 13.5H12L11 21l7.5-10.5H12z"></path></symbol>
+      <symbol id="i-webhook" viewBox="0 0 24 24"><circle cx="6" cy="17.5" r="2"></circle><circle cx="18" cy="17.5" r="2"></circle><circle cx="12" cy="6" r="2"></circle><path d="M12 8v3.5l-5 4.5M12 11.5l5 4.5"></path></symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4 13.5 6.5 5h11L20 13.5V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18zM4 13.5h4.5a3.5 3.5 0 0 0 7 0H20"></path></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></symbol>
+      <symbol id="i-restore" viewBox="0 0 24 24"><path d="M9 6.5 5 10.5l4 4M5 10.5h9.5a5 5 0 0 1 0 10H12"></path></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"></path></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14"></path></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15.5" r="3.5"></circle><path d="M10.5 13 19 4.5M16 7.5l2.5 2.5M13.5 10l2 2"></path></symbol>
+      <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.9 1.4-1.9-.5-1.2.3-2.3 1.6-2.3h1.8a3.7 3.7 0 0 0 3.7-3.7C20.5 7.4 16.7 3.5 12 3.5z"></path><path d="M8 11h.01M10.5 7.5h.01M15 7.5h.01" style="stroke-width: 2.6"></path></symbol>
+      <symbol id="i-signout" viewBox="0 0 24 24"><path d="M14 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19H14M10 12h10M17 9l3 3-3 3"></path></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5.5" y="10.5" width="13" height="9.5" rx="2"></rect><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"></path></symbol>
+      <symbol id="i-eye-slash" viewBox="0 0 24 24"><path d="M4 4l16 16M10.6 6.1A9 9 0 0 1 12 6c5 0 8.5 4.5 9 6-.3.9-1.2 2.4-2.6 3.7M6.6 7.6C4.6 9 3.3 11 3 12c.5 1.5 4 6 9 6 1.6 0 3-.4 4.2-1.1M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M15.5 4.5l4 4L9 19l-4.5 1 1-4.5z"></path></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 12.5h8L17 7M10.5 11v5M13.5 11v5"></path></symbol>
+      <symbol id="i-offline" viewBox="0 0 24 24"><path d="M4 4l16 16M8.5 16a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4.3-2.4M19 12.5a10 10 0 0 0-2.4-1.6M2.5 9a14 14 0 0 1 3.5-2.2M21.5 9a14 14 0 0 0-8.6-3.4M12 19.5h.01"></path></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"></rect><path d="M15.5 8.5V6.5A1.5 1.5 0 0 0 14 5H6.5A1.5 1.5 0 0 0 5 6.5V14a1.5 1.5 0 0 0 1.5 1.5h2"></path></symbol>
+      <symbol id="i-check-bubble" viewBox="0 0 24 24"><path d="M6.5 4.5h11A2.5 2.5 0 0 1 20 7v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5v-3.5h-.5A2.5 2.5 0 0 1 4 14V7a2.5 2.5 0 0 1 2.5-2.5zM8.5 10.5l2.3 2.3 4.7-4.6"></path></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5s1.1-6.1 3.4-8.5z"></path></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M10 9v6M14 9v6"></path></symbol>
+      <symbol id="i-archive" viewBox="0 0 24 24"><path d="M4 5h16v4H4zM5.5 9v9.5A1.5 1.5 0 0 0 7 20h10a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"></path></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2"></rect><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"></path></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"></path></symbol>
+      <symbol id="i-reply" viewBox="0 0 24 24"><path d="M10 6.5 5 11l5 4.5M5 11h8.5a5.5 5.5 0 0 1 5.5 5.5V18"></path></symbol>
+    </defs>
+  </svg>
+
+  <sc-if value="{{showSheet}}" hint-placeholder-val="{{ true }}">
+    <div style="padding: 40px 48px; display: flex; flex-direction: column; gap: 24px; background: var(--color-bg); min-height: 560px; box-sizing: border-box">
+      <div>
+        <h1 class="large-title">Icons</h1>
+        <p class="page-subtitle">SF Symbols–style outline · 24-unit grid · 1.6 stroke · round caps and joins · drawn at 16, 18, 20, 22 and 24 px. Use with <code>&lt;svg class="icon"&gt;&lt;use href="#i-name"&gt;&lt;/use&gt;&lt;/svg&gt;</code>.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{icons}}" as="ic" hint-placeholder-count="50">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 4px 10px; background: var(--color-surface); border-radius: 10px; box-shadow: var(--shadow-card)">
+            <svg class="icon" style="width: 24px; height: 24px" aria-hidden="true"><use href="{{ic.href}}"></use></svg>
+            <span style="font: 500 11px/14px var(--font-mono); color: var(--color-label-2)">{{ic.id}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sprite":{"editor":null},"$preview":{"width":1440,"height":560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ids = ['house','sparkles','table','bubbles','link','gear','chevron-right','chevron-left','chevron-down','xmark','plus','search','ellipsis','refresh','arrow-up','doc','wrench','check','check-circle','warning','error','info','person','person-plus','team','bolt','webhook','inbox','clock','restore','download','upload','key','palette','signout','lock','eye-slash','pencil','trash','offline','copy','check-bubble','globe','pause','archive','calendar','sliders','play','reply'];
+    const sprite = !!this.props.sprite;
+    return {
+      rootClass: sprite ? 'page-host' : 'app',
+      showSheet: !sprite,
+      icons: ids.map((id) => ({ id: id, href: '#i-' + id }))
+    };
+  }
+}
+</script>
+</body>
+</html>
