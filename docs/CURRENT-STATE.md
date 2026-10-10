@@ -1,6 +1,6 @@
 # Current state and handoff snapshot
 
-Snapshot date: **2026-10-10** (Asia/Saigon)
+Snapshot date: **2026-10-10** (Asia/Saigon), updated after AI activation and the UI redesign
 
 This document lets a new operator or coding session resume without reconstructing completed work. It intentionally contains identifiers and status only, never secret values.
 
@@ -58,66 +58,64 @@ The repository contains a working single-tenant, multi-agent platform in one Clo
 - AES-GCM encrypted external credentials, PBKDF2 password hashes, signed HttpOnly sessions, CSRF/origin checks, login lockout, API-key rate limits, SSRF/MIME protections, and log redaction.
 - Mr Spa fixture importer without tenant-specific runtime branches.
 
-## Production data already loaded
+## Production data and AI state (2026-10-10)
 
-The initial setup is complete and the one-time bootstrap path is disabled.
+Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
 
-- Brand: `Mr Spa AI`
-- Support URL: `https://mrspainc.com`
-- Admin email: `sonle@nhi.sg`
-- Agents: 1
-- Collections: 5 total, including starter and Mr Spa collections
-- Structured records: 75 total
-  - Products: 72
-  - Offers: 3
-- Knowledge sources: 9, all ready at the time of import verification
-- Eval cases: 2
-- Imported agent ID: `agent_9ba698281216469095698ed4c28c928a`
+- Production URL: `https://agent.mrspainc.com` (Workers Custom Domain; `workers.dev` and preview URLs are disabled in `wrangler.jsonc`)
+- Brand: `Mr Spa AI`, support URL `https://mrspainc.com`
+- Admin email: `sonle@nhi.sg` (password held by the owner, never in Git)
+- Assistant: `Mr Spa Consultant` (`agent_9ba698281216469095698ed4c28c928a`), model `claude-haiku-5-5`, max tokens 4096
+- **Production version v1 published** (`ver_647de5c138cc459aa0d0716d6b72356e`) after both critical evals passed
+- Collections: 5; records 75 (72 products + 3 example offers that are `archived`)
+- Knowledge sources: 9, re-ingested with the lowercase AI Search metadata schema, all `ready`
+- Eval cases: 2 critical (`search_products` price guard, `search_offers` offer guard)
+- Anthropic key stored encrypted in D1; model calls go through the Workers `AI` binding to AI Gateway `default` (Authenticated Gateway compatible)
+- Generic API connection `Generic API smoke test` exists and is active; its smoke-test key was rotated and discarded, so rotate again to obtain a usable key
 
-The admin password was generated and delivered outside Git. If it is unavailable on another machine, use the operational recovery path rather than writing it into a file or prompt.
+### Verified end to end on production
+
+- Model connection test through AI Gateway: pass.
+- Preview: product question used `search_products`; policy question used Knowledge (`policies.md`, `kb-after-sales.md`); offer question called `search_offers`.
+- Generic API: missing/invalid key 401; key cannot reach admin endpoints; sync 200; duplicate `Idempotency-Key` returns the identical public body without re-running the model or duplicating transcript messages; async 202 in about 1.5 s with later replay 200; 60 requests/minute limit returns 429; rotated key is rejected.
+- Conversation search by external ID and transcript retrieval.
+
+### Production behaviours worth knowing
+
+- Requests from Vietnam reach the HKG colo, where Anthropic answers 403 "Request not allowed". The Worker uses `placement.region = aws:us-east-1`, and new ConversationAgent Durable Objects get location hint `enam` (`CONVERSATION_LOCATION_HINT`). Do not remove either without a replacement.
+- The three real standing offers (OF-001 free shipping from 6 chairs, OF-002 $100/chair self-install, OF-003 volume discount) currently live inside the compiled Behavior instructions, not in the Offers collection. Moving them into the collection is the open data-modelling follow-up.
+- The imported instructions make the assistant answer in the structured `v2` message JSON; the admin UI renders it, API clients receive the JSON string in `messages[].text`.
 
 ## Worker secrets present remotely
 
 These bindings exist in Cloudflare and their values must remain outside Git:
 
-- `BOOTSTRAP_TOKEN`
+- `BOOTSTRAP_TOKEN` (rotated on 2026-10-10 by the recovery command; only useful while setup is open)
 - `SESSION_SIGNING_KEY`
 - `CREDENTIAL_ENCRYPTION_KEY`
 
-Secrets remain on the Cloudflare account across laptop changes and normal Git deployments. A new machine does not need their plaintext values unless intentionally rotating or performing a supported recovery operation.
+Secrets remain on the Cloudflare account across laptop changes and normal Git deployments. Do not rotate `CREDENTIAL_ENCRYPTION_KEY` until a decrypt/re-encrypt migration exists for stored credentials. Cloudflare Workers allows at most 100,000 PBKDF2 iterations (`f9d1e87`); do not raise it.
 
-Do not rotate `CREDENTIAL_ENCRYPTION_KEY` until a decrypt/re-encrypt migration exists for stored credentials.
+## Changes on 2026-10-10
 
-## Important compatibility fix
-
-Cloudflare Workers permits a maximum of 100,000 PBKDF2 iterations for this runtime path. The original value of 210,000 caused first-admin setup to fail. The default was changed to 100,000 and protected by a regression test in commit:
-
-```text
-f9d1e87 fix: respect Workers PBKDF2 iteration limit
-```
-
-Latest known test state before this documentation update: **15/15 passing**.
+- `b100d68` Claude 5 compatibility: omit `temperature` where rejected; fixed the model test (schema minimum); current model IDs in the allowlist.
+- `cddd015` Anthropic via the AI Gateway Worker binding; `npm run admin:reset` recovery command.
+- `3887329` AI Search custom metadata schema (`agentid`, `sourceid`, `name`); custom domain `agent.mrspainc.com`.
+- `c5ac107` Worker placement and Durable Object location hint for Anthropic-supported egress.
+- `2865275` idempotent API replays return the public response shape.
+- `05cd67e` and later: schema errors return 400, unique conflicts 409.
+- Admin UI redesigned (Apple HIG, one assistant, autosave, one-step publish with eval gate).
 
 ## Immediate next work
 
-The platform code and Mr Spa content are deployed, but end-to-end AI behavior is not yet complete because an Anthropic API key has not been configured.
-
-Continue in this order:
-
-1. Obtain the Anthropic key from the owner through a secure channel or clipboard; never echo it, log it, or commit it.
-2. In the admin UI, configure Cloudflare account ID, AI Gateway ID `default`, the Anthropic key, and an allowlisted Claude model.
-3. Run the built-in model connection test.
-4. Open Mr Spa agent Preview and test product, promotion, and policy questions; inspect retrieved sources and collection tools.
-5. Run both eval cases and resolve any critical failures.
-6. Publish the first production agent version.
-7. Create and activate a Generic API connection; test sync and async behavior, API-key scope, and idempotency.
-8. Configure Zernio credentials and endpoint details; test HMAC rejection, duplicate event handling, queueing, and outbound delivery.
-9. Verify human takeover, conversation search, contact capture, failed job inspection, and safe retry.
-10. Add backup/export validation and finish the public-template release gates only if the product is later returned to public distribution.
+1. Zernio: when the owner provides the Inbox API URL, API token and webhook signing secret, create the Zernio connection in the UI and verify invalid HMAC → 401, duplicate event ignored, webhook 202 quickly, queue → outbound delivery, idempotent retry.
+2. Move the three standing offers from Behavior into the Offers collection with validity dates, remove them from the instructions, re-run evals and publish v2.
+3. Exercise contact capture, human takeover on a real channel conversation, and a forced failed delivery → inspect → retry.
+4. Backup/export validation and public-template release gates.
 
 ## Known v1 boundaries
 
-- One deployment per customer, one admin, multiple agents.
+- One deployment per customer, one admin, one assistant in the UI (API remains agent-generic).
 - No multi-tenant SaaS billing or team RBAC.
 - No audio, PDF, DOCX, crawler, visual workflow builder, marketplace, or multi-agent orchestration.
 - No external side-effect actions such as booking, ordering, payment, POST/PUT/PATCH/DELETE tools.

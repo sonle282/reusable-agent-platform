@@ -19,6 +19,7 @@ const now = () => new Date().toISOString();
 
 app.onError((error, c) => {
   if (error instanceof z.ZodError) return c.json({ error: "Invalid request", issues: error.issues.slice(0, 20).map((issue) => ({ path: issue.path.join("."), message: issue.message })), request_id: c.get("requestId") }, 400);
+  if (/UNIQUE constraint failed/i.test(error.message)) return c.json({ error: "Đã tồn tại một mục với cùng định danh", request_id: c.get("requestId") }, 409);
   console.error(JSON.stringify({ level: "error", event: "request_failed", path: c.req.path, message: error.message }));
   return c.json({ error: "Request failed", request_id: c.get("requestId") }, 500);
 });
@@ -149,7 +150,7 @@ app.post("/api/admin/settings/anthropic", async (c) => {
 
 app.post("/api/admin/settings/anthropic/test", async (c) => {
   const defaults = parseJson((await c.env.DB.prepare("SELECT value_json FROM settings WHERE key='model_defaults'").first<{ value_json: string }>())?.value_json, {} as Record<string, unknown>);
-  const body = z.object({ model: anthropicModelSchema.default("claude-haiku-4-5-20251001") }).parse(await c.req.json().catch(() => ({})));
+  const body = z.object({ model: anthropicModelSchema.default("claude-haiku-5-5") }).parse(await c.req.json().catch(() => ({})));
   const config = agentDraftSchema.shape.modelConfig.parse({ credentialId: defaults.credentialId, gatewayId: defaults.gatewayId, accountId: defaults.accountId, model: body.model, maxTokens: 256, timeoutMs: 30000 });
   const result = await generateWithAnthropic(c.env, config, "Reply with exactly: connected", [{ role: "user", content: "Connection test" }], [], id("modeltest"));
   return c.json({ connected: Boolean(result.text), model: config.model, response: result.text.slice(0, 100) });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { anthropicModels, modelSupportsTemperature, type AnthropicModel } from "./models";
 
 export const fieldTypeSchema = z.enum([
   "text", "long_text", "number", "boolean", "date", "datetime", "enum",
@@ -18,21 +19,8 @@ export const collectionSchema = z.object({
   fields: z.array(collectionFieldSchema).max(80),
 });
 
-export const anthropicModelSchema = z.enum([
-  "claude-sonnet-5-5",
-  "claude-opus-5-5",
-  "claude-haiku-5-5",
-  "claude-sonnet-5",
-  "claude-opus-5",
-  "claude-sonnet-4-6",
-  "claude-haiku-4-5-20251001",
-]);
-
-export type AnthropicModel = z.infer<typeof anthropicModelSchema>;
-
-// Claude 5-generation models reject non-default sampling parameters with a 400.
-const samplingModels = new Set<string>(["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]);
-export const modelSupportsTemperature = (model: string) => samplingModels.has(model);
+export const anthropicModelSchema = z.enum(anthropicModels);
+export { modelSupportsTemperature, type AnthropicModel };
 
 export const modelConfigSchema = z.object({
   provider: z.literal("anthropic").default("anthropic"),

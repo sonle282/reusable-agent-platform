@@ -29,7 +29,7 @@ An agency owner or software engineer who deploys and operates one instance for e
 Included:
 
 - One Cloudflare deployment per customer.
-- One admin and multiple agents per instance.
+- One admin and one assistant per instance in the admin UI (decided 2026-10-10). The data model and API stay agent-generic, so more assistants can be enabled later without migration.
 - Anthropic Claude BYOK through Cloudflare AI Gateway.
 - Generic synchronous/async API and webhook connector.
 - Production-ready Zernio connector.
@@ -169,7 +169,13 @@ The runtime calls a provider abstraction rather than Anthropic directly. v1 uses
 4. **Preview** — show conversation, draft/version, retrieved sources, collection/tool calls, structured output, errors, and latency.
 5. **Connect** — create Generic API, Generic webhook, or Zernio connection; activation requires a successful test.
 
-After onboarding, the navigation remains: Agents, Data, Connections, Conversations, Settings. Tools live under Sources/Actions instead of becoming a separate top-level section.
+After onboarding, the navigation is: Assistant, Data, Conversations, Connections, Settings. The Assistant page has four tabs — Test (default, chat preview + trace + evaluations), Instructions, Sources (knowledge, data collections, read-only tools), Versions.
+
+### UX principles (2026-10-10 redesign)
+
+- Apple Human Interface Guidelines on the web: system font, semantic system colors with automatic dark mode, inset grouped lists, segmented controls, switches, sheets, sidebar on desktop and tab bar on mobile.
+- KISS / fewest steps: drafts autosave; one **Publish** action saves, runs the evaluation gate and publishes when critical cases pass; new connections activate immediately when the assistant is live; readiness problems appear only when something is missing, with a direct action.
+- Customer-facing structured output (`{version:"v2",content:{messages:[…]}}`) is rendered as chat bubbles, images and link buttons in Test and Conversations.
 
 ### Agent lifecycle
 
