@@ -120,7 +120,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
               <Table label="Leads">
                 <thead>
                   <tr>
-                    <th style={{ width: "34%" }}>Lead</th>
+                    <th className="lead-col">Lead</th>
                     <th>What they want</th>
                     <th className="table-cols-optional" style={{ width: 130 }}>
                       Status
