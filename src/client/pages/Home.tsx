@@ -6,7 +6,7 @@ import { publishWithChecks } from "../publish";
 import { parseRichMessage } from "../RichMessage";
 import { platformOf } from "../platform";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
-import { AgentAvatar, agentStatus, Alert, AvatarWithChannel, Badge, Button, Card, EmptyState, errorMessage, Icon, Menu, PageHeader, Row, SkeletonLine, Tile, useToast, type TileTone } from "../ui";
+import { AgentAvatar, agentStatus, Alert, AvatarWithChannel, Badge, Button, Card, EmptyState, errorMessage, Icon, LoadError, Menu, PageHeader, Row, SkeletonLine, Tile, useToast, type TileTone } from "../ui";
 
 type Go = (page: "assistant" | "conversations" | "channels" | "settings" | "leads" | "data", ...params: string[]) => void;
 
@@ -174,7 +174,12 @@ export function HomePage({
     <div className="page">
       <PageHeader title="Home" subtitle={today} />
 
-      {error && (
+      {error && !summary && !conversations && (
+        <div className="card">
+          <LoadError title="Couldn't load Home" text="Your assistant keeps answering customers." error={error} busy={busy === "load"} onRetry={() => void load()} />
+        </div>
+      )}
+      {error && (summary || conversations) && (
         <Alert
           tone="danger"
           title="Couldn't refresh Home"
@@ -187,7 +192,7 @@ export function HomePage({
         />
       )}
 
-      {loading ? (
+      {error && !summary && !conversations ? null : loading ? (
         <HomeSkeleton />
       ) : (
         <>
@@ -199,18 +204,7 @@ export function HomePage({
               {groups.length > 0 && <Badge count>{groups.length}</Badge>}
             </div>
             {attentionError ? (
-              <div className="card-body">
-                <Alert
-                  tone="danger"
-                  title="Couldn't load Needs attention"
-                  text="Other parts of the page still work."
-                  actions={
-                    <Button variant="outline" size="sm" onClick={() => void loadAttention()}>
-                      Try again
-                    </Button>
-                  }
-                />
-              </div>
+              <LoadError title="Couldn't load Needs attention" text="Other parts of the page still work." onRetry={() => void loadAttention()} />
             ) : groups.length > 0 ? (
               groups.map((group) => {
                 const item = group[0];

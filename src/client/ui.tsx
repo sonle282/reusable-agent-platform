@@ -1001,6 +1001,23 @@ export function EmptyState({ icon, title, text, action }: { icon: string; title:
   );
 }
 
+// A load that failed: what happened in plain words and one way out. Server text is shown only when it is plain.
+export function LoadError({ title, text, error, onRetry, busy }: { title: string; text: string; error?: string | null; onRetry: () => void; busy?: boolean }) {
+  const plain = error && !/^Request failed|Failed to fetch|NetworkError|Load failed/i.test(error) ? error : null;
+  return (
+    <div className="empty load-error" role="alert">
+      <span className="empty-icon" aria-hidden="true">
+        <Icon name="warning" size={24} />
+      </span>
+      <h3 className="empty-title">{title}</h3>
+      <p className="empty-text">{plain ?? text}</p>
+      <Button variant="outline" busy={busy} onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
+  );
+}
+
 // ---------- Toast: inverse pill, bottom center, 3.6 s, optional action (Undo, Publish) ----------
 
 type ToastOptions = { tone?: "default" | "error"; actionLabel?: string; onAction?: () => void };

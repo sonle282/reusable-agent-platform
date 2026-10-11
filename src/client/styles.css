@@ -789,7 +789,9 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .card-danger { border-color: transparent; background: var(--color-danger-soft); }
 .card-danger .card-head, .card-danger .row + .row, .card-danger .card-foot, .card-danger .card-head + .row { border-color: var(--color-border); }
 .platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; }
-.agent-card.platform-card { min-height: 0; gap: 10px; padding: 14px; }
+.agent-card.platform-card { min-height: 120px; gap: 10px; padding: 14px; }
+.platform-grid { align-items: stretch; grid-auto-rows: 1fr; }
+.load-error .empty-icon { background: var(--color-warning-soft); color: var(--color-warning); }
 .choice .radio-dot { margin-left: auto; }
 
 /* Settings */

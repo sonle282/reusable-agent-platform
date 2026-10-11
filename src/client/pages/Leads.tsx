@@ -3,7 +3,7 @@ import { api, del, patch } from "../api";
 import { formatPhone } from "../../shared/contact";
 import { displayName, formatDate, parseDate } from "../format";
 import { platformKey, platformName } from "../platform";
-import { AgentAvatar, Alert, AvatarWithChannel, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, PageHeader, Segmented, Skeleton, Table, TextArea, useToast } from "../ui";
+import { AgentAvatar, Alert, AvatarWithChannel, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, LoadError, PageHeader, Segmented, Skeleton, Table, TextArea, useToast } from "../ui";
 
 export type LeadStatus = "new" | "called" | "won" | "not_fit";
 type Lead = {
@@ -80,10 +80,15 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
           ) : undefined
         }
       />
-      {error && (
+      {error && !data && (
+        <div className="card">
+          <LoadError title="Couldn't load your leads" text="Your leads are safe. Check your connection and try again." error={error} onRetry={() => void load()} />
+        </div>
+      )}
+      {error && data && (
         <Alert
           tone="danger"
-          title="Leads didn't load"
+          title="Leads didn't refresh"
           text="Your leads are safe. Check your connection and try again."
           actions={
             <Button variant="outline" size="sm" onClick={() => void load()}>

@@ -3,7 +3,7 @@ import { api, patch, post } from "../api";
 import { formatDate, parseDate } from "../format";
 import { platformKey, platformName, platformOf } from "../platform";
 import type { AgentSummary, Connection, Delivery } from "../types";
-import { AgentAvatar, Alert, Badge, BrandLogo, Button, CopyField, Dialog, Disclosure, Drawer, errorMessage, Field, Icon, PageHeader, Segmented, SettingRow, Sheet, TextInput, useToast, type TileTone } from "../ui";
+import { AgentAvatar, Alert, Badge, BrandLogo, Button, CopyField, Dialog, Disclosure, Drawer, errorMessage, Field, Icon, LoadError, PageHeader, Segmented, SettingRow, Sheet, TextInput, useToast, type TileTone } from "../ui";
 
 type ConnectionType = "generic_api" | "generic_webhook" | "zernio";
 
@@ -52,8 +52,8 @@ const platforms: Array<{ platform: string; name: string; sub: string; type: Conn
   { platform: "whatsapp", name: "WhatsApp", sub: "Through Zernio", type: "zernio" },
   { platform: "telegram", name: "Telegram", sub: "Through Zernio", type: "zernio" },
   { platform: "tiktok", name: "TikTok", sub: "Through Zernio", type: "zernio" },
-  { platform: "api", name: "API", sub: "Your website, app or CRM", type: "generic_api" },
-  { platform: "webhook", name: "Webhook", sub: "Another system sends signed events", type: "generic_webhook" },
+  { platform: "api", name: "API", sub: "Built in · your website, app or CRM", type: "generic_api" },
+  { platform: "webhook", name: "Webhook", sub: "Built in · signed events from another system", type: "generic_webhook" },
 ];
 // "Messenger via Zernio", "API", "Webhook".
 const channelKind = (connection: Connection) => (connection.type === "zernio" ? `${platformName[platformOf(connection)] ?? "Messenger"} via Zernio` : infoOf(connection).label);
@@ -135,16 +135,9 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
         />
       )}
       {error && (
-        <Alert
-          tone="danger"
-          title="Couldn't check deliveries"
-          text={`${error}. Customers are still being answered.`}
-          actions={
-            <Button variant="outline" size="sm" onClick={() => void loadDeliveries()}>
-              Try again
-            </Button>
-          }
-        />
+        <div className="card">
+          <LoadError title="Couldn't check deliveries" text="Customers are still being answered." error={error} onRetry={() => void loadDeliveries()} />
+        </div>
       )}
 
       {failed.length > 0 && (
@@ -209,24 +202,24 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
             const off = connection.status !== "active";
             const platform = platformOf(connection);
             return (
-              <div className="row" key={connection.id}>
+              <button type="button" className="row" key={connection.id} onClick={() => setOpened(connection)}>
                 <BrandLogo platform={platform} label={platformName[platform] ?? connection.name} />
-                <button type="button" className="row-text row-open" onClick={() => setOpened(connection)}>
+                <span className="row-text">
                   <span className="row-flex">
                     <span className="row-title truncate">{connection.name}</span>
                     {failures > 0 && <Badge tone="danger">{failures} not delivered</Badge>}
                     {off && failures === 0 && <Badge>{connection.status === "draft" ? "Not on yet" : "Off"}</Badge>}
                   </span>
                   <span className="row-sub xs">{[channelKind(connection), connection.created_at ? `added ${formatDate(connection.created_at)}` : ""].filter(Boolean).join(" · ")}</span>
-                </button>
+                </span>
                 <span className="row-flex xs t3 hide-phone" style={{ gap: 6 }}>
                   Answered by <AgentAvatar id={agent.id} name={agent.name} size="xs" />
                   <span className="t2 truncate" style={{ maxWidth: 180 }}>
                     {agent.name}
                   </span>
                 </span>
-                <Button variant="ghost" size="sm" icon="chevron-right" aria-label={`Open ${connection.name}`} onClick={() => setOpened(connection)} />
-              </div>
+                <Icon name="chevron-right" className="chev" size={16} />
+              </button>
             );
           })}
         </section>
@@ -239,11 +232,7 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
         <div className="platform-grid">
           {platforms.map((item) => (
             <button type="button" key={item.platform} className="agent-card platform-card" onClick={() => setCreating(item.type)}>
-              <span className="row-flex">
-                <BrandLogo platform={item.platform} />
-                <span className="spacer" />
-                <span className={item.type === "zernio" ? "badge" : "badge badge-outline"}>{item.type === "zernio" ? "Zernio" : "Built in"}</span>
-              </span>
+              <BrandLogo platform={item.platform} />
               <span className="stack" style={{ gap: 2 }}>
                 <span className="strong">{item.name}</span>
                 <span className="xs t3">{item.sub}</span>

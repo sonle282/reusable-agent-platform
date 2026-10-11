@@ -13,7 +13,7 @@ const channelLabel = (connection?: Connection) => {
 };
 import { formatPhone } from "../../shared/contact";
 import { platformName, platformOf } from "../platform";
-import { AgentAvatar, Alert, AvatarWithChannel, Badge, Button, Chips, Dialog, EmptyState, errorMessage, Icon, Menu, SearchField, Skeleton, SkeletonLine, Switch, useToast } from "../ui";
+import { AgentAvatar, Alert, AvatarWithChannel, Badge, Button, Chips, Dialog, EmptyState, errorMessage, Icon, LoadError, Menu, SearchField, Skeleton, SkeletonLine, Switch, useToast } from "../ui";
 
 const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 
@@ -151,7 +151,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
           />
         </div>
         <div className="split-scroll">
-          {listError && (
+          {listError && items !== null && (
             <div style={{ padding: "0 16px 12px" }}>
               <Alert
                 tone="danger"
@@ -166,7 +166,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
             </div>
           )}
           {items === null ? (
-            listError ? null : <Skeleton rows={3} avatar card={false} />
+            listError ? <LoadError title="Couldn't load your chats" text="Customers are still being answered." error={listError} onRetry={() => void load()} /> : <Skeleton rows={3} avatar card={false} />
           ) : items.length === 0 && !query ? (
             <EmptyState icon="chats" title="No conversations yet" text="When customers message a connected channel, every chat shows up here — and you can step in at any time." />
           ) : shown.length === 0 ? (
@@ -242,18 +242,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
             )}
             <div className="thread-scroll" ref={scroller}>
               {detailError ? (
-                <div className="thread">
-                  <Alert
-                    tone="danger"
-                    title="Couldn't open this chat"
-                    text={`${detailError}. The customer is not affected.`}
-                    actions={
-                      <Button variant="outline" size="sm" onClick={() => void loadDetail(selected.id)}>
-                        Try again
-                      </Button>
-                    }
-                  />
-                </div>
+                <LoadError title="Couldn't load this chat" text="The customer isn't affected." error={detailError} onRetry={() => void loadDetail(selected.id)} />
               ) : !detail ? (
                 <div className="thread" aria-busy="true">
                   <span className="skel" style={{ alignSelf: "flex-end", width: "60%", height: 40, borderRadius: 20 }} />
@@ -307,7 +296,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
                 </div>
               )}
             </div>
-            <div className="thread-foot">{selected.human_takeover ? "Your team is replying in this chat. The assistant stays quiet until you hand it back." : "The assistant replies automatically. Turn on Your team replies to step in."}</div>
+            {!detailError && <div className="thread-foot">{selected.human_takeover ? "Your team is replying in this chat. The assistant stays quiet until you hand it back." : "The assistant replies automatically. Turn on Your team replies to step in."}</div>}
             {moving && (
               <Dialog
                 title="Use the live version in this chat?"

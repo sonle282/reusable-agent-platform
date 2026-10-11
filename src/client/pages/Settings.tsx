@@ -1,12 +1,12 @@
 import { useId, useState, type ReactNode } from "react";
 import { patch, post } from "../api";
-import { formatDate } from "../format";
+import { formatWhen } from "../format";
 import type { ThemeChoice } from "../theme";
 import type { Brand } from "../types";
-import { Alert, Button, Disclosure, errorMessage, Field, Icon, initialsOf, PageHeader, Segmented, SettingRow, TextInput, Tile, useToast } from "../ui";
+import { Alert, Badge, Button, Disclosure, errorMessage, Field, Icon, initialsOf, PageHeader, Segmented, SettingRow, TextInput, Tile, useToast } from "../ui";
 import { modelLabel } from "./Assistant";
 
-type Check = { state: "idle" | "checking" | "ok" | "failed"; detail?: string };
+type Check = { state: "idle" | "checking" | "ok" | "failed"; detail?: string; at?: string };
 
 export function SettingsPage({
   zernio,
@@ -45,7 +45,7 @@ export function SettingsPage({
     setCheck({ state: "checking" });
     try {
       const result = await post<{ connected: boolean; model: string }>("/api/admin/settings/anthropic/test", {});
-      setCheck(result.connected ? { state: "ok", detail: modelLabel(result.model) } : { state: "failed", detail: "The AI didn't answer" });
+      setCheck(result.connected ? { state: "ok", detail: modelLabel(result.model), at: new Date().toISOString() } : { state: "failed", detail: "The AI didn't answer" });
       return result.connected;
     } catch (caught) {
       setCheck({ state: "failed", detail: errorMessage(caught) });
@@ -90,7 +90,7 @@ export function SettingsPage({
           <Alert
             tone="danger"
             title="The AI isn't accepting your key"
-            text={`Customers get the fallback reply until this is fixed. ${check.detail ?? ""}`.trim()}
+            text="Replace the key or check your Anthropic account. Until then customers get the fallback reply."
             actions={
               <Button variant="outline" size="sm" onClick={() => setKeyOpen(true)}>
                 Replace key
@@ -133,7 +133,7 @@ export function SettingsPage({
             </Field>
             <SettingRow title="Chat color" sub="Used in the website chat customers see">
               <span className="row-flex">
-                <span className="xs t3 mono">{form.primaryColor.toUpperCase()}</span>
+                <span className="xs t2 mono">{form.primaryColor.toUpperCase()}</span>
                 <label className="swatch" style={{ background: form.primaryColor }}>
                   <span className="sr-only">Chat color {form.primaryColor}, change</span>
                   <input type="color" value={form.primaryColor} onChange={(event) => setForm({ ...form, primaryColor: event.target.value })} />
@@ -159,31 +159,29 @@ export function SettingsPage({
         <Group title="AI connection" help="Your key is encrypted and never shown again. A new key is used after your next publish.">
           <div className="card">
             <div className="row compact">
-              <Tile icon="sparkle" />
+              <Tile icon="key" />
               <span className="row-text">
-                <span className="row-title">Anthropic</span>
-                {check.state === "ok" ? (
-                  <span className="row-sub xs text-success">Connected · {check.detail}</span>
-                ) : check.state === "failed" ? (
-                  <span className="row-sub xs text-danger">Not working</span>
-                ) : (
-                  <span className="row-sub xs">{hasKey ? "Key saved · check that it works" : "Not connected"}</span>
-                )}
+                <span className="row-flex" style={{ flexWrap: "wrap", gap: 6 }}>
+                  <span className="row-title">Anthropic key</span>
+                  {!hasKey ? (
+                    <Badge>Not added</Badge>
+                  ) : check.state === "ok" ? (
+                    <Badge tone="success">Working · checked {formatWhen(check.at)}</Badge>
+                  ) : check.state === "failed" ? (
+                    <Badge tone="danger">Not working</Badge>
+                  ) : (
+                    <Badge>{check.state === "checking" ? "Checking…" : "Saved, not checked"}</Badge>
+                  )}
+                </span>
+                <span className="row-sub xs">{hasKey ? [keyHint && `Ends in ${keyHint}`, savedAt && `saved ${formatWhen(savedAt)}`, check.state === "ok" && check.detail].filter(Boolean).join(" · ") : "Add it so your assistant can answer customers."}</span>
               </span>
               {hasKey && (
                 <Button variant="outline" size="sm" busy={check.state === "checking"} onClick={() => void testConnection()}>
-                  {check.state === "idle" ? "Check" : "Check again"}
+                  Check
                 </Button>
               )}
-            </div>
-            <div className="row compact">
-              <Tile icon="key" />
-              <span className="row-text">
-                <span className="row-title">AI key</span>
-                <span className="row-sub xs">{hasKey ? ["Saved", keyHint && `ends in ${keyHint}`, savedAt && formatDate(savedAt)].filter(Boolean).join(" · ") : "Not added yet"}</span>
-              </span>
               {!keyOpen && (
-                <Button variant="outline" size="sm" onClick={() => setKeyOpen(true)}>
+                <Button variant={hasKey ? "ghost" : "outline"} size="sm" autoFocus={check.state === "failed"} onClick={() => setKeyOpen(true)}>
                   {hasKey ? "Replace" : "Add key"}
                 </Button>
               )}

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, del, patch, post } from "../api";
 import { nextKey, titleField } from "../format";
 import type { AgentDetail, AgentSummary, Collection } from "../types";
-import { AgentAvatar, Alert, Badge, Button, Card, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, formatDate, Icon, Menu, PageHeader, SearchField, Select, SettingRow, Sheet, Skeleton, Switch, Table, TextArea, TextInput, Tile, useToast, When } from "../ui";
+import { AgentAvatar, Alert, Badge, Button, Card, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, formatDate, Icon, LoadError, Menu, PageHeader, SearchField, Select, SettingRow, Sheet, Skeleton, Switch, Table, TextArea, TextInput, Tile, useToast, When } from "../ui";
 
 type RecordRow = { id: string; data_json: string; status: string; valid_from?: string | null; valid_until?: string | null; external_key?: string | null };
 type FieldDef = { key: string; label: string; type: string; required?: boolean; unique?: boolean; options?: string[] };
@@ -305,7 +305,7 @@ function TablePage({
         </div>
       </header>
 
-      {error && (
+      {error && !(error.retry && !records) && (
         <Alert
           tone="danger"
           title={error.title}
@@ -328,7 +328,7 @@ function TablePage({
 
       <div className="card">
         {!records ? (
-          error ? null : <Skeleton rows={3} card={false} />
+          error?.retry ? <LoadError title={error.title} text="The assistant still uses the saved rows." onRetry={error.retry} /> : <Skeleton rows={3} card={false} />
         ) : records.length === 0 ? (
           <EmptyState
             icon="table"
