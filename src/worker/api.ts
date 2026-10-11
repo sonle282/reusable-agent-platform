@@ -813,6 +813,6 @@ async function acknowledgeOnChannel(env: Env, connection: ConnectionRow, input: 
   if (!behavior || (!behavior.markSeen && !behavior.typing)) return;
   const actions = await channelActions(env, connection.id, input.conversationId);
   if (!actions) return;
-  if (behavior.markSeen) await actions.seen();
-  if (behavior.typing) await actions.typing();
+  // Typing is what the customer notices, so it goes first; seen runs alongside.
+  await Promise.all([behavior.typing ? actions.typing() : undefined, behavior.markSeen ? actions.seen() : undefined]);
 }

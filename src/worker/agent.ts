@@ -273,9 +273,9 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     const behavior = snapshot.behavior;
     // Seen right away, then typing while the model works (Meta clears it after ~20 s, so repeat every 15 s).
     const actions = behavior.markSeen || behavior.typing ? await channelActions(this.env, input.connectionId, input.conversationId).catch(() => null) : null;
+    // Seen and the first typing already went out from the webhook; here typing is only refreshed, without holding up the reply.
     const senderLog: string[] = [];
-    if (actions && behavior.markSeen) senderLog.push(await actions.seen());
-    if (actions && behavior.typing) senderLog.push(await actions.typing());
+    const refreshTyping = actions && behavior.typing ? actions.typing().then((outcome) => void senderLog.push(outcome)) : undefined;
     const typingLoop = actions && behavior.typing ? setInterval(() => void actions.typing(), 15_000) : undefined;
     try {
       const preparedMessage = await prepareUserMessage(this.env, input);
@@ -321,6 +321,7 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
         messages.push({ role: "user", content: results });
         model = await generateWithAnthropic(this.env, snapshot.modelConfig, system, messages, tools, input.eventId);
       }
+      await refreshTyping;
       const lead = takeLeadLine(model.text);
       const media = takeImageLines(lead.text, lookupLinks(traces.map((trace) => trace.output)));
       const answer = withImages((media.text || snapshot.responsePolicy.fallbackMessage).slice(0, snapshot.responsePolicy.maxLength), media.images);
