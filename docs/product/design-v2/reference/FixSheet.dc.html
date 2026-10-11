@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fix this answer</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="{{rootStyle}}">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fx-title">
+    <span class="sheet-grabber" aria-hidden="true"></span>
+    <div class="sheet-header">
+      <div class="spacer" style="min-width: 0"><h2 id="fx-title" class="sheet-title">Fix this answer</h2><p class="sheet-sub">{{stepLabel}}</p></div>
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+    </div>
+    <div style="padding: 0 24px 8px"><div class="steps" aria-hidden="true"><span class="{{bars.a}}"></span><span class="{{bars.b}}"></span><span class="{{bars.c}}"></span></div></div>
+
+    <div class="sheet-body">
+      <sc-if value="{{step.one}}" hint-placeholder-val="{{ true }}">
+        <div class="stack" style="gap: 10px" lang="vi">
+          <span class="mini-label" lang="en">The customer asked</span>
+          <div class="msg-user">Có ưu đãi gì nếu mua 8 ghế không?</div>
+          <span class="mini-label" lang="en">Mr Spa Consultant replied</span>
+          <div class="card card-pad" style="background: var(--color-surface-2)"><span class="{{replyClass}}">Dạ hiện bên em đang có free giao hàng cho đơn từ 6 ghế pedicure trở lên, nên 8 ghế của mình sẽ được free giao hàng ạ. Mua nhiều ghế còn được giảm thêm, mức giảm tuỳ số lượng, tư vấn viên bên em sẽ báo chính xác. Anh/chị để lại số điện thoại, tư vấn viên sẽ gửi quote chi tiết cho mình nhé.</span><button type="button" class="btn-link" style="display: block; margin-top: 4px; font-size: 13px; cursor: pointer" onClick="{{toggleReply}}" lang="en">{{replyToggle}}</button></div>
+        </div>
+        <label class="field"><span class="field-label">What it should have said</span><textarea class="textarea" style="min-height: 112px" value="{{answer}}" onChange="{{typeAnswer}}" lang="vi"></textarea><span class="help">Edit the reply until it’s right. The facts are enough — we’ll find where to fix it.</span></label>
+      </sc-if>
+
+      <sc-if value="{{step.two}}" hint-placeholder-val="{{ false }}">
+        <div class="stack" style="gap: 10px">
+          <span class="mini-label">{{placeHeader}}</span>
+          <div class="card card-pad stack" style="gap: 12px">
+            <div class="row-flex" style="gap: 12px"><span class="{{place.tile}}"><svg class="icon" aria-hidden="true"><use href="{{place.href}}"></use></svg></span><span class="row-text"><span class="row-title">{{place.title}}</span><span class="row-sub xs" lang="vi">{{place.where}}</span></span><sc-if value="{{place.suggested}}" hint-placeholder-val="{{ true }}"><span class="badge badge-info">Suggested</span></sc-if></div>
+            <div class="diff" role="group" aria-label="Change preview" lang="vi">
+              <div class="diff-head" lang="en">{{place.diffHead}}</div>
+              <sc-if value="{{place.hasDel}}" hint-placeholder-val="{{ true }}"><div class="diff-line diff-del"><span class="diff-sign" aria-label="Removed">−</span><span class="diff-text">{{place.del}}</span></div></sc-if>
+              <div class="diff-line diff-add"><span class="diff-sign" aria-label="Added">+</span><span>{{place.add}}</span></div>
+            </div>
+            <span class="status xs"><svg class="icon icon-16" aria-hidden="true"><use href="#i-info"></use></svg>{{place.note}}</span>
+          </div>
+        </div>
+        <div class="stack" style="gap: 10px">
+          <button type="button" class="btn btn-sm btn-ghost" style="align-self: flex-start; margin-left: -8px" aria-expanded="{{showOthers}}" onClick="{{toggleOthers}}">Choose another place<svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></button>
+          <sc-if value="{{showOthers}}" hint-placeholder-val="{{ false }}">
+            <div class="choice-list" role="radiogroup" aria-label="Where to fix">
+              <sc-for list="{{choices}}" as="c" hint-placeholder-count="3">
+                <button type="button" class="choice" role="radio" aria-checked="{{c.on}}" onClick="{{c.pick}}"><span class="radio-dot" aria-hidden="true"></span><span class="{{c.tile}}"><svg class="icon" aria-hidden="true"><use href="{{c.href}}"></use></svg></span><span class="row-text"><span class="row-title">{{c.title}}</span><span class="xs t2">{{c.sub}}</span></span></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{step.three}}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{res.running}}" hint-placeholder-val="{{ false }}">
+          <div class="result" role="status" aria-live="polite" style="padding: 40px 0"><span class="spinner spinner-lg" style="margin-bottom: 12px"></span><h3 class="result-title">Testing the fix…</h3><p class="t2" style="margin: 0">Asking the draft “Có ưu đãi gì nếu mua 8 ghế không?” again.</p></div>
+        </sc-if>
+        <sc-if value="{{res.pass}}" hint-placeholder-val="{{ false }}">
+          <div class="result" role="status"><span class="result-icon" style="background: var(--color-success-soft); color: var(--color-success)"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg></span><h3 class="result-title">Fixed and protected</h3><p class="t2" style="margin: 0; max-width: 400px">{{res.passText}}</p></div>
+          <div class="stack" style="gap: 8px"><span class="mini-label">New reply</span><div class="msg-ai-text" lang="vi" style="font: var(--text-sm)">Dạ đơn 8 ghế pedicure được free giao hàng, và vì mua từ 6 ghế nên mình được giảm [số tiền] mỗi ghế ạ. Anh/chị để lại số điện thoại, tư vấn viên sẽ gửi quote chi tiết nhé.</div></div>
+          <div class="card"><div class="row compact"><span class="tile tile-success"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg></span><span class="row-text"><span class="row-title">Saved as a test scenario</span><span class="row-sub xs" lang="vi">Mention the multi-chair discount · “Có ưu đãi gì nếu mua 8 ghế không?”</span></span><span class="badge badge-outline">Required</span></div></div>
+        </sc-if>
+        <sc-if value="{{res.fail}}" hint-placeholder-val="{{ false }}">
+          <div class="result" role="alert"><span class="result-icon" style="background: var(--color-danger-soft); color: var(--color-danger)"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></span><h3 class="result-title">Not applied — the scenario still fails</h3><p class="t2" style="margin: 0; max-width: 400px">With this change the draft still doesn’t mention the multi-chair discount. Nothing was changed.</p></div>
+          <div class="stack" style="gap: 8px"><span class="mini-label">What the draft says now</span><div class="msg-ai-text" lang="vi" style="font: var(--text-sm)">Dạ đơn từ 6 ghế được free giao hàng ạ. Anh/chị để lại số điện thoại để tư vấn viên báo giá nhé.</div></div>
+        </sc-if>
+      </sc-if>
+    </div>
+
+    <div class="sheet-footer">
+      <sc-if value="{{foot.one}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-outline" onClick="{{close}}">Cancel</button><span class="spacer"></span><button type="button" class="btn btn-primary" onClick="{{toTwo}}" disabled="{{noAnswer}}">Continue</button></sc-if>
+      <sc-if value="{{foot.two}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-outline" onClick="{{toOne}}">Back</button><span class="spacer"></span><button type="button" class="btn btn-primary" onClick="{{apply}}">Apply and test</button></sc-if>
+      <sc-if value="{{foot.running}}" hint-placeholder-val="{{ false }}"><span class="spacer"></span><button type="button" class="btn btn-primary" disabled="{{yes}}">Testing…</button></sc-if>
+      <sc-if value="{{foot.pass}}" hint-placeholder-val="{{ false }}"><span class="spacer"></span><button type="button" class="btn btn-primary" onClick="{{done}}">Done</button></sc-if>
+      <sc-if value="{{foot.fail}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-danger-ghost" onClick="{{askKeep}}">Keep it anyway</button><span class="spacer"></span><button type="button" class="btn btn-primary" onClick="{{tryAnother}}">Try another fix</button></sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{confirmKeep}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop" style="z-index: 70; align-items: center"><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="keep-t"><h2 id="keep-t" class="dialog-title">Keep a fix that still fails?</h2><p class="dialog-text">It goes into the draft anyway and stays in Needs attention until its scenario passes.</p><div class="dialog-actions"><button type="button" class="btn btn-outline" onClick="{{cancelKeep}}">Cancel</button><button type="button" class="btn btn-danger" onClick="{{keep}}">Keep it</button></div></div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"embedded":{"editor":null},"onClose":{"editor":null},"onDone":{"editor":null},"onKept":{"editor":null},"$preview":{"width":640,"height":820}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { step: 1, place: 'data', showOthers: false, result: null, confirmKeep: false, replyOpen: false, answer: 'Dạ đơn 8 ghế pedicure được free giao hàng, và vì mua từ 6 ghế nên mình được giảm [số tiền] mỗi ghế ạ. Anh/chị để lại số điện thoại, tư vấn viên sẽ gửi quote chi tiết nhé.' };
+  }
+  componentWillUnmount() { clearTimeout(this.t); }
+  reset() { this.setState({ step: 1, place: 'data', showOthers: false, result: null, confirmKeep: false }); }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const embedded = !!p.embedded;
+    const places = {
+      data: { title: 'Update a row in Data', where: 'Mr Spa Offers › Ưu đãi mua nhiều ghế pedicure có giảm', tile: 'tile', href: '#i-table', diffHead: 'Details', hasDel: true, del: 'Mua nhiều ghế pedicure có giảm giá, mức giảm tuỳ số lượng.', add: 'Từ 6 ghế pedicure giảm [số tiền] mỗi ghế; từ 10 ghế giảm [số tiền] mỗi ghế.', note: 'Data changes reach customers right away — no publish needed.' },
+      knowledge: { title: 'Add to Corrected answers', where: 'Knowledge › Corrected answers', tile: 'tile tile-success', href: '#i-check-circle', diffHead: 'New corrected answer', hasDel: false, del: '', add: 'Khi khách hỏi “Có ưu đãi gì nếu mua 8 ghế không?” → nói free giao hàng và giảm [số tiền] mỗi ghế.', note: 'Goes into the draft. Publish to make it live.' },
+      instructions: { title: 'Add a line to Instructions', where: 'Instructions › Always', tile: 'tile tile-info', href: '#i-sparkle', diffHead: 'Always · new line', hasDel: false, del: '', add: 'When a customer asks about 6 chairs or more, look up the multi-chair discount in Mr Spa Offers and mention it.', note: 'Goes into the draft. Publish to make it live.' }
+    };
+    const place = Object.assign({ suggested: s.place === 'data' }, places[s.place]);
+    const labels = ['What it should say', 'Where to fix it', 'Result'];
+    const r = s.result;
+    const close = () => { if (p.onClose) p.onClose(); else this.reset(); };
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      rootStyle: embedded ? 'display: contents' : 'display: flex; align-items: flex-start; justify-content: center; padding: 24px; min-height: 820px; background: var(--color-overlay); font-family: var(--font-sans)',
+      stepLabel: 'Step ' + s.step + ' of 3 · ' + labels[s.step - 1],
+      bars: { a: 'step is-done', b: s.step >= 2 ? 'step is-done' : 'step', c: s.step >= 3 ? 'step is-done' : 'step' },
+      step: { one: s.step === 1, two: s.step === 2, three: s.step === 3 },
+      replyClass: s.replyOpen ? '' : 'clamp-2',
+      replyToggle: s.replyOpen ? 'Show less' : 'Show all',
+      toggleReply: () => this.setState({ replyOpen: !s.replyOpen }),
+      answer: s.answer, typeAnswer: (e) => this.setState({ answer: e.target.value }), noAnswer: !s.answer.trim(),
+      placeHeader: s.place === 'data' ? 'Best place to fix it' : 'You chose',
+      place: place,
+      showOthers: s.showOthers, toggleOthers: () => this.setState({ showOthers: !s.showOthers }),
+      choices: [
+        { id: 'data', title: 'Data', sub: 'Update the offer row', tile: 'tile', href: '#i-table' },
+        { id: 'knowledge', title: 'Knowledge', sub: 'Add to Corrected answers', tile: 'tile tile-success', href: '#i-check-circle' },
+        { id: 'instructions', title: 'Instructions', sub: 'Add a line to Always', tile: 'tile tile-info', href: '#i-sparkle' }
+      ].map((c) => Object.assign({}, c, { on: s.place === c.id, pick: () => this.setState({ place: c.id }) })),
+      res: { running: r === 'running', pass: r === 'pass', fail: r === 'fail', passText: s.place === 'data' ? 'The draft gives the right answer and customers get it right away. A test scenario was saved so it stays fixed.' : 'The draft gives the right answer. A test scenario was saved so it stays fixed. Publish to make it live.' },
+      foot: { one: s.step === 1, two: s.step === 2, running: s.step === 3 && r === 'running', pass: s.step === 3 && r === 'pass', fail: s.step === 3 && r === 'fail' },
+      close: close,
+      toOne: () => this.setState({ step: 1 }),
+      toTwo: () => this.setState({ step: 2 }),
+      apply: () => { this.setState({ step: 3, result: 'running' }); const outcome = s.place === 'knowledge' ? 'fail' : 'pass'; this.t = setTimeout(() => this.setState({ result: outcome }), 1500); },
+      done: () => { if (p.onDone) p.onDone(s.place); else this.reset(); },
+      tryAnother: () => this.setState({ step: 2, result: null, showOthers: true, place: 'data' }),
+      askKeep: () => this.setState({ confirmKeep: true }),
+      cancelKeep: () => this.setState({ confirmKeep: false }),
+      keep: () => { this.setState({ confirmKeep: false }); if (p.onKept) p.onKept(); else this.reset(); },
+      confirmKeep: s.confirmKeep
+    };
+  }
+}
+</script>
+</body>
+</html>

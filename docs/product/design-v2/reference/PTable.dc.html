@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Table records</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page" style="gap: 20px">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <button type="button" onClick="{{back}}">Data</button>
+      <svg class="icon icon-16" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <span style="color: var(--color-text)" aria-current="page">{{t.name}}</span>
+    </nav>
+    <header class="page-header">
+      <div style="min-width: 0">
+        <h1 class="page-title truncate">{{t.name}}</h1>
+        <p class="page-sub row-flex" style="flex-wrap: wrap; gap: 6px 10px"><span>{{t.meta}}</span><span class="t3">·</span><span class="row-flex" style="gap: 4px">Used by <span class="agent-av xs av-1" title="Mr Spa Consultant">MS</span><span class="agent-av xs av-3" title="After-sales support">AS</span></span></p>
+      </div>
+      <div class="row-flex">
+        <button type="button" class="btn btn-outline hide-phone" onClick="{{importCsv}}"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>Import CSV</button>
+        <button type="button" class="btn btn-primary" onClick="{{addRow}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add row</button>
+        <div class="menu-anchor">
+          <button type="button" class="btn btn-outline btn-icon" aria-label="More table actions" aria-haspopup="menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}"><svg class="icon" aria-hidden="true"><use href="#i-dots"></use></svg></button>
+          <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+            <div class="menu" role="menu">
+              <button type="button" class="menu-item" role="menuitem" onClick="{{act.rename}}"><svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg>Rename</button>
+              <button type="button" class="menu-item" role="menuitem" onClick="{{act.columns}}"><svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>Edit columns</button>
+              <button type="button" class="menu-item" role="menuitem" onClick="{{act.export}}"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Export CSV</button>
+              <div class="menu-sep"></div>
+              <button type="button" class="menu-item" role="menuitem" onClick="{{act.hide}}"><svg class="icon" aria-hidden="true"><use href="#i-eye-off"></use></svg>Hide table</button>
+              <button type="button" class="menu-item is-danger" role="menuitem" onClick="{{act.del}}"><svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>Delete table…</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </header>
+
+    <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+      <div class="alert-box alert-danger" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="alert-body"><span class="alert-title">Couldn’t save “Ưu đãi tự lắp đặt trừ $100 mỗi ghế”</span><span class="alert-text">Your edit is kept here. Customers still see the old row until it saves.</span><div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Try again</button></div></div></div>
+    </sc-if>
+
+    <div class="row-flex" style="flex-wrap: wrap; gap: 12px">
+      <label class="search" style="flex: 1 1 240px; max-width: 360px"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span class="sr-only">Search rows</span><input type="search" placeholder="Search rows" value="{{q}}" onChange="{{typeQ}}"></label>
+      <div class="chips" role="group" aria-label="Filter rows">
+        <sc-for list="{{filters}}" as="c" hint-placeholder-count="4"><button type="button" class="chip" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}</button></sc-for>
+      </div>
+    </div>
+
+    <div class="card">
+      <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+        <div class="empty"><span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span><h2 class="empty-title">No rows yet</h2><p class="empty-text">Add your first offer, or import a spreadsheet with the same column names.</p><div class="row-flex" style="margin-top: 12px"><button type="button" class="btn btn-primary" onClick="{{addRow}}">Add row</button><button type="button" class="btn btn-outline" onClick="{{importCsv}}">Import CSV</button></div></div>
+      </sc-if>
+      <sc-if value="{{st.table}}" hint-placeholder-val="{{ true }}">
+        <div class="table-wrap">
+          <table class="table" lang="vi">
+            <thead lang="en"><tr>
+              <th style="width: 34%">Offer</th>
+              <th class="table-cols-optional" style="width: 36%">Details</th>
+              <th class="table-cols-optional" style="width: 15%">Type</th>
+              <th style="width: 15%">Availability</th>
+              <th class="cell-actions"><span class="sr-only">Open</span></th>
+            </tr></thead>
+            <tbody>
+              <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+                <tr><td colspan="5"><span class="skel skel-line" style="width: 60%"></span></td></tr>
+                <tr><td colspan="5"><span class="skel skel-line" style="width: 45%"></span></td></tr>
+                <tr><td colspan="5"><span class="skel skel-line" style="width: 55%"></span></td></tr>
+              </sc-if>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                <tr onClick="{{r.open}}">
+                  <td><span class="row-flex"><button type="button" class="truncate medium" onClick="{{r.open}}" style="border: 0; padding: 0; background: none; text-align: left; cursor: pointer; font: inherit; font-weight: 500">{{r.title}}</button><sc-if value="{{r.example}}" hint-placeholder-val="{{ false }}"><span class="badge example" lang="en">Example</span></sc-if></span></td>
+                  <td class="table-cols-optional t2"><span class="clamp-2">{{r.details}}</span></td>
+                  <td class="table-cols-optional t2"><span class="truncate" style="display: block">{{r.type}}</span></td>
+                  <td lang="en"><sc-if value="{{r.always}}" hint-placeholder-val="{{ true }}"><span class="t3">Always</span></sc-if><sc-if value="{{r.hasBadge}}" hint-placeholder-val="{{ false }}"><span class="{{r.badgeClass}}">{{r.badge}}</span></sc-if></td>
+                  <td class="cell-actions"><svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"></use></svg></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <sc-if value="{{noMatch}}" hint-placeholder-val="{{ false }}"><div class="empty" style="padding: 32px"><h3 class="empty-title">No rows match</h3><p class="empty-text">Try another word or filter.</p></div></sc-if>
+        <div class="card-foot">Showing {{shown}} of 10 rows. Rows that are off, ended or not started yet are never used by your assistants.</div>
+      </sc-if>
+    </div>
+  </div>
+  </div>
+
+  <sc-if value="{{drawer.show}}" hint-placeholder-val="{{ false }}">
+    <div class="drawer-backdrop"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="rw-t">
+      <div class="sheet-header"><div class="spacer" style="min-width: 0"><h2 id="rw-t" class="sheet-title clamp-2" lang="vi">{{drawer.title}}</h2><p class="sheet-sub">{{t.name}}</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{drawer.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button></div>
+      <div class="sheet-body">
+        <section class="card card-pad stack" style="gap: 14px">
+          <div class="field-row" style="min-height: 0"><span class="stack" style="gap: 0"><span class="field-label">Active</span><span class="xs t3">Off means your assistants never mention it</span></span><button type="button" class="switch" role="switch" aria-checked="{{drawer.active}}" aria-label="Active" onClick="{{drawer.toggleActive}}"></button></div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+            <label class="field"><span class="field-label">Starts</span><input class="input" type="date" value="{{drawer.starts}}" onChange="{{noop}}"></label>
+            <label class="field"><span class="field-label">Ends</span><input class="input" type="date" value="{{drawer.ends}}" onChange="{{noop}}"></label>
+          </div>
+          <p class="help">Leave both empty for an offer that always applies.</p>
+        </section>
+        <label class="field"><span class="field-label">Offer</span><input class="input" type="text" value="{{drawer.title}}" onChange="{{noop}}" lang="vi"></label>
+        <label class="field"><span class="field-label">Type</span><input class="input" type="text" value="{{drawer.type}}" onChange="{{noop}}" lang="vi"></label>
+        <label class="field"><span class="field-label">Details</span><textarea class="textarea" value="{{drawer.details}}" onChange="{{noop}}" lang="vi"></textarea></label>
+        <label class="field"><span class="field-label">Conditions</span><textarea class="textarea" placeholder="None" onChange="{{noop}}"></textarea></label>
+      </div>
+      <div class="sheet-footer"><sc-if value="{{drawer.editing}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-danger-ghost" onClick="{{drawer.del}}">Delete row</button></sc-if><span class="spacer"></span><button type="button" class="btn btn-outline" onClick="{{drawer.close}}">Cancel</button><button type="button" class="btn btn-primary" onClick="{{drawer.save}}">Save</button></div>
+    </div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"tableId":{"editor":null},"onGo":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { q: '', filter: 'all', menuOpen: false, drawer: null };
+  }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const toast = (m, a, f) => { if (p.onToast) p.onToast(m, a, f); };
+    const isProducts = p.tableId === 'products';
+    const t = isProducts ? { name: 'Mr Spa Products', meta: '24 rows · Example' } : { name: 'Mr Spa Offers', meta: '7 active · 10 total' };
+    const all = isProducts ? [
+      { title: 'Birkin M4', details: 'Ghế pedicure có massage toàn thân, đệm êm ôm dáng, gác chân và lưng ngả chỉnh được · [giá]', type: 'Ghế pedicure', example: true, state: 'active' },
+      { title: 'Cyber Carbon S3', details: 'Ghế pedicure · [giá] · [tồn kho]', type: 'Ghế pedicure', example: true, state: 'active' }
+    ] : [
+      { title: 'Ưu đãi tự lắp đặt trừ $100 mỗi ghế', details: 'Tự lắp đặt thì bên em trừ $100 mỗi ghế.', type: 'Ưu đãi giảm giá', state: 'active' },
+      { title: 'Ưu đãi free giao hàng từ 6 ghế pedicure hoặc 6 bộ combo', details: 'Free giao hàng cho đơn từ 6 ghế pedicure hoặc 6 bộ combo trở lên.', type: 'Ưu đãi giao hàng', state: 'active' },
+      { title: 'Ưu đãi mua nhiều ghế pedicure có giảm', details: 'Mua nhiều ghế pedicure có giảm giá, mức giảm tuỳ số lượng.', type: 'Ưu đãi giảm giá', state: 'active' },
+      { title: 'Ưu đãi Black Friday', details: 'Giảm [số tiền] cho đơn đặt trong tuần lễ Black Friday.', type: 'Ưu đãi giảm giá', example: true, state: 'scheduled', badge: 'Starts Nov 27', badgeClass: 'badge badge-info', starts: '2026-11-27', ends: '2026-12-01' },
+      { title: 'Ưu đãi khai trương showroom', details: 'Tặng [quà tặng] cho khách đến showroom trong tháng khai trương.', type: 'Ưu đãi quà tặng', example: true, state: 'ended', badge: 'Ended Sep 30', badgeClass: 'badge', ends: '2026-09-30' },
+      { title: 'Combo ghế pedicure và bồn ngâm chân', details: 'Mua combo ghế và bồn được giảm [số tiền].', type: 'Ưu đãi combo', example: true, state: 'off', badge: 'Off', badgeClass: 'badge' }
+    ];
+    const q = s.q.trim().toLowerCase();
+    const rows = (ui === 'loading' || ui === 'empty') ? [] : all.filter((r) => (s.filter === 'all' || (s.filter === 'active' && r.state === 'active') || (s.filter === 'scheduled' && r.state === 'scheduled') || (s.filter === 'inactive' && (r.state === 'ended' || r.state === 'off'))) && (!q || (r.title + ' ' + r.details).toLowerCase().indexOf(q) >= 0));
+    const d = s.drawer;
+    const close = () => this.setState({ menuOpen: false });
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      t: t,
+      st: { error: ui === 'error', empty: ui === 'empty', table: ui !== 'empty', loading: ui === 'loading' },
+      retry: () => { if (p.onRetry) p.onRetry(); },
+      back: () => { if (p.onGo) p.onGo('data'); else toast('Back to Data'); },
+      q: s.q, typeQ: (e) => this.setState({ q: e.target.value }),
+      filters: [['all', 'All'], ['active', 'Active'], ['scheduled', 'Scheduled'], ['inactive', 'Ended or off']].map((f) => ({ label: f[1], on: s.filter === f[0], pick: () => this.setState({ filter: f[0] }) })),
+      rows: rows.map((r) => ({ title: r.title, details: r.details, type: r.type, example: !!r.example, always: !r.badge, hasBadge: !!r.badge, badge: r.badge || '', badgeClass: r.badgeClass || '', open: () => this.setState({ drawer: Object.assign({ editing: true, active: r.state !== 'off' }, r) }) })),
+      shown: String(rows.length),
+      noMatch: ui === 'normal' && rows.length === 0,
+      menuOpen: s.menuOpen,
+      toggleMenu: () => this.setState({ menuOpen: !s.menuOpen }),
+      act: {
+        rename: () => { close(); toast('Rename “' + t.name + '”'); },
+        columns: () => { close(); toast('Opens column settings'); },
+        export: () => { close(); toast('CSV downloaded'); },
+        hide: () => { close(); toast('“' + t.name + '” hidden', 'Undo', () => {}); },
+        del: () => { close(); toast('Asks to confirm — tables used by an assistant can’t be deleted'); }
+      },
+      importCsv: () => toast('Choose a CSV file — columns are matched by name'),
+      addRow: () => this.setState({ drawer: { editing: false, active: true, title: '', details: '', type: '', starts: '', ends: '' } }),
+      noop: () => {},
+      drawer: {
+        show: !!d,
+        title: d ? (d.title || 'New row') : '', details: d ? d.details : '', type: d ? d.type : '', starts: d ? (d.starts || '') : '', ends: d ? (d.ends || '') : '',
+        editing: d ? d.editing : false, active: d ? d.active : true,
+        toggleActive: () => this.setState({ drawer: Object.assign({}, d, { active: !d.active }) }),
+        close: () => this.setState({ drawer: null }),
+        save: () => { this.setState({ drawer: null }); toast('Saved. Customers see it now.'); },
+        del: () => { this.setState({ drawer: null }); toast('Row deleted', 'Undo', () => {}); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

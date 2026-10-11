@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Leads</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page">
+    <header class="page-header">
+      <div class="stack" style="gap: 2px"><h1 class="page-title">Leads</h1><p class="page-sub">People who left a phone number or email. Call the new ones first.</p></div>
+      <div class="row-flex">
+        <button type="button" class="btn btn-outline" onClick="{{exportCsv}}"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Export</button>
+      </div>
+    </header>
+
+    <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+      <div class="alert-box alert-danger" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="alert-body"><span class="alert-title">Leads didn’t load</span><span class="alert-text">Your leads are safe. Check your connection and try again.</span><div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Try again</button></div></div></div>
+    </sc-if>
+
+    <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+      <div class="card" aria-busy="true"><sc-for list="{{skels}}" as="k" hint-placeholder-count="5"><div class="skel-row"><span class="skel" style="width: 36px; height: 36px; border-radius: 18px"></span><span class="stack spacer" style="gap: 6px"><span class="skel skel-line" style="width: 40%"></span><span class="skel skel-line" style="width: 70%"></span></span></div></sc-for></div>
+    </sc-if>
+
+    <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+      <div class="card empty"><span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></span><h3 class="empty-title">No leads yet</h3><p class="empty-text">When a customer leaves a phone number or email, they show up here and in Needs attention on Home.</p></div>
+    </sc-if>
+
+    <sc-if value="{{st.ready}}" hint-placeholder-val="{{ true }}">
+      <div class="metrics card">
+        <div class="metric"><span class="xs t3">New · call these</span><span class="metric-value">{{counts.new}}</span></div>
+        <div class="metric"><span class="xs t3">This month</span><span class="metric-value">{{counts.month}}</span></div>
+        <div class="metric"><span class="xs t3">Won this month</span><span class="metric-value">{{counts.won}}</span></div>
+      </div>
+
+      <div class="stack" style="gap: 12px">
+        <div class="row-flex" style="flex-wrap: wrap; gap: 12px">
+          <div class="chips" role="group" aria-label="Status"><sc-for list="{{chips}}" as="c" hint-placeholder-count="5"><button type="button" class="chip" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}} <span class="count">{{c.count}}</span></button></sc-for></div>
+          <span class="spacer"></span>
+          <span class="select-wrap"><label class="sr-only" for="ld-ag">Assistant</label><select id="ld-ag" class="select" style="width: auto; min-height: 32px; padding: 4px 32px 4px 10px"><option>All assistants</option><option>Mr Spa Consultant</option><option>After-sales support</option></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span>
+        </div>
+
+        <div class="card table-wrap">
+          <table class="table">
+            <thead><tr><th style="width: 32%">Lead</th><th>What they want</th><th class="table-cols-optional" style="width: 150px">Status</th><th class="table-cols-optional" style="width: 110px">Received</th></tr></thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                <tr onClick="{{r.open}}">
+                  <td><div class="row-flex" style="gap: 12px; align-items: flex-start"><span class="avatar">{{r.initials}}<span class="{{r.logoCls}}"><svg aria-hidden="true"><use href="{{r.logoHref}}"></use></svg></span></span><span class="stack" style="gap: 0"><span class="medium truncate">{{r.name}}</span><span class="xs t3 tabular">{{r.phone}}</span><span class="xs t3 only-phone">{{r.statusText}} · {{r.when}}</span></span></div></td>
+                  <td><span class="clamp-2" lang="vi">{{r.want}}</span><span class="row-flex xs t3" style="margin-top: 4px"><span class="{{r.avCls}}">{{r.avInit}}</span>{{r.agent}}<sc-if value="{{r.fu}}" hint-placeholder-val="{{ false }}"> · <span>{{r.fu}}</span></sc-if></span></td>
+                  <td class="table-cols-optional"><span class="{{r.statusCls}}">{{r.statusText}}</span></td>
+                  <td class="table-cols-optional xs t3">{{r.when}}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{noRows}}" hint-placeholder-val="{{ false }}"><div class="empty" style="padding: 32px"><p class="empty-text">No leads with this status.</p></div></sc-if>
+        </div>
+        <p class="help">Example leads — the live app shows people from your own conversations.</p>
+      </div>
+    </sc-if>
+  </div>
+  </div>
+
+  <!-- ===== Lead drawer ===== -->
+  <sc-if value="{{d.show}}" hint-placeholder-val="{{ false }}">
+    <div class="drawer-backdrop"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="ld-t">
+      <div class="sheet-header">
+        <span class="avatar">{{d.initials}}<span class="{{d.logoCls}}"><svg aria-hidden="true"><use href="{{d.logoHref}}"></use></svg></span></span>
+        <div class="spacer"><h2 id="ld-t" class="sheet-title">{{d.name}}</h2><p class="sheet-sub">{{d.channel}} · {{d.when}}</p></div>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{d.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+      </div>
+      <div class="sheet-body">
+        <div class="row-flex" style="gap: 8px; flex-wrap: wrap">
+          <a class="btn btn-primary" href="#" onClick="{{d.call}}"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg>Call {{d.phone}}</a>
+          <button type="button" class="btn btn-outline" onClick="{{d.openChat}}"><svg class="icon" aria-hidden="true"><use href="#i-chats"></use></svg>Open conversation</button>
+        </div>
+        <div class="field"><span class="field-label">Status</span>
+          <div class="segmented full" role="radiogroup" aria-label="Status"><sc-for list="{{d.statuses}}" as="o" hint-placeholder-count="4"><button type="button" role="radio" aria-checked="{{o.on}}" aria-selected="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+          <span class="help">Won and Not a fit stop follow-ups for this person.</span>
+        </div>
+        <div class="stack" style="gap: 8px"><span class="field-label">Summary</span><div class="lead-sum" lang="vi">{{d.want}}</div><span class="help">Written by the assistant from the conversation.</span></div>
+        <div class="stack" style="gap: 4px"><span class="field-label">Details collected</span>
+          <div class="card"><sc-for list="{{d.fields}}" as="f" hint-placeholder-count="3"><div class="row compact"><span class="row-text"><span class="row-sub xs">{{f.k}}</span><span class="row-title">{{f.v}}</span></span></div></sc-for></div>
+        </div>
+        <div class="stack" style="gap: 4px"><span class="field-label">Activity</span>
+          <div class="timeline"><sc-for list="{{d.timeline}}" as="t" hint-placeholder-count="4"><div class="{{t.cls}}"><span class="tl-dot"></span><span class="stack" style="gap: 0"><span>{{t.text}}</span><span class="xs t3">{{t.when}}</span></span></div></sc-for></div>
+        </div>
+        <label class="field"><span class="field-label">Notes</span><textarea class="textarea" placeholder="Only your team sees this" onChange="{{noop}}"></textarea></label>
+      </div>
+      <div class="sheet-footer"><button type="button" class="btn btn-danger-ghost" onClick="{{d.close}}">Delete lead</button><span class="spacer"></span><button type="button" class="btn btn-primary" onClick="{{d.close}}">Done</button></div>
+    </div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"onGo":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all', open: null, status: {} };
+  }
+  toast(m) { if (this.props.onToast) this.props.onToast(m); }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const base = [
+      { id: 1, name: 'Tuan Nguyen', phone: '(346) 555-0142', platform: 'messenger', channel: 'Messenger', want: 'Mở tiệm mới ở Houston, TX, cần 8 ghế pedicure; hỏi ưu đãi free giao hàng và ghế có massage không.', agent: 'Mr Spa Consultant', av: 'av-1', avInit: 'MS', status: 'new', when: '12 min ago', fu: '', fields: [['Name', 'Tuan Nguyen'], ['Phone', '(346) 555-0142'], ['Salon address', 'Houston, TX']] },
+      { id: 2, name: 'Linh Tran', phone: '(714) 555-0187', platform: 'instagram', channel: 'Instagram', want: 'Sửa lại tiệm ở Garden Grove, CA, thay 4 ghế cũ; muốn xem showroom cuối tuần.', agent: 'Mr Spa Consultant', av: 'av-1', avInit: 'MS', status: 'new', when: '1 h ago', fu: 'Follow-up 1 sent', fields: [['Name', 'Linh Tran'], ['Phone', '(714) 555-0187'], ['Salon address', 'Garden Grove, CA']] },
+      { id: 3, name: 'Kevin Pham', phone: '(404) 555-0119', platform: 'web', channel: 'Website chat', want: 'Hỏi giá combo 6 ghế + 6 bàn nail cho tiệm ở Atlanta, GA.', agent: 'Mr Spa Consultant', av: 'av-1', avInit: 'MS', status: 'called', when: 'Yesterday', fu: '', fields: [['Name', 'Kevin Pham'], ['Phone', '(404) 555-0119'], ['Salon address', 'Atlanta, GA']] },
+      { id: 4, name: 'Mai Le', phone: 'mai.le@example.com', platform: 'messenger', channel: 'Messenger', want: 'Ghế bị lỗi bơm nước, cần kỹ thuật đến bảo hành ở Philadelphia.', agent: 'After-sales support', av: 'av-3', avInit: 'AS', status: 'called', when: 'Yesterday', fu: '', fields: [['Name', 'Mai Le'], ['Email', 'mai.le@example.com']] },
+      { id: 5, name: 'Hung Vo', phone: '(267) 555-0170', platform: 'messenger', channel: 'Messenger', want: 'Đặt 6 ghế Birkin M4 cho tiệm mới ở Cherry Hill, NJ.', agent: 'Mr Spa Consultant', av: 'av-1', avInit: 'MS', status: 'won', when: 'Oct 6', fu: '', fields: [['Name', 'Hung Vo'], ['Phone', '(267) 555-0170'], ['Salon address', 'Cherry Hill, NJ']] },
+      { id: 6, name: 'Anh Dao', phone: '(916) 555-0133', platform: 'instagram', channel: 'Instagram', want: 'Hỏi ghế giá rẻ dưới $1.500, chưa có kế hoạch mở tiệm.', agent: 'Mr Spa Consultant', av: 'av-1', avInit: 'MS', status: 'lost', when: 'Oct 3', fu: '', fields: [['Name', 'Anh Dao'], ['Phone', '(916) 555-0133']] }
+    ].map((l) => Object.assign({}, l, { status: s.status[l.id] || l.status }));
+    const labels = { new: 'New', called: 'Called', won: 'Won', lost: 'Not a fit' };
+    const cls = { new: 'lead-status ls-new', called: 'lead-status ls-called', won: 'lead-status ls-won', lost: 'lead-status ls-lost' };
+    const logo = (pf) => pf === 'web' ? { c: 'avatar-badge logo sm logo-web', h: '#i-website' } : { c: 'avatar-badge logo sm logo-' + pf, h: '#logo-' + pf };
+    const count = (k) => base.filter((l) => k === 'all' || l.status === k).length;
+    const list = base.filter((l) => s.filter === 'all' || l.status === s.filter);
+    const sel = base.filter((l) => l.id === s.open)[0];
+    const setStatus = (id, k) => { const o = Object.assign({}, s.status); o[id] = k; this.setState({ status: o }); this.toast('Marked ' + labels[k]); };
+    const initials = (n) => n.split(' ').map((w) => w.charAt(0)).join('').slice(0, 2);
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', loading: ui === 'loading', empty: ui === 'empty', ready: ui === 'normal' || ui === 'error' },
+      skels: [1, 2, 3, 4, 5],
+      counts: { new: count('new'), month: 23, won: count('won') + 3 },
+      chips: [['all', 'All'], ['new', 'New'], ['called', 'Called'], ['won', 'Won'], ['lost', 'Not a fit']].map((c) => ({ label: c[1], count: count(c[0]), on: s.filter === c[0], pick: () => this.setState({ filter: c[0] }) })),
+      rows: list.map((l) => { const lg = logo(l.platform); return { name: l.name, phone: l.phone, initials: initials(l.name), logoCls: lg.c, logoHref: lg.h, want: l.want, agent: l.agent, avCls: 'agent-av xs ' + l.av, avInit: l.avInit, fu: l.fu, statusText: labels[l.status], statusCls: cls[l.status], when: l.when, open: () => this.setState({ open: l.id }) }; }),
+      noRows: list.length === 0,
+      exportCsv: () => this.toast('Leads exported as CSV'),
+      alerts: () => { if (p.onGo) p.onGo('settings'); else this.toast('Opens Settings · Lead alerts'); },
+      retry: () => { if (p.onRetry) p.onRetry(); this.toast('Back up to date'); },
+      noop: () => {},
+      d: sel ? (() => { const lg = logo(sel.platform); return {
+        show: true, name: sel.name, initials: initials(sel.name), logoCls: lg.c, logoHref: lg.h, channel: sel.channel, when: sel.when, phone: sel.phone, want: sel.want,
+        fields: sel.fields.map((f) => ({ k: f[0], v: f[1] })),
+        statuses: ['new', 'called', 'won', 'lost'].map((k) => ({ label: labels[k], on: sel.status === k, pick: () => setStatus(sel.id, k) })),
+        timeline: [
+          { text: 'Asked about offers for 8 chairs', when: sel.when, on: true },
+          { text: 'Left a phone number — lead created', when: sel.when, on: true },
+          { text: 'Added to Needs attention on Home', when: sel.when, on: true },
+          { text: sel.status === 'new' ? 'Follow-up 1 is scheduled if they go quiet (in 2 hours)' : 'Follow-ups stopped — status changed', when: sel.status === 'new' ? 'Scheduled' : 'Done', on: sel.status !== 'new' }
+        ].map((t) => ({ text: t.text, when: t.when, cls: t.on ? 'tl-item is-on' : 'tl-item' })),
+        sms: 'New lead from Messenger: ' + sel.name + ', ' + sel.phone + '. ' + sel.want.slice(0, 60) + '… Open: agent.mrspainc.com/leads/4821',
+        close: () => this.setState({ open: null }),
+        call: (e) => { if (e && e.preventDefault) e.preventDefault(); this.toast('Opens the phone app'); },
+        openChat: () => { this.setState({ open: null }); if (p.onGo) p.onGo('conversations'); else this.toast('Opens the conversation'); }
+      }; })() : { show: false }
+    };
+  }
+}
+</script>
+</body>
+</html>

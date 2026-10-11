@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Data</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Data</h1>
+        <p class="page-sub">Prices, offers and stock your assistants look up. Edits reach customers right away.</p>
+      </div>
+      <div class="row-flex">
+        <button type="button" class="btn btn-outline hide-phone" onClick="{{importCsv}}"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>Import CSV</button>
+        <button type="button" class="btn btn-primary" onClick="{{openNew}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New table</button>
+      </div>
+    </header>
+
+    <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+      <div class="alert-box alert-danger" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="alert-body"><span class="alert-title">Couldn’t load your tables</span><span class="alert-text">Your assistants still use the last saved data.</span><div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Try again</button></div></div></div>
+    </sc-if>
+
+    <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+      <div class="card"><div class="empty">
+        <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span>
+        <h2 class="empty-title">No tables yet</h2>
+        <p class="empty-text">Keep prices, offers and stock here so every answer about money is current. Start from a template or import a spreadsheet.</p>
+        <div class="chips" style="justify-content: center; margin-top: 12px">
+          <button type="button" class="chip" onClick="{{openNew}}"><svg class="icon icon-16" aria-hidden="true"><use href="#i-tag"></use></svg>Products</button>
+          <button type="button" class="chip" onClick="{{openNew}}"><svg class="icon icon-16" aria-hidden="true"><use href="#i-sparkle"></use></svg>Offers</button>
+          <button type="button" class="chip" onClick="{{openNew}}"><svg class="icon icon-16" aria-hidden="true"><use href="#i-clock"></use></svg>Opening hours</button>
+          <button type="button" class="chip" onClick="{{importCsv}}"><svg class="icon icon-16" aria-hidden="true"><use href="#i-upload"></use></svg>Import CSV</button>
+        </div>
+      </div></div>
+    </sc-if>
+
+    <sc-if value="{{st.list}}" hint-placeholder-val="{{ true }}">
+      <div class="card">
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th style="width: 40%">Table</th>
+              <th style="width: 16%">Rows</th>
+              <th class="table-cols-optional" style="width: 22%">Used by</th>
+              <th class="table-cols-optional" style="width: 14%">Updated</th>
+              <th class="cell-actions"><span class="sr-only">Actions</span></th>
+            </tr></thead>
+            <tbody>
+              <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+                <tr><td colspan="5"><span class="skel skel-line" style="width: 50%"></span></td></tr>
+                <tr><td colspan="5"><span class="skel skel-line" style="width: 40%"></span></td></tr>
+              </sc-if>
+              <sc-for list="{{tables}}" as="t" hint-placeholder-count="2">
+                <tr onClick="{{t.open}}">
+                  <td>
+                    <span class="row-flex" style="gap: 12px">
+                      <span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span>
+                      <span class="stack" style="gap: 0">
+                        <button type="button" class="row-title" onClick="{{t.open}}" style="border: 0; padding: 0; background: none; text-align: left; cursor: pointer; font: inherit; font-weight: 600">{{t.name}}</button>
+                        <span class="xs t3">{{t.sub}}</span>
+                      </span>
+                      <sc-if value="{{t.hidden}}" hint-placeholder-val="{{ false }}"><span class="badge">Hidden</span></sc-if>
+                      <sc-if value="{{t.example}}" hint-placeholder-val="{{ false }}"><span class="badge example">Example</span></sc-if>
+                    </span>
+                  </td>
+                  <td class="tabular">{{t.rows}}</td>
+                  <td class="table-cols-optional"><span class="row-flex" style="gap: 4px"><sc-for list="{{t.users}}" as="u" hint-placeholder-count="1"><span class="{{u.cls}}" title="{{u.name}}">{{u.initials}}</span></sc-for><span class="xs t3">{{t.usersText}}</span></span></td>
+                  <td class="table-cols-optional t2">{{t.updated}}</td>
+                  <td class="cell-actions"><svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"></use></svg></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-foot row-flex">
+          <button type="button" class="btn btn-sm btn-ghost" style="margin-left: -8px" onClick="{{toggleHidden}}" aria-expanded="{{showHidden}}"><svg class="icon" aria-hidden="true"><use href="#i-eye-off"></use></svg>{{hiddenLabel}}</button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </div>
+
+  <sc-if value="{{newSheet.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="nt-t">
+      <span class="sheet-grabber" aria-hidden="true"></span>
+      <div class="sheet-header"><div class="spacer"><h2 id="nt-t" class="sheet-title">New table</h2><p class="sheet-sub">You can add columns and rows next.</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{newSheet.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button></div>
+      <div class="sheet-body">
+        <label class="field"><span class="field-label">Name</span><input class="input" type="text" placeholder="e.g. Mr Spa Accessories"></label>
+        <div class="field"><span class="field-label">Start with</span>
+          <div class="choice-list" role="radiogroup" aria-label="Start with">
+            <sc-for list="{{newSheet.kinds}}" as="k" hint-placeholder-count="4">
+              <button type="button" class="choice" role="radio" aria-checked="{{k.on}}" onClick="{{k.pick}}"><span class="radio-dot" aria-hidden="true"></span><span class="row-text"><span class="row-title">{{k.title}}</span><span class="xs t2">{{k.sub}}</span></span></button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <div class="sheet-footer"><span class="spacer"></span><button type="button" class="btn btn-outline" onClick="{{newSheet.close}}">Cancel</button><button type="button" class="btn btn-primary" onClick="{{newSheet.create}}">Create table</button></div>
+    </div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"onOpenTable":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { showHidden: false, newOpen: false, kind: 'products' };
+  }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const toast = (m, a, f) => { if (p.onToast) p.onToast(m, a, f); };
+    const ms = { cls: 'agent-av xs av-1', initials: 'MS', name: 'Mr Spa Consultant' };
+    const as = { cls: 'agent-av xs av-3', initials: 'AS', name: 'After-sales support' };
+    const base = [
+      { id: 'offers', name: 'Mr Spa Offers', sub: 'Offer · Type · Details · Conditions · Starts · Ends', rows: '7 active · 10 total', users: [ms, as], usersText: '2 assistants', updated: 'Today 4:10 PM' },
+      { id: 'products', name: 'Mr Spa Products', sub: 'Name · Description · Price · Stock', rows: '24', example: true, users: [ms], usersText: '', updated: 'Today 4:10 PM' }
+    ];
+    const hidden = [
+      { id: 'h1', name: 'Old price list 2025', sub: 'Name · Price', rows: '41', hidden: true, example: true, users: [], usersText: 'Not used', updated: 'Mar 2' },
+      { id: 'h2', name: 'Test offers', sub: 'Offer · Details', rows: '3', hidden: true, example: true, users: [], usersText: 'Not used', updated: 'Oct 9' },
+      { id: 'h3', name: 'Showroom events', sub: 'Event · Date', rows: '5', hidden: true, example: true, users: [], usersText: 'Not used', updated: 'Aug 14' }
+    ];
+    const list = ui === 'loading' ? [] : base.concat(s.showHidden ? hidden : []);
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', empty: ui === 'empty', list: ui !== 'empty', loading: ui === 'loading' },
+      retry: () => { if (p.onRetry) p.onRetry(); },
+      tables: list.map((t) => Object.assign({}, t, { hidden: !!t.hidden, example: !!t.example, open: () => { if (p.onOpenTable) p.onOpenTable(t.id); else toast('Opens ' + t.name); } })),
+      showHidden: s.showHidden,
+      hiddenLabel: s.showHidden ? 'Hide hidden tables' : 'Show hidden tables (3)',
+      toggleHidden: () => this.setState({ showHidden: !s.showHidden }),
+      importCsv: () => toast('Choose a CSV file — columns are matched by name'),
+      openNew: () => this.setState({ newOpen: true }),
+      newSheet: {
+        show: s.newOpen,
+        kinds: [
+          { id: 'products', title: 'Products', sub: 'Name, description, price, stock' },
+          { id: 'offers', title: 'Offers', sub: 'Offer, details, conditions, start and end dates' },
+          { id: 'hours', title: 'Opening hours', sub: 'Day, opens, closes, note' },
+          { id: 'blank', title: 'Blank', sub: 'Add your own columns' }
+        ].map((k) => Object.assign({}, k, { on: s.kind === k.id, pick: () => this.setState({ kind: k.id }) })),
+        close: () => this.setState({ newOpen: false }),
+        create: () => { this.setState({ newOpen: false }); toast('Table created'); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

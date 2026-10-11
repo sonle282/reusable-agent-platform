@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign in and setup</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="--proto-h: 36px; font-family: var(--font-sans); color: var(--color-text)">
+  <dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import>
+
+  <div class="proto-bar" role="region" aria-label="Prototype controls">
+    <b>Prototype</b>
+    <div class="proto-group" role="group" aria-label="Mode"><span>Mode</span>
+      <sc-for list="{{modes}}" as="m" hint-placeholder-count="2"><button type="button" class="proto-btn" aria-pressed="{{m.on}}" onClick="{{m.pick}}">{{m.label}}</button></sc-for>
+    </div>
+    <div class="proto-group" role="group" aria-label="Screen"><span>Screen</span>
+      <sc-for list="{{screens}}" as="s" hint-placeholder-count="6"><button type="button" class="proto-btn" aria-pressed="{{s.on}}" onClick="{{s.pick}}">{{s.label}}</button></sc-for>
+    </div>
+    <div class="proto-group" role="group" aria-label="Theme"><span>Theme</span>
+      <sc-for list="{{themes}}" as="t" hint-placeholder-count="2"><button type="button" class="proto-btn" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for>
+    </div>
+  </div>
+
+  <div class="auth">
+    <main class="auth-main">
+      <div class="auth-brand">
+        <span class="auth-mark" aria-hidden="true">{{brand.mark}}</span><span>{{brand.name}}</span>
+      </div>
+
+      <!-- ===== Sign in ===== -->
+      <sc-if value="{{is.login}}" hint-placeholder-val="{{ true }}">
+        <form class="auth-form" onSubmit="{{signIn}}" aria-labelledby="li-t">
+          <div class="stack" style="gap: 12px"><h1 id="li-t" class="auth-title">{{loginTitle}}</h1><p class="auth-lead">{{loginLead}}</p></div>
+          <sc-if value="{{err}}" hint-placeholder-val="{{ false }}">
+            <div class="alert-box alert-danger" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="alert-body"><span class="alert-title">Email or password is wrong</span><span class="alert-text">Check both and try again. After 5 tries, sign-in pauses for 15 minutes.</span></div></div>
+          </sc-if>
+          <sc-if value="{{saas}}" hint-placeholder-val="{{ false }}">
+            <button type="button" class="btn btn-outline btn-xl btn-block btn-google" onClick="{{google}}"><span class="g-mark" aria-hidden="true"></span>Continue with Google</button>
+            <div class="divider-or">or</div>
+          </sc-if>
+          <label class="field"><span class="field-label">Email</span><input class="input" type="email" autocomplete="username" value="{{email}}" onChange="{{setEmail}}" placeholder="you@business.com"></label>
+          <div class="field">
+            <div class="row-flex"><label for="li-pw" class="field-label spacer">Password</label><sc-if value="{{saas}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-link btn-sm" style="padding: 0; height: auto" onClick="{{toForgot}}">Forgot password?</button></sc-if></div>
+            <div class="pw-wrap"><input id="li-pw" class="input" type="{{pwType}}" autocomplete="current-password" value="{{pw}}" onChange="{{setPw}}"><button type="button" class="btn btn-ghost btn-icon btn-sm pw-toggle" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" onClick="{{togglePw}}"><svg class="icon icon-18" aria-hidden="true"><use href="#i-eye-off"></use></svg></button></div>
+          </div>
+          <sc-if value="{{busy}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-primary btn-xl btn-block" disabled="{{yes}}"><span class="spinner"></span>Signing in…</button></sc-if>
+          <sc-if value="{{notBusy}}" hint-placeholder-val="{{ true }}"><button type="submit" class="btn btn-primary btn-xl btn-block" disabled="{{cantSignIn}}">Sign in</button></sc-if>
+          <sc-if value="{{saas}}" hint-placeholder-val="{{ false }}"><p class="xs t2" style="margin: 0; text-align: center">New here? <a href="#" onClick="{{toSignup}}">Start a free 14-day trial</a></p></sc-if>
+          <sc-if value="{{notSaas}}" hint-placeholder-val="{{ true }}"><p class="help" style="text-align: center">Only the workspace owner can sign in here. Forgot the password? Reset it with the admin reset command.</p></sc-if>
+        </form>
+      </sc-if>
+
+      <!-- ===== Forgot password ===== -->
+      <sc-if value="{{is.forgot}}" hint-placeholder-val="{{ false }}">
+        <form class="auth-form" onSubmit="{{sendReset}}" aria-labelledby="fp-t">
+          <button type="button" class="btn btn-ghost btn-sm" style="align-self: flex-start; margin-left: -10px" onClick="{{toLogin}}"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg>Back to sign in</button>
+          <div class="stack" style="gap: 12px"><h1 id="fp-t" class="auth-title">Reset your password</h1><p class="auth-lead">Enter the email you sign in with. We’ll send a link that works for 30 minutes.</p></div>
+          <label class="field"><span class="field-label">Email</span><input class="input" type="email" autocomplete="username" value="{{email}}" onChange="{{setEmail}}" placeholder="you@business.com"></label>
+          <button type="submit" class="btn btn-primary btn-xl btn-block" disabled="{{cantReset}}">Send reset link</button>
+        </form>
+      </sc-if>
+
+      <!-- ===== Link sent ===== -->
+      <sc-if value="{{is.sent}}" hint-placeholder-val="{{ false }}">
+        <div class="auth-form" role="status" aria-live="polite">
+          <span class="empty-icon" style="margin: 0"><svg class="icon" aria-hidden="true"><use href="#i-mail"></use></svg></span>
+          <div class="stack" style="gap: 12px"><h1 class="auth-title">Check your email</h1><p class="auth-lead">If <b>{{emailShown}}</b> has an account, a reset link is on its way. It works for 30 minutes.</p></div>
+          <button type="button" class="btn btn-outline btn-xl btn-block" onClick="{{resend}}" disabled="{{resendWait}}">{{resendLabel}}</button>
+          <button type="button" class="btn btn-ghost btn-block" onClick="{{toLogin}}">Back to sign in</button>
+          <p class="help">Didn’t get it? Check spam, or ask the person who set up this workspace.</p>
+        </div>
+      </sc-if>
+
+      <!-- ===== New password (from email link) ===== -->
+      <sc-if value="{{is.reset}}" hint-placeholder-val="{{ false }}">
+        <form class="auth-form" onSubmit="{{saveReset}}" aria-labelledby="np-t">
+          <div class="stack" style="gap: 12px"><h1 id="np-t" class="auth-title">Choose a new password</h1><p class="auth-lead">For {{emailShown}}. You’ll be signed out everywhere else.</p></div>
+          <div class="field">
+            <label for="np-pw" class="field-label">New password</label>
+            <div class="pw-wrap"><input id="np-pw" class="input" type="{{pwType}}" autocomplete="new-password" value="{{pw}}" onChange="{{setPw}}"><button type="button" class="btn btn-ghost btn-icon btn-sm pw-toggle" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" onClick="{{togglePw}}"><svg class="icon icon-18" aria-hidden="true"><use href="#i-eye-off"></use></svg></button></div>
+            <div class="strength" aria-hidden="true"><sc-for list="{{bars}}" as="b" hint-placeholder-count="3"><span class="{{b.cls}}"></span></sc-for></div>
+            <span class="{{pwHintCls}}">{{pwHint}}</span>
+          </div>
+          <button type="submit" class="btn btn-primary btn-xl btn-block" disabled="{{pwShort}}">Save and sign in</button>
+        </form>
+      </sc-if>
+
+      <!-- ===== First-time setup (own install, e.g. Mr Spa) ===== -->
+      <sc-if value="{{is.setup}}" hint-placeholder-val="{{ false }}">
+        <form class="auth-form" onSubmit="{{setupNext}}" aria-labelledby="su-t" style="max-width: 420px">
+          <div class="stack" style="gap: 12px">
+            <div class="steps" aria-hidden="true"><span class="step is-done"></span><span class="{{step2Cls}}"></span></div>
+            <span class="xs t3">Step {{setupStep}} of 2</span>
+            <h1 id="su-t" class="auth-title">{{setupTitle}}</h1>
+            <p class="auth-lead">{{setupLead}}</p>
+          </div>
+          <sc-if value="{{setup1}}" hint-placeholder-val="{{ true }}">
+            <label class="field"><span class="field-label">Setup code</span><input class="input mono" type="password" autocomplete="off" placeholder="From your install message"><span class="help">One-time code. It stops working after this step.</span></label>
+            <label class="field"><span class="field-label">Your email</span><input class="input" type="email" autocomplete="username" value="{{email}}" onChange="{{setEmail}}" placeholder="you@business.com"></label>
+            <div class="field">
+              <label for="su-pw" class="field-label">Password</label>
+              <div class="pw-wrap"><input id="su-pw" class="input" type="{{pwType}}" autocomplete="new-password" value="{{pw}}" onChange="{{setPw}}"><button type="button" class="btn btn-ghost btn-icon btn-sm pw-toggle" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" onClick="{{togglePw}}"><svg class="icon icon-18" aria-hidden="true"><use href="#i-eye-off"></use></svg></button></div>
+              <div class="strength" aria-hidden="true"><sc-for list="{{bars}}" as="b" hint-placeholder-count="3"><span class="{{b.cls}}"></span></sc-for></div>
+              <span class="{{pwHintCls}}">{{pwHint}}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{setup2}}" hint-placeholder-val="{{ false }}">
+            <label class="field"><span class="field-label">Business name</span><input class="input" type="text" value="Mr Spa" onChange="{{noop}}" placeholder="Your business"></label>
+            <div class="field-row"><span class="stack" style="gap: 0"><span class="medium">Logo</span><span class="xs t3">Square image, at least 256 px · optional</span></span><button type="button" class="btn btn-sm btn-outline" onClick="{{noop}}"><svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>Upload</button></div>
+            <div class="field-row"><span class="stack" style="gap: 0"><span class="medium">Chat color</span><span class="xs t3">Used in the website chat</span></span><button type="button" aria-label="Chat color #1D2B36, change" onClick="{{noop}}" style="width: 28px; height: 28px; border-radius: 14px; border: 0; padding: 0; background: #1D2B36; box-shadow: 0 0 0 1px var(--color-border-strong), inset 0 0 0 2px var(--color-surface); cursor: pointer"></button></div>
+            <div class="alert-box alert-info"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg><div class="alert-body"><span class="alert-title">AI key comes next, inside the app</span><span class="alert-text">Home shows it as the first step of the checklist. Nothing answers customers until you add it.</span></div></div>
+          </sc-if>
+          <div class="row-flex">
+            <sc-if value="{{setup2}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-outline btn-xl" onClick="{{setupBack}}">Back</button></sc-if>
+            <button type="submit" class="btn btn-primary btn-xl grow" disabled="{{setupCant}}">{{setupCta}}</button>
+          </div>
+        </form>
+      </sc-if>
+
+      <!-- ===== Sign up (Repnow SaaS only) ===== -->
+      <sc-if value="{{is.signup}}" hint-placeholder-val="{{ false }}">
+        <form class="auth-form" onSubmit="{{signUp}}" aria-labelledby="sg-t">
+          <div class="stack" style="gap: 12px"><span class="mode-pill" style="align-self: flex-start">14 days free · no card</span><h1 id="sg-t" class="auth-title">Start your free trial</h1><p class="auth-lead">Your assistant can answer its first customer today.</p></div>
+          <button type="button" class="btn btn-outline btn-xl btn-block btn-google" onClick="{{google}}"><span class="g-mark" aria-hidden="true"></span>Continue with Google</button>
+          <div class="divider-or">or with email</div>
+          <label class="field"><span class="field-label">Business name</span><input class="input" type="text" autocomplete="organization" placeholder="Mr Spa Inc."></label>
+          <label class="field"><span class="field-label">Work email</span><input class="input" type="email" autocomplete="username" value="{{email}}" onChange="{{setEmail}}" placeholder="you@business.com"></label>
+          <div class="field">
+            <label for="sg-pw" class="field-label">Password</label>
+            <div class="pw-wrap"><input id="sg-pw" class="input" type="{{pwType}}" autocomplete="new-password" value="{{pw}}" onChange="{{setPw}}"><button type="button" class="btn btn-ghost btn-icon btn-sm pw-toggle" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" onClick="{{togglePw}}"><svg class="icon icon-18" aria-hidden="true"><use href="#i-eye-off"></use></svg></button></div>
+            <span class="{{pwHintCls}}">{{pwHint}}</span>
+          </div>
+          <button type="submit" class="btn btn-primary btn-xl btn-block" disabled="{{cantSignUp}}">Create account</button>
+          <p class="help" style="text-align: center">By continuing you agree to the <a href="#" onClick="{{noopLink}}">Terms</a> and <a href="#" onClick="{{noopLink}}">Privacy Policy</a>.</p>
+          <p class="xs t2" style="margin: 0; text-align: center">Already have an account? <a href="#" onClick="{{toLoginLink}}">Sign in</a></p>
+        </form>
+      </sc-if>
+
+      <div class="auth-foot"><span>{{footLeft}}</span><span class="spacer"></span><sc-if value="{{saas}}" hint-placeholder-val="{{ false }}"><a href="#" onClick="{{noopLink}}">Help</a></sc-if></div>
+    </main>
+
+    <!-- ===== Right: brand panel ===== -->
+    <aside class="auth-side" aria-hidden="true">
+      <div class="stack" style="gap: 16px">
+        <p class="display">{{side.title}}</p>
+        <p class="t2" style="margin: 0; font: var(--text-md); max-width: 440px">{{side.sub}}</p>
+      </div>
+      <div class="mock-chat" lang="vi">
+        <div class="mc-user">Có ưu đãi gì nếu mua 8 ghế không?</div>
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <div class="mc-ai">Dạ đơn từ 6 ghế được free giao hàng ạ. Anh/chị để lại số điện thoại, tư vấn viên gửi quote chi tiết nhé.</div>
+        <div class="mc-lead" lang="en"><span class="lead-status ls-new">New lead</span><span class="spacer truncate">Tuan · (346) 555-0142 · 8 chairs, Houston</span><svg class="icon icon-18" aria-hidden="true"><use href="#i-phone"></use></svg></div>
+      </div>
+      <span class="xs t2">Example conversation</span>
+    </aside>
+  </div>
+
+  <sc-if value="{{toast}}" hint-placeholder-val="{{ false }}"><div class="toast no-action" role="status" aria-live="polite"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg><span>{{toast}}</span></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"mode":{"editor":"enum","options":["workspace","saas"],"default":"workspace"},"screen":{"editor":"enum","options":["login","forgot","sent","reset","setup","signup"],"default":"login"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { theme: props.theme || 'light', mode: props.mode || 'workspace', screen: props.screen || 'login', email: '', pw: '', showPw: false, busy: false, err: false, step: 1, wait: 0, toast: '' };
+  }
+  componentWillUnmount() { clearTimeout(this.t); clearInterval(this.iv); clearTimeout(this.tt); }
+  say(m) { clearTimeout(this.tt); this.setState({ toast: m }); this.tt = setTimeout(() => this.setState({ toast: '' }), 3000); }
+  go(screen) { this.setState({ screen: screen, err: false, busy: false, pw: '', showPw: false, step: 1 }); }
+  renderVals() {
+    const s = this.state;
+    const saas = s.mode === 'saas';
+    const pre = (e) => { if (e && e.preventDefault) e.preventDefault(); };
+    const pwLen = s.pw.length;
+    const score = pwLen >= 16 ? 3 : pwLen >= 12 ? 2 : pwLen > 0 ? 1 : 0;
+    const is = {}; ['login', 'forgot', 'sent', 'reset', 'setup', 'signup'].forEach((k) => { is[k] = s.screen === k; });
+    const screenList = saas ? ['login', 'forgot', 'sent', 'reset', 'signup'] : ['login', 'setup'];
+    const names = { login: 'Sign in', forgot: 'Forgot', sent: 'Link sent', reset: 'New password', setup: 'First setup', signup: 'Sign up' };
+    return {
+      yes: true, theme: s.theme, is: is, saas: saas, notSaas: !saas,
+      brand: saas ? { mark: 'R', name: 'Repnow' } : { mark: 'MS', name: 'Mr Spa' },
+      loginTitle: saas ? 'Welcome back' : 'Sign in to Mr Spa',
+      loginLead: saas ? 'Sign in to see your leads and assistants.' : 'Manage your assistants, data and conversations.',
+      modes: [['workspace', 'Mr Spa · build now'], ['saas', 'Repnow SaaS · later']].map((m) => ({ label: m[1], on: s.mode === m[0], pick: () => this.setState({ mode: m[0], screen: (m[0] !== 'saas' && s.screen !== 'setup') ? 'login' : (m[0] === 'saas' && s.screen === 'setup') ? 'signup' : s.screen }) })),
+      screens: screenList.map((k) => ({ label: names[k], on: s.screen === k, pick: () => this.go(k) })),
+      themes: ['light', 'dark'].map((k) => ({ label: k === 'light' ? 'Light' : 'Dark', on: s.theme === k, pick: () => this.setState({ theme: k }) })),
+      err: s.err, busy: s.busy, notBusy: !s.busy,
+      email: s.email, emailShown: s.email || 'owner@mrspainc.com', pw: s.pw,
+      setEmail: (e) => this.setState({ email: e.target.value, err: false }),
+      setPw: (e) => this.setState({ pw: e.target.value, err: false }),
+      showPw: s.showPw, pwType: s.showPw ? 'text' : 'password', pwToggleLabel: s.showPw ? 'Hide password' : 'Show password',
+      togglePw: () => this.setState({ showPw: !s.showPw }),
+      cantSignIn: !s.email.trim() || !s.pw,
+      signIn: (e) => { pre(e); this.setState({ busy: true, err: false }); this.t = setTimeout(() => { if (s.pw.toLowerCase() === 'wrong') this.setState({ busy: false, err: true }); else { this.setState({ busy: false }); this.say('Signed in — opens Home'); } }, 900); },
+      toForgot: () => this.go('forgot'),
+      toLogin: () => this.go('login'),
+      toLoginLink: (e) => { pre(e); this.go('login'); },
+      toSignup: (e) => { pre(e); this.go('signup'); },
+      cantReset: !s.email.trim(),
+      sendReset: (e) => { pre(e); this.setState({ screen: 'sent', wait: 30 }); clearInterval(this.iv); this.iv = setInterval(() => { const w = this.state.wait - 1; this.setState({ wait: Math.max(0, w) }); if (w <= 0) clearInterval(this.iv); }, 1000); },
+      resendWait: s.wait > 0, resendLabel: s.wait > 0 ? 'Resend in ' + s.wait + 's' : 'Resend link',
+      resend: () => { this.setState({ wait: 30 }); this.say('Sent again'); clearInterval(this.iv); this.iv = setInterval(() => { const w = this.state.wait - 1; this.setState({ wait: Math.max(0, w) }); if (w <= 0) clearInterval(this.iv); }, 1000); },
+      bars: [1, 2, 3].map((n) => ({ cls: n <= score ? 'on' : '' })),
+      pwShort: pwLen < 12,
+      pwHint: pwLen === 0 ? 'At least 12 characters. A short sentence works well.' : pwLen < 12 ? (12 - pwLen) + ' more characters' : 'Good password',
+      pwHintCls: pwLen > 0 && pwLen >= 12 ? 'help text-success' : 'help',
+      saveReset: (e) => { pre(e); this.say('Password saved — you’re signed in'); this.go('login'); },
+      setupStep: s.step, setup1: s.step === 1, setup2: s.step === 2, step2Cls: s.step === 2 ? 'step is-done' : 'step',
+      setupTitle: s.step === 1 ? 'Create the owner account' : 'Your business',
+      setupLead: s.step === 1 ? 'This account manages everything in this workspace.' : 'Shown to customers in website chat. You can change it later.',
+      setupCta: s.step === 1 ? 'Continue' : 'Open the app',
+      setupCant: s.step === 1 && (!s.email.trim() || pwLen < 12),
+      setupNext: (e) => { pre(e); if (s.step === 1) this.setState({ step: 2 }); else this.say('Done — Home opens with the setup checklist'); },
+      setupBack: () => this.setState({ step: 1 }),
+      cantSignUp: !s.email.trim() || pwLen < 12,
+      signUp: (e) => { pre(e); this.say('Account created — onboarding starts'); },
+      google: () => this.say('Opens Google sign-in'),
+      noop: () => {}, noopLink: (e) => pre(e),
+      footLeft: saas ? '© Repnow' : 'Mr Spa workspace',
+      side: saas ? { title: 'Never lose a customer to a slow reply.', sub: 'An AI sales assistant for Facebook, Instagram and your website. It answers in seconds, quotes from your real prices and sends you ready-to-call leads.' }
+        : { title: 'Every message answered. Every lead in one place.', sub: 'Your assistant replies in seconds, checks your real offers and lists the customers who are ready for a quote.' },
+      toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

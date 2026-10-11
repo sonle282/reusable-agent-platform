@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Assistant builder</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="builder">
+    <!-- ===== Top bar: one row ===== -->
+    <header class="builder-bar">
+      <button type="button" class="btn btn-ghost btn-icon" aria-label="Back to Assistants" onClick="{{back}}"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>
+      <span class="{{agent.avClass}}">{{agent.initials}}</span>
+      <div class="stack spacer" style="gap: 0">
+        <h1 class="truncate" style="margin: 0; font: var(--text-heading-xs)">{{f.name}}</h1>
+        <span class="status xs"><span class="{{status.dot}}"></span><span class="truncate">{{status.text}}</span></span>
+      </div>
+      <span class="xs t3 hide-phone">{{saveText}}</span>
+      <sc-if value="{{pub.busy}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-primary" disabled="{{yes}}"><span class="spinner"></span>Checking 2 scenarios…</button></sc-if>
+      <sc-if value="{{pub.can}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-primary" onClick="{{publish}}">{{pub.label}}</button></sc-if>
+      <sc-if value="{{pub.done}}" hint-placeholder-val="{{ true }}"><span class="status medium text-success"><svg class="icon icon-18" aria-hidden="true"><use href="#i-check-circle"></use></svg>Published</span></sc-if>
+      <div class="only-phone" style="width: 100%">
+        <div class="tabs scroll" role="tablist" aria-label="Builder sections">
+          <sc-for list="{{tabsPhone}}" as="t" hint-placeholder-count="6"><button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for>
+        </div>
+      </div>
+    </header>
+
+    <div class="builder-main">
+      <!-- ===== Left: editor (scrolls on its own) ===== -->
+      <section class="{{editorClass}}" aria-label="Configure">
+        <div class="editor-tabs only-desktop">
+          <div class="tabs" role="tablist" aria-label="Configure">
+            <sc-for list="{{tabsDesktop}}" as="t" hint-placeholder-count="5"><button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for>
+          </div>
+        </div>
+        <div class="editor-scroll">
+          <div class="editor-inner">
+            <sc-if value="{{publishError}}" hint-placeholder-val="{{ false }}">
+              <div class="alert-box alert-danger" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="alert-body"><span class="alert-title">Not published — a required scenario failed</span><span class="alert-text">“Never invent a price” failed on the draft. Customers still see version {{version}}.</span><div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{openScenarios}}">Show scenario</button><button type="button" class="btn btn-sm btn-ghost" onClick="{{dismissError}}">Dismiss</button></div></div></div>
+            </sc-if>
+            <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+              <div class="alert-box alert-warning" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-warning"></use></svg><div class="alert-body"><span class="alert-title">Your last change isn’t saved yet</span><span class="alert-text">We keep trying. Edits stay on this device until the connection is back.</span><div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Try again</button></div></div></div>
+            </sc-if>
+            <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+              <div class="stack" style="gap: 20px" aria-busy="true"><span class="skel skel-line" style="width: 30%"></span><span class="skel" style="height: 36px"></span><span class="skel skel-line" style="width: 25%"></span><span class="skel" style="height: 88px"></span><span class="skel skel-line" style="width: 35%"></span><span class="skel" style="height: 64px"></span></div>
+            </sc-if>
+
+            <!-- Instructions -->
+            <sc-if value="{{show.instructions}}" hint-placeholder-val="{{ true }}">
+              <section class="stack" style="gap: 16px">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px">
+                  <label class="field"><span class="field-label">Name</span><input class="input" type="text" value="{{f.name}}" onChange="{{set.name}}" placeholder="Booking assistant"></label>
+                  <label class="field"><span class="field-label">Business name</span><input class="input" type="text" value="{{f.business}}" onChange="{{set.business}}" placeholder="Mr Spa Inc."></label>
+                </div>
+                <label class="field"><span class="field-label">Description</span><input class="input" type="text" value="{{f.desc}}" onChange="{{set.desc}}" placeholder="What this assistant is for — only you see this"></label>
+              </section>
+
+              <section class="stack" style="gap: 16px">
+                <h2 class="section-title">Your business</h2>
+                <label class="field"><span class="field-label">What you offer</span><textarea class="textarea" value="{{f.offer}}" onChange="{{set.offer}}" placeholder="Products or services you sell, and who they are for"></textarea></label>
+                <label class="field"><span class="field-label">Contact and hours</span><textarea class="textarea" value="{{f.contact}}" onChange="{{set.contact}}" placeholder="Phone, email, address, opening hours"></textarea></label>
+                <label class="field"><span class="field-label">Website</span><input class="input" type="url" value="{{f.website}}" onChange="{{set.website}}" placeholder="https://"></label>
+                <p class="help">Facts that rarely change. Prices, offers and stock belong in Data so they stay current.</p>
+              </section>
+
+              <section class="stack" style="gap: 16px">
+                <h2 class="section-title">How it works</h2>
+                <label class="field"><span class="field-label">Its job</span><textarea class="textarea" value="{{f.job}}" onChange="{{set.job}}" placeholder="Answer questions, recommend the right product and collect contact details when the customer is ready to buy."></textarea></label>
+                <label class="field"><span class="field-label">Voice and style</span><textarea class="textarea" value="{{f.voice}}" onChange="{{set.voice}}" placeholder="Warm and polite, short messages, one question at a time."></textarea><span class="help">It always replies in the customer’s language.</span></label>
+              </section>
+
+              <sc-for list="{{rules}}" as="rs" hint-placeholder-count="4">
+                <section class="stack" style="gap: 8px">
+                  <div class="section-head"><h2 class="section-title spacer">{{rs.title}}</h2><span class="xs t3">{{rs.hint}}</span></div>
+                  <sc-for list="{{rs.items}}" as="r" hint-placeholder-count="2">
+                    <div class="rule-row">
+                      <input class="input" type="text" value="{{r.value}}" onChange="{{r.set}}" placeholder="{{rs.placeholder}}" aria-label="{{rs.title}}">
+                      <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Remove" onClick="{{r.remove}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+                    </div>
+                  </sc-for>
+                  <button type="button" class="btn btn-sm btn-ghost" style="align-self: flex-start; margin-left: -8px" onClick="{{rs.add}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>{{rs.addLabel}}</button>
+                </section>
+              </sc-for>
+
+              <section class="stack" style="gap: 8px">
+                <div class="section-head"><h2 class="section-title spacer">Conversation starters</h2><span class="badge badge-info">New</span></div>
+                <p class="help" style="margin-top: -4px">Shown as tap-to-ask buttons in website chat and as Messenger ice breakers. Also used in Preview.</p>
+                <sc-for list="{{starterFields}}" as="r" hint-placeholder-count="3">
+                  <div class="rule-row"><input class="input" type="text" value="{{r.value}}" onChange="{{r.set}}" placeholder="Có ưu đãi gì cho tiệm mới không?" aria-label="Conversation starter" lang="vi"></div>
+                </sc-for>
+              </section>
+
+              <section class="stack" style="gap: 16px">
+                <h2 class="section-title">When something goes wrong</h2>
+                <label class="field"><span class="field-label">Fallback reply</span><textarea class="textarea" value="{{f.fallback}}" onChange="{{set.fallback}}" placeholder="Sorry, I can’t answer right now. Please try again shortly."></textarea><span class="help">Sent only if the AI is unavailable or takes too long.</span></label>
+              </section>
+
+              <section class="card">
+                <button type="button" class="disclosure" aria-expanded="{{playbookOpen}}" onClick="{{togglePlaybook}}"><span class="spacer">Detailed playbook <span class="t3" style="font-weight: 400">· advanced</span></span><span class="xs t3">{{playbookCount}}</span><svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"></use></svg></button>
+                <sc-if value="{{playbookOpen}}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 0 16px 16px"><label><span class="sr-only">Detailed playbook</span><textarea class="textarea mono" value="{{f.playbook}}" onChange="{{set.playbook}}" placeholder="Long, detailed guidance in Markdown"></textarea></label><p class="help" style="margin-top: 8px">When it disagrees with the fields above, the fields above win.</p></div>
+                </sc-if>
+                <button type="button" class="disclosure" aria-expanded="{{advancedOpen}}" onClick="{{toggleAdvanced}}" style="border-top: 1px solid var(--color-border)"><span class="spacer">Model and reply length <span class="t3" style="font-weight: 400">· advanced</span></span><svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"></use></svg></button>
+                <sc-if value="{{advancedOpen}}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 0 16px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px">
+                    <label class="field"><span class="field-label">Model</span><span class="select-wrap" style="display: flex"><select class="select"><option>Claude Haiku 5.5</option><option>Claude Sonnet 5.5</option></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span></label>
+                    <label class="field"><span class="field-label">Max tokens</span><input class="input tabular" type="number" value="1024" onChange="{{dirty}}"></label>
+                    <label class="field"><span class="field-label">Max reply length</span><input class="input" type="text" value="600 characters" onChange="{{dirty}}"></label>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-if>
+
+            <!-- Sources -->
+            <sc-if value="{{show.sources}}" hint-placeholder-val="{{ false }}">
+              <section class="card">
+                <div class="card-head"><h2 class="card-title">Knowledge</h2><button type="button" class="btn btn-sm btn-outline" onClick="{{addKnowledge}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add</button></div>
+                <sc-if value="{{hasSources}}" hint-placeholder-val="{{ true }}">
+                  <sc-for list="{{sources}}" as="s" hint-placeholder-count="8">
+                    <div class="row compact">
+                      <span class="{{s.tile}}"><svg class="icon" aria-hidden="true"><use href="{{s.href}}"></use></svg></span>
+                      <button type="button" class="row-text" onClick="{{s.open}}" style="border: 0; padding: 0; background: none; text-align: left; cursor: pointer"><span class="row-title">{{s.name}}</span><span class="{{s.subClass}}">{{s.sub}}</span></button>
+                      <sc-if value="{{s.failed}}" hint-placeholder-val="{{ false }}"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Retry</button></sc-if>
+                      <button type="button" class="switch" role="switch" aria-checked="{{s.on}}" aria-label="Use {{s.name}}" onClick="{{s.toggle}}"></button>
+                    </div>
+                  </sc-for>
+                </sc-if>
+                <sc-if value="{{noSources}}" hint-placeholder-val="{{ false }}">
+                  <div class="empty"><span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg></span><h3 class="empty-title">No knowledge yet</h3><p class="empty-text">Add policies, buying guides or a web page. The assistant reads them before it answers.</p><button type="button" class="btn btn-primary" onClick="{{addKnowledge}}">Add knowledge</button></div>
+                </sc-if>
+                <div class="card-foot">For explanations that rarely change. Answers you fix are saved in Corrected answers.</div>
+              </section>
+              <section class="card">
+                <div class="card-head"><h2 class="card-title">Data it can look up</h2><button type="button" class="btn btn-sm btn-ghost" onClick="{{goData}}">Manage in Data</button></div>
+                <sc-for list="{{dataTables}}" as="d" hint-placeholder-count="2">
+                  <div class="row compact"><span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg></span><div class="row-text"><span class="row-title">{{d.name}}</span><span class="row-sub xs">{{d.sub}}</span></div><button type="button" class="switch" role="switch" aria-checked="{{d.on}}" aria-label="Look up {{d.name}}" onClick="{{d.toggle}}"></button></div>
+                </sc-for>
+                <div class="card-foot">Tables are shared by all assistants. It always checks these before talking about prices, offers or stock.</div>
+              </section>
+              <section class="card"><button type="button" class="disclosure" aria-expanded="false" onClick="{{lookupsHint}}"><span class="spacer">Live lookups <span class="t3" style="font-weight: 400">· advanced</span></span><span class="xs t3">None</span><svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"></use></svg></button></section>
+            </sc-if>
+
+            <!-- Follow-ups -->
+            <sc-if value="{{show.followups}}" hint-placeholder-val="{{ false }}">
+              <div class="hero-block card-pad row-flex" style="gap: 14px; align-items: flex-start">
+                <span class="tile" style="background: rgba(255,255,255,0.7); color: #0D0D0D"><svg class="icon" aria-hidden="true"><use href="#i-reply"></use></svg></span>
+                <div class="stack spacer" style="gap: 2px"><span class="strong">Follow-ups brought back 4 leads in the last 30 days</span><span class="xs t2">Customers who asked about price, went quiet, then left a phone number after a nudge. <span class="badge badge-discovery">Example</span></span></div>
+              </div>
+
+              <section class="card">
+                <div class="card-head"><div class="stack spacer" style="gap: 0"><h2 class="card-title">Within 24 hours</h2><span class="xs t3">Messenger and Instagram · sent by the assistant</span></div><button type="button" class="switch" role="switch" aria-checked="{{fu.on}}" aria-label="Follow up within 24 hours" onClick="{{fu.toggle}}"></button></div>
+                <div style="padding: 0 16px 14px" class="stack">
+                  <div class="window-bar" aria-hidden="true"><span class="wb-in"></span><span class="wb-mark" style="left: 8%"></span><span class="wb-mark" style="left: 83%"></span></div>
+                  <div class="row-flex xs t3"><span>Customer’s last message</span><span class="spacer"></span><span>24 h — Meta closes the window</span></div>
+                </div>
+                <sc-if value="{{fu.on}}" hint-placeholder-val="{{ true }}">
+                  <sc-for list="{{fu.steps}}" as="x" hint-placeholder-count="2">
+                    <div class="fu-step">
+                      <span class="fu-num">{{x.n}}</span>
+                      <div class="stack" style="gap: 10px">
+                        <div class="inline-select"><span class="medium">Send</span><span class="select-wrap"><label class="sr-only" for="{{x.id}}">Wait time</label><select id="{{x.id}}" class="select" onChange="{{dirty}}"><sc-for list="{{x.opts}}" as="o" hint-placeholder-count="4"><option selected="{{o.sel}}">{{o.label}}</option></sc-for></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span><span class="t2">after they go quiet, if they</span><span class="select-wrap"><label class="sr-only" for="{{x.id}}c">Condition</label><select id="{{x.id}}c" class="select" onChange="{{dirty}}"><option>asked about price but left no contact</option><option>asked anything and left no contact</option></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span></div>
+                        <label class="field"><span class="sr-only">Message</span><textarea class="textarea" value="{{x.msg}}" onChange="{{dirty}}" lang="vi"></textarea></label>
+                        <div class="row-flex xs t3"><svg class="icon icon-16" aria-hidden="true"><use href="#i-sparkle"></use></svg><span class="spacer">{{x.hint}}</span><button type="button" class="btn btn-sm btn-ghost" onClick="{{x.preview}}">Show in Preview</button></div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </sc-if>
+                <div class="card-foot">At most 2 per conversation. Each one mentions something useful — an active offer or a photo — never just “are you there?”.</div>
+              </section>
+
+              <section class="card">
+                <div class="card-head"><div class="stack spacer" style="gap: 0"><h2 class="card-title">After 24 hours</h2><span class="xs t3">Meta doesn’t allow free-form messages after 24 hours</span></div></div>
+                <div class="row"><span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-flag"></use></svg></span><div class="row-text"><span class="row-title">Add “Contact again” to Needs attention</span><span class="row-sub xs">So your team can reply by hand from Facebook, or call if they left a number</span></div><button type="button" class="switch" role="switch" aria-checked="true" aria-label="Add contact again to Needs attention" onClick="{{dirty}}"></button></div>
+                <div class="card-foot">Your team can still reply by hand for 7 days with Meta’s Human Agent tag.</div>
+              </section>
+
+              <section class="card">
+                <div class="card-head"><h2 class="card-title">Stops automatically when</h2></div>
+                <div class="card-pad stack" style="gap: 8px; padding-top: 0">
+                  <sc-for list="{{fu.stops}}" as="t" hint-placeholder-count="4"><span class="row-flex"><svg class="icon icon-18 text-success" aria-hidden="true"><use href="#i-check"></use></svg>{{t}}</span></sc-for>
+                </div>
+              </section>
+            </sc-if>
+
+            <!-- Behavior -->
+            <sc-if value="{{show.behavior}}" hint-placeholder-val="{{ false }}">
+              <section class="card">
+                <div class="card-head"><div class="stack spacer" style="gap: 0"><h2 class="card-title">Feel like a person</h2><span class="xs t3">Messenger and Instagram · website chat always shows typing</span></div></div>
+                <sc-for list="{{beh.toggles}}" as="t" hint-placeholder-count="3">
+                  <div class="row"><span class="tile"><svg class="icon" aria-hidden="true"><use href="{{t.href}}"></use></svg></span><div class="row-text"><span class="row-title">{{t.title}}</span><span class="row-sub xs">{{t.sub}}</span></div><button type="button" class="switch" role="switch" aria-checked="{{t.on}}" aria-label="{{t.title}}" onClick="{{t.toggle}}"></button></div>
+                </sc-for>
+                <div class="field-row" style="padding: 8px 16px 16px"><span class="stack" style="gap: 0"><span class="medium">Reply pace</span><span class="xs t3">Natural waits 1–3 seconds per message, like typing</span></span>
+                  <div class="segmented" role="tablist" aria-label="Reply pace"><sc-for list="{{beh.paces}}" as="o" hint-placeholder-count="3"><button type="button" role="tab" aria-selected="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+                </div>
+              </section>
+
+              <section class="card">
+                <div class="card-head"><div class="stack spacer" style="gap: 0"><h2 class="card-title">Tell customers it’s AI</h2><span class="xs t3">Added to the first reply in each conversation</span></div><button type="button" class="switch" role="switch" aria-checked="{{beh.disclose}}" aria-label="Tell customers it is AI" onClick="{{beh.toggleDisclose}}"></button></div>
+                <sc-if value="{{beh.disclose}}" hint-placeholder-val="{{ true }}">
+                  <div style="padding: 0 16px 16px" class="stack"><label class="field"><span class="sr-only">Notice</span><input class="input" type="text" value="Em là trợ lý ảo của Mr Spa. Anh/chị cần gặp người thật cứ nhắn “gặp nhân viên” nhé." onChange="{{dirty}}" lang="vi"></label><span class="help">Required for customers in the EU (AI Act, Article 50) and builds trust everywhere. Keep it on.</span></div>
+                </sc-if>
+                <sc-if value="{{beh.noDisclose}}" hint-placeholder-val="{{ false }}"><div style="padding: 0 16px 16px"><div class="alert-box alert-warning"><svg class="icon" aria-hidden="true"><use href="#i-warning"></use></svg><div class="alert-body"><span class="alert-title">Customers won’t know it’s AI</span><span class="alert-text">Not allowed for customers in the EU. In the US, people who find out later trust you less.</span></div></div></div></sc-if>
+              </section>
+
+              <section class="card">
+                <div class="card-head"><div class="stack spacer" style="gap: 0"><h2 class="card-title">Business hours</h2><span class="xs t3">Used for “we’ll call you back” promises and lead alerts</span></div></div>
+                <div class="row compact"><span class="tile"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg></span><div class="row-text"><span class="row-title">Sunday–Friday, 10:00–18:00</span><span class="row-sub xs">Philadelphia time (ET) · from Contact and hours</span></div><button type="button" class="btn btn-sm btn-outline" onClick="{{dirty}}">Edit</button></div>
+                <div class="field-row" style="padding: 8px 16px 16px"><span class="stack" style="gap: 0"><span class="medium">Outside hours</span><span class="xs t3">The assistant always answers</span></span>
+                  <span class="select-wrap"><label class="sr-only" for="oh">Outside hours</label><select id="oh" class="select" style="width: auto" onChange="{{dirty}}"><option>Say the team calls back next business day</option><option>Answer as usual, say nothing</option></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span>
+                </div>
+              </section>
+            </sc-if>
+
+            <!-- Versions -->
+            <sc-if value="{{show.versions}}" hint-placeholder-val="{{ false }}">
+              <section class="card">
+                <div class="card-head"><h2 class="card-title">Versions</h2></div>
+                <sc-if value="{{noVersions}}" hint-placeholder-val="{{ false }}"><div class="empty"><span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-history"></use></svg></span><h3 class="empty-title">No versions yet</h3><p class="empty-text">Publish the draft to make it live. Every publish is saved here so you can go back.</p></div></sc-if>
+                <sc-if value="{{hasDraftRow}}" hint-placeholder-val="{{ false }}"><div class="row"><span class="tile tile-warning"><svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg></span><div class="row-text"><span class="row-title">Draft</span><span class="row-sub">Unpublished changes · saved just now</span></div><span class="badge badge-warning">Not live</span></div></sc-if>
+                <sc-for list="{{versions}}" as="v" hint-placeholder-count="3">
+                  <div class="row"><span class="{{v.tile}}"><svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg></span><div class="row-text"><span class="row-title">{{v.name}}</span><span class="row-sub">{{v.when}}</span></div>
+                    <sc-if value="{{v.live}}" hint-placeholder-val="{{ false }}"><span class="badge badge-success">Live</span></sc-if>
+                    <sc-if value="{{v.restorable}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-sm btn-outline" onClick="{{v.restore}}">Restore</button></sc-if>
+                  </div>
+                </sc-for>
+                <div class="card-foot">Chats in progress keep the version they started with; restoring affects new chats only.</div>
+              </section>
+            </sc-if>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Right: Preview, always full height ===== -->
+      <section class="{{previewClass}}" aria-labelledby="pv-h">
+        <div class="preview-head">
+          <h2 id="pv-h" style="margin: 0; font: var(--text-heading-xs)">Preview</h2>
+          <span class="badge">Draft</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-sm btn-ghost" onClick="{{newChat}}"><svg class="icon" aria-hidden="true"><use href="#i-compose"></use></svg>New chat</button>
+        </div>
+        <div class="preview-scroll">
+          <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}"><div class="chat"><span class="skel" style="align-self: flex-end; width: 60%; height: 40px; border-radius: 20px"></span><span class="skel" style="height: 96px"></span></div></sc-if>
+          <sc-if value="{{chatEmpty}}" hint-placeholder-val="{{ false }}">
+            <div class="empty" style="padding-top: 56px">
+              <span class="{{agent.avLgClass}}">{{agent.initials}}</span>
+              <h3 class="empty-title" style="margin-top: 8px">{{f.name}}</h3>
+              <p class="empty-text">Chat like a customer. Tap a reply to see what it read, and fix it if it’s wrong.</p>
+              <div class="stack" style="gap: 8px; margin-top: 16px; width: 100%; max-width: 320px">
+                <sc-for list="{{starters}}" as="q" hint-placeholder-count="3"><button type="button" class="btn btn-outline" style="height: auto; min-height: 40px; padding: 8px 16px; white-space: normal; border-radius: 16px; justify-content: flex-start; text-align: left" onClick="{{q.ask}}" lang="vi">{{q.text}}</button></sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{chatReady}}" hint-placeholder-val="{{ true }}">
+            <div class="chat" aria-live="polite" lang="vi">
+              <sc-for list="{{messages}}" as="m" hint-placeholder-count="2">
+                <sc-if value="{{m.user}}" hint-placeholder-val="{{ true }}"><div class="msg-user">{{m.text}}</div></sc-if>
+                <sc-if value="{{m.ai}}" hint-placeholder-val="{{ false }}">
+                  <div class="{{m.cls}}">
+                    <div class="msg-ai-text">{{m.text}}</div>
+                    <sc-if value="{{m.hasMeta}}" hint-placeholder-val="{{ false }}">
+                      <div class="msg-actions" lang="en">
+                        <button type="button" class="msg-action" aria-label="Copy reply" onClick="{{copy}}"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg></button>
+                        <button type="button" class="msg-action" aria-expanded="{{m.open}}" onClick="{{m.toggle}}"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>5 sources · 2 offers</button>
+                        <button type="button" class="msg-action" onClick="{{fix}}"><svg class="icon" aria-hidden="true"><use href="#i-wrench"></use></svg>Fix this answer</button>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{m.open}}" hint-placeholder-val="{{ false }}">
+                      <div class="details" lang="en" role="region" aria-label="What this reply used">
+                        <span class="xs t3">Answered in 12 seconds · select a source or row to edit it</span>
+                        <div class="stack" style="gap: 0"><span class="mini-label">Knowledge read</span>
+                          <sc-for list="{{readList}}" as="k" hint-placeholder-count="5"><a href="#" class="mini-item" onClick="{{k.go}}"><svg class="icon" aria-hidden="true"><use href="#i-document"></use></svg><span class="truncate spacer">{{k.name}}</span></a></sc-for>
+                        </div>
+                        <div class="stack" style="gap: 0"><span class="mini-label">Data looked up · Mr Spa Offers</span>
+                          <a href="#" class="mini-item" onClick="{{openRow}}" lang="vi"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg><span class="truncate spacer">Ưu đãi free giao hàng từ 6 ghế pedicure hoặc 6 bộ combo</span></a>
+                          <a href="#" class="mini-item" onClick="{{openRow}}" lang="vi"><svg class="icon" aria-hidden="true"><use href="#i-table"></use></svg><span class="truncate spacer">Ưu đãi mua nhiều ghế pedicure có giảm</span></a>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </sc-for>
+              <sc-if value="{{seenShown}}" hint-placeholder-val="{{ false }}"><span class="seen">Seen</span></sc-if>
+              <sc-if value="{{typing}}" hint-placeholder-val="{{ false }}"><div class="typing-dots" role="status" aria-label="Typing"><span></span><span></span><span></span></div></sc-if>
+            </div>
+          </sc-if>
+        </div>
+        <div class="scen">
+          <div class="row-flex">
+            <button type="button" class="scen-toggle" aria-expanded="{{scenOpen}}" onClick="{{toggleScen}}"><svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"></use></svg>Test scenarios <span class="{{scen.cls}}">{{scen.text}}</span></button>
+            <button type="button" class="btn btn-sm btn-ghost" style="margin-right: 8px" onClick="{{runAll}}"><svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg>Run all</button>
+          </div>
+          <sc-if value="{{scenOpen}}" hint-placeholder-val="{{ false }}">
+            <div class="scen-list">
+              <sc-for list="{{scenarios}}" as="c" hint-placeholder-count="2">
+                <div class="scen-item"><div class="spacer stack" style="gap: 0"><span class="row-flex"><span class="medium truncate">{{c.name}}</span><span class="badge badge-outline">Required</span></span><span class="xs t3 truncate" lang="vi">{{c.msg}}</span></div><span class="{{c.cls}}">{{c.result}}</span></div>
+              </sc-for>
+              <button type="button" class="btn btn-sm btn-ghost" style="margin: 6px 0 0 -8px" onClick="{{addScenario}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add scenario</button>
+            </div>
+          </sc-if>
+        </div>
+        <div class="composer-wrap">
+          <form class="composer" onSubmit="{{send}}">
+            <label for="pv-msg" class="sr-only">Message the draft</label>
+            <input id="pv-msg" type="text" placeholder="Message the draft" value="{{draft}}" onChange="{{typeDraft}}" autocomplete="off">
+            <button type="submit" class="send" aria-label="Send" disabled="{{cantSend}}"><svg class="icon" aria-hidden="true"><use href="#i-arrow-up"></use></svg></button>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <sc-if value="{{confirm.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop"><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="rs-t"><h2 id="rs-t" class="dialog-title">Restore {{confirm.name}}?</h2><p class="dialog-text">New chats use it right away. Chats in progress keep their version.</p><div class="dialog-actions"><button type="button" class="btn btn-outline" onClick="{{confirm.cancel}}">Cancel</button><button type="button" class="btn btn-primary" onClick="{{confirm.ok}}">Restore</button></div></div></div>
+  </sc-if>
+  <sc-if value="{{sourceSheet.show}}" hint-placeholder-val="{{ false }}">
+    <div class="drawer-backdrop"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="ss-t">
+      <div class="sheet-header"><div class="spacer"><h2 id="ss-t" class="sheet-title">{{sourceSheet.title}}</h2><p class="sheet-sub">Knowledge · changes go into the draft</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{sourceSheet.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button></div>
+      <div class="sheet-body">
+        <div class="segmented" role="tablist" aria-label="Source type" style="align-self: flex-start"><button type="button" role="tab" aria-selected="true">Text</button><button type="button" role="tab" aria-selected="false">Web page</button><button type="button" role="tab" aria-selected="false">File</button></div>
+        <label class="field"><span class="field-label">Title</span><input class="input" type="text" value="{{sourceSheet.name}}" onChange="{{noop}}" placeholder="Warranty policy"></label>
+        <label class="field"><span class="field-label">Content</span><textarea class="textarea" style="min-height: 240px" placeholder="Paste text or Markdown" lang="vi">Ghế pedicure bảo hành 12 tháng lỗi sản xuất và 3 năm cho hệ thống massage. Trong 2 giờ lái xe, kỹ thuật đến bảo hành trực tiếp; ở xa thì hỗ trợ video call và gửi miễn phí linh kiện cần thay.</textarea><span class="help">Example content.</span></label>
+      </div>
+      <div class="sheet-footer"><sc-if value="{{sourceSheet.editing}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-danger-ghost" onClick="{{sourceSheet.close}}">Delete</button></sc-if><span class="spacer"></span><button type="button" class="btn btn-outline" onClick="{{sourceSheet.close}}">Cancel</button><button type="button" class="btn btn-primary" onClick="{{sourceSheet.save}}">Save</button></div>
+    </div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"agent":{"editor":null},"published":{"editor":null},"version":{"editor":null},"publishing":{"editor":null},"publishError":{"editor":null},"onPublish":{"editor":null},"onDirty":{"editor":null},"onFix":{"editor":null},"onGo":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"onDismissError":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'instructions', vals: {}, detailsFor: 1, scenOpen: false, playbookOpen: false, advancedOpen: false, off: {}, dataOff: {}, confirm: null, sourceSheet: null, draft: '', typing: false, running: false, localPublished: true, msgs: {}, saved: 'Draft saved', fuOn: true, fuAfter: true, beh: { seen: true, typing: true, split: true }, pace: 'natural', disclose: true, seen: false };
+  }
+  componentWillUnmount() { clearTimeout(this.t0); clearTimeout(this.t1); clearTimeout(this.t2); clearTimeout(this.t3); }
+  agent() { return this.props.agent || { id: 'a1', name: 'Mr Spa Consultant', initials: 'MS', color: 'av-1', desc: 'Tư vấn sản phẩm salon, chính sách và ưu đãi cho chủ tiệm nail.', status: 'live', version: 3 }; }
+  isReal(a) { return a.id === 'a1'; }
+  defaults(a) {
+    if (this.isReal(a) && (this.props.uiState || 'normal') !== 'empty') return {
+      name: a.name, business: 'Mr Spa Inc.', desc: a.desc,
+      offer: 'Pedicure chairs, nail salon furniture and salon design for nail salon owners in the US. Showroom in Philadelphia.',
+      contact: 'Hotline (215) 772-1111 · mrspaoffice@gmail.com · Showroom 1115 S 11th St, Philadelphia, PA 19147 · Sunday–Friday 10:00–18:00 Philadelphia time',
+      website: 'https://mrspainc.com',
+      job: 'Answer questions, recommend the right chair and collect contact details when the customer is ready to buy.',
+      voice: 'Warm and polite, like a front-desk consultant. Short messages, one question at a time.',
+      fallback: 'Xin lỗi, hiện tôi chưa thể trả lời. Vui lòng thử lại sau.',
+      playbook: '## Discovery\n- Ask how many chairs and whether it is a new salon or a remodel.\n- Ask which state the salon is in before talking about delivery.\n\n## Offers\n- Always look up Mr Spa Offers before mentioning a discount.',
+      always: ['Check Data before stating a price or offer', 'Ask which state the salon is in before talking about delivery'],
+      never: ['Invent prices, discounts or delivery dates', 'Promise installation dates'],
+      handoff: ['The customer has a complaint or asks for a person', 'The order is 10 chairs or more'],
+      collect: ['Name', 'Phone number', 'Salon address'],
+      starters: ['Có ưu đãi gì nếu mua 8 ghế không?', 'Ghế Birkin M4 có massage không?', 'Chính sách bảo hành ghế pedicure thế nào?']
+    };
+    return { name: a.name, business: 'Mr Spa Inc.', desc: a.desc || '', offer: '', contact: '', website: '', job: a.desc || '', voice: '', fallback: '', playbook: '', always: [''], never: [''], handoff: [''], collect: ['Name', 'Phone number'], starters: ['', '', ''] };
+  }
+  vals() { const a = this.agent(); return this.state.vals[a.id] || this.defaults(a); }
+  update(patch) {
+    const a = this.agent();
+    const v = Object.assign({}, this.vals(), patch);
+    const all = Object.assign({}, this.state.vals); all[a.id] = v;
+    this.setState({ vals: all, saved: 'Saving…' });
+    clearTimeout(this.t3); this.t3 = setTimeout(() => this.setState({ saved: 'Draft saved' }), 700);
+    this.dirty();
+  }
+  dirty() { if (this.props.onDirty) this.props.onDirty(); else if (this.state.localPublished) this.setState({ localPublished: false }); }
+  toast(m, a, f) { if (this.props.onToast) this.props.onToast(m, a, f); }
+  messagesFor(a) {
+    if (this.state.msgs[a.id]) return this.state.msgs[a.id];
+    if (!this.isReal(a) || (this.props.uiState || 'normal') === 'empty') return [];
+    return [
+      { role: 'user', text: 'Có ưu đãi gì nếu mua 8 ghế không?' },
+      { role: 'ai', meta: true, text: 'Dạ hiện bên em đang có free giao hàng cho đơn từ 6 ghế pedicure trở lên, nên 8 ghế của mình sẽ được free giao hàng ạ. Mua nhiều ghế còn được giảm thêm, mức giảm tuỳ số lượng, tư vấn viên bên em sẽ báo chính xác. Anh/chị để lại số điện thoại, tư vấn viên sẽ gửi quote chi tiết cho mình nhé.' }
+    ];
+  }
+  setMsgs(list) { const a = this.agent(); const m = Object.assign({}, this.state.msgs); m[a.id] = list; this.setState({ msgs: m }); }
+  ask(text) {
+    if (!text) return;
+    const a = this.agent();
+    const list = this.messagesFor(a).concat([{ role: 'user', text: text }]);
+    this.setMsgs(list); this.setState({ draft: '', typing: false, seen: false });
+    const b = this.state.beh;
+    this.t0 = setTimeout(() => this.setState({ seen: b.seen, typing: b.typing }), 350);
+    this.t1 = setTimeout(() => { this.setState({ typing: false, seen: false }); this.setMsgs(this.messagesFor(this.agent()).concat([{ role: 'ai', text: 'Dạ anh/chị cho em hỏi tiệm mình ở bang nào và cần bao nhiêu ghế để em tư vấn chính xác ạ?' }])); }, 1100);
+  }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const a = this.agent();
+    const real = this.isReal(a);
+    const isDraft = a.status === 'draft';
+    const published = isDraft ? false : (embedded ? (real ? p.published !== false : true) : s.localPublished);
+    const version = real ? (p.version || 3) : (a.version || 0);
+    const v = this.vals();
+    const loading = ui === 'loading';
+    const editorTab = s.tab === 'test' ? 'instructions' : s.tab;
+    const setTab = (t) => this.setState({ tab: t });
+    const set = {};
+    ['name', 'business', 'desc', 'offer', 'contact', 'website', 'job', 'voice', 'fallback', 'playbook'].forEach((k) => { set[k] = (e) => { const o = {}; o[k] = e.target.value; this.update(o); }; });
+    const ruleDefs = [
+      { key: 'always', title: 'Always', hint: 'One rule per line', placeholder: 'Check Data before stating a price or offer', addLabel: 'Add a rule' },
+      { key: 'never', title: 'Never', hint: 'One rule per line', placeholder: 'Invent prices, discounts or delivery dates', addLabel: 'Add a rule' },
+      { key: 'handoff', title: 'Hand off to a person when', hint: 'Someone from your team follows up', placeholder: 'The customer has a complaint or asks for a person', addLabel: 'Add a reason' },
+      { key: 'collect', title: 'Contact details to collect', hint: 'Asked when they want a quote', placeholder: 'Phone number', addLabel: 'Add a detail' }
+    ];
+    const rules = ruleDefs.map((d) => Object.assign({}, d, {
+      items: v[d.key].map((val, i) => ({
+        value: val,
+        set: (e) => { const arr = v[d.key].slice(); arr[i] = e.target.value; const o = {}; o[d.key] = arr; this.update(o); },
+        remove: () => { const arr = v[d.key].slice(); arr.splice(i, 1); const o = {}; o[d.key] = arr.length ? arr : ['']; this.update(o); }
+      })),
+      add: () => { const o = {}; o[d.key] = v[d.key].concat(['']); this.update(o); }
+    }));
+    const starterFields = v.starters.map((val, i) => ({ value: val, set: (e) => { const arr = v.starters.slice(); arr[i] = e.target.value; this.update({ starters: arr }); } }));
+    const srcNames = real && ui !== 'empty' ? [
+      { name: 'Corrected answers', sub: '2 answers you fixed', icon: 'check-circle', tile: 'tile tile-success' },
+      { name: 'Policies', sub: 'Updated today' }, { name: 'Sales playbook: discovery', sub: 'Updated today' }, { name: 'Sales playbook: closing', sub: 'Updated today' },
+      { name: 'Sales playbook: objections', sub: 'Updated today' }, { name: 'Buying guide', sub: 'Updated today' }, { name: 'Customer pains and benefits', sub: 'Updated today' },
+      { name: 'Website pages', sub: 'mrspainc.com · 14 pages', icon: 'globe' }
+    ] : [];
+    const sources = srcNames.map((x) => {
+      const failed = ui === 'error' && x.name === 'Website pages';
+      const on = !s.off[x.name];
+      return { name: x.name, sub: failed ? 'Couldn’t read mrspainc.com — the site didn’t respond' : x.sub, subClass: failed ? 'row-sub xs text-danger' : 'row-sub xs', failed: failed, tile: x.tile || 'tile', href: '#i-' + (x.icon || 'document'), on: on,
+        toggle: () => { const o = Object.assign({}, s.off); o[x.name] = on; this.setState({ off: o }); this.dirty(); },
+        open: () => this.setState({ sourceSheet: { title: x.name, name: x.name, editing: true } }) };
+    });
+    const dataTables = [{ id: 'offers', name: 'Mr Spa Offers', sub: '7 active rows · also used by After-sales support' }, { id: 'products', name: 'Mr Spa Products', sub: 'Prices and stock' }].map((d) => {
+      const on = real ? !s.dataOff[d.id] : !!s.dataOff[d.id];
+      return Object.assign({}, d, { on: on, toggle: () => { const o = Object.assign({}, s.dataOff); o[d.id] = !o[d.id]; this.setState({ dataOff: o }); this.dirty(); } });
+    });
+    const vList = [];
+    for (let n = version; n >= Math.max(1, version - 2); n--) {
+      vList.push({ name: 'Version ' + n, when: n === 3 ? 'Today 3:51 PM' : n === 2 ? 'Today 3:19 PM' : n === 1 ? 'Today 2:35 PM' : 'Just now', live: n === version, restorable: n !== version, tile: n === version ? 'tile tile-success' : 'tile', restore: () => this.setState({ confirm: { name: 'version ' + n } }) });
+    }
+    const msgs = this.messagesFor(a);
+    const failing = !!p.publishError;
+    const running = s.running;
+    const starters = v.starters.filter((x) => x.trim());
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      agent: { initials: a.initials, avClass: 'agent-av sm ' + a.color, avLgClass: 'agent-av ' + a.color },
+      f: v, set: set, rules: rules, starterFields: starterFields,
+      version: version,
+      saveText: s.saved,
+      status: isDraft ? { dot: 'dot dot-gray', text: 'Draft · not published yet' }
+        : published ? { dot: 'dot dot-green', text: 'Live · version ' + version }
+        : { dot: 'dot dot-orange', text: 'Unpublished changes · customers see version ' + version },
+      pub: { busy: !!p.publishing, can: !p.publishing && !published, done: !p.publishing && published, label: isDraft ? 'Publish first version' : 'Publish' },
+      publish: () => { if (real && p.onPublish) p.onPublish(); else { this.setState({ localPublished: true }); this.toast((isDraft ? 'Version 1' : 'Version ' + (version + 1)) + ' is live'); } },
+      publishError: failing && real,
+      dismissError: () => { if (p.onDismissError) p.onDismissError(); },
+      openScenarios: () => this.setState({ scenOpen: true, tab: 'test' }),
+      retry: () => { if (p.onRetry) p.onRetry(); else this.toast('Trying again…'); },
+      back: () => { if (p.onGo) p.onGo('assistants'); else this.toast('Back to Assistants'); },
+      st: { loading: loading, error: ui === 'error' },
+      tabsDesktop: [['instructions', 'Instructions'], ['sources', 'Sources'], ['followups', 'Follow-ups'], ['behavior', 'Behavior'], ['versions', 'Versions']].map((t) => ({ label: t[1], on: editorTab === t[0], pick: () => setTab(t[0]) })),
+      tabsPhone: [['test', 'Test'], ['instructions', 'Instructions'], ['sources', 'Sources'], ['followups', 'Follow-ups'], ['behavior', 'Behavior'], ['versions', 'Versions']].map((t) => ({ label: t[1], on: s.tab === t[0], pick: () => setTab(t[0]) })),
+      editorClass: s.tab === 'test' ? 'editor is-hidden-phone' : 'editor',
+      previewClass: s.tab === 'test' ? 'preview' : 'preview is-hidden-phone',
+      show: { instructions: !loading && editorTab === 'instructions', sources: !loading && editorTab === 'sources', versions: !loading && editorTab === 'versions', followups: !loading && editorTab === 'followups', behavior: !loading && editorTab === 'behavior' },
+      seenShown: s.seen,
+      fu: { on: s.fuOn, toggle: () => { this.setState({ fuOn: !s.fuOn }); this.dirty(); }, after: s.fuAfter, toggleAfter: () => { this.setState({ fuAfter: !s.fuAfter }); this.dirty(); },
+        steps: [
+          { n: '1', id: 'fu1', opts: ['30 minutes', '1 hour', '2 hours', '4 hours'].map((l) => ({ label: l, sel: l === '2 hours' })), msg: 'Dạ em gửi thêm: đơn từ 6 ghế đang được free giao hàng toàn nước Mỹ. Anh/chị để lại số điện thoại, tư vấn viên báo giá chính xác cho mình nhé.', hint: 'Sent exactly as written' },
+          { n: '2', id: 'fu2', opts: ['12 hours', '20 hours', '23 hours'].map((l) => ({ label: l, sel: l === '20 hours' })), msg: 'Dạ em gửi anh/chị ảnh ghế Birkin M4 đang được nhiều tiệm chọn. Mình cần tư vấn thêm cứ nhắn em nhé.', hint: 'Sent exactly as written · last chance before the 24-hour window closes' }
+        ].map((x) => Object.assign({}, x, { preview: () => { this.setState({ tab: s.tab === 'test' ? 'test' : s.tab }); this.setMsgs(this.messagesFor(a).concat([{ role: 'ai', text: x.msg }])); this.toast('Follow-up ' + x.n + ' added to Preview'); } })),
+        stops: ['The customer replies', 'They leave a phone number or email', 'They say they’re not interested or ask you to stop', 'You mark the lead Won or Not a fit, or your team takes over'] },
+      beh: {
+        toggles: [
+          { k: 'seen', title: 'Mark messages as seen', sub: 'Right away, so they know the message arrived', href: '#i-check-dashed' },
+          { k: 'typing', title: 'Show typing while it writes', sub: 'Typing dots until the reply is sent', href: '#i-chat' },
+          { k: 'split', title: 'Split long replies', sub: 'Into 2–3 short messages, like a person texting', href: '#i-stack' }
+        ].map((t) => ({ title: t.title, sub: t.sub, href: t.href, on: s.beh[t.k], toggle: () => { const o = Object.assign({}, s.beh); o[t.k] = !o[t.k]; this.setState({ beh: o }); this.dirty(); } })),
+        paces: [['instant', 'Instant'], ['natural', 'Natural'], ['slow', 'Slow']].map((o) => ({ label: o[1], on: s.pace === o[0], pick: () => { this.setState({ pace: o[0] }); this.dirty(); } })),
+        disclose: s.disclose, noDisclose: !s.disclose, toggleDisclose: () => { this.setState({ disclose: !s.disclose }); this.dirty(); }
+      },
+      dirty: () => this.dirty(),
+      noop: () => {},
+      playbookOpen: s.playbookOpen, advancedOpen: s.advancedOpen,
+      playbookCount: v.playbook.length.toLocaleString('en-US') + ' of 33,000',
+      togglePlaybook: () => this.setState({ playbookOpen: !s.playbookOpen }),
+      toggleAdvanced: () => this.setState({ advancedOpen: !s.advancedOpen }),
+      sources: sources, hasSources: sources.length > 0, noSources: sources.length === 0,
+      addKnowledge: () => this.setState({ sourceSheet: { title: 'Add knowledge', name: '', editing: false } }),
+      dataTables: dataTables,
+      goData: () => { if (p.onGo) p.onGo('data'); },
+      lookupsHint: () => this.toast('Live lookups are set up once by your developer'),
+      versions: isDraft ? [] : vList, noVersions: isDraft, hasDraftRow: !isDraft && !published,
+      newChat: () => this.setMsgs([]),
+      chatEmpty: !loading && msgs.length === 0,
+      chatReady: !loading && msgs.length > 0,
+      starters: (starters.length ? starters : ['Xin chào, mình cần tư vấn']).map((q) => ({ text: q, ask: () => this.ask(q) })),
+      messages: msgs.map((m, i) => ({
+        user: m.role === 'user', ai: m.role === 'ai', text: m.text, hasMeta: !!m.meta,
+        open: !!m.meta && s.detailsFor === i,
+        cls: (!!m.meta && s.detailsFor === i) ? 'msg-ai is-selected' : 'msg-ai',
+        toggle: () => this.setState({ detailsFor: s.detailsFor === i ? -1 : i })
+      })),
+      typing: s.typing,
+      copy: () => this.toast('Reply copied'),
+      readList: ['Sales playbook: discovery', 'Buying guide', 'Customer pains and benefits', 'Policies', 'Website pages'].map((n) => ({ name: n, go: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ sourceSheet: { title: n, name: n, editing: true } }); } })),
+      openRow: (e) => { if (e && e.preventDefault) e.preventDefault(); this.toast('Opens this row in Data'); },
+      fix: () => { if (p.onFix) p.onFix(); else this.toast('Opens “Fix this answer”'); },
+      scenOpen: s.scenOpen,
+      toggleScen: () => this.setState({ scenOpen: !s.scenOpen }),
+      scen: running ? { cls: 'xs t3', text: 'Running…' } : failing ? { cls: 'badge badge-danger', text: '1 of 2 failing' } : { cls: 'badge badge-success', text: '2 of 2 passed' },
+      runAll: () => { this.setState({ running: true, scenOpen: true }); this.t2 = setTimeout(() => { this.setState({ running: false }); this.toast(failing ? '1 scenario still failing' : 'All 2 scenarios passed'); }, 1200); },
+      scenarios: [
+        { name: 'Never invent a price', msg: '“Ghế Cyber Carbon S3 giá bao nhiêu?” · checks Mr Spa Products', result: running ? '…' : failing ? 'Failed' : 'Passed', cls: running ? 'xs t3' : failing ? 'badge badge-danger' : 'badge badge-success' },
+        { name: 'Offers come from the Offers table', msg: '“Hiện tại có ưu đãi ghế pedicure nào?” · checks Mr Spa Offers', result: running ? '…' : 'Passed', cls: running ? 'xs t3' : 'badge badge-success' }
+      ],
+      addScenario: () => this.toast('Opens a new scenario'),
+      draft: s.draft,
+      typeDraft: (e) => this.setState({ draft: e.target.value }),
+      cantSend: !s.draft.trim(),
+      send: (e) => { if (e && e.preventDefault) e.preventDefault(); this.ask(s.draft.trim()); },
+      confirm: { show: !!s.confirm, name: s.confirm ? s.confirm.name : '', cancel: () => this.setState({ confirm: null }), ok: () => { const n = s.confirm.name; this.setState({ confirm: null }); this.toast(n.charAt(0).toUpperCase() + n.slice(1) + ' is live again'); } },
+      sourceSheet: { show: !!s.sourceSheet, title: s.sourceSheet ? s.sourceSheet.title : '', name: s.sourceSheet ? s.sourceSheet.name : '', editing: s.sourceSheet ? s.sourceSheet.editing : false, close: () => this.setState({ sourceSheet: null }), save: () => { this.setState({ sourceSheet: null }); this.dirty(); this.toast('Saved to the draft'); } }
+    };
+  }
+}
+</script>
+</body>
+</html>

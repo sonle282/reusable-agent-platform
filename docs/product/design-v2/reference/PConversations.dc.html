@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Conversations</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="split">
+    <section class="{{listClass}}" aria-labelledby="cv-h">
+      <div class="split-list-head">
+        <div class="row-flex"><h1 id="cv-h" class="spacer" style="margin: 0; font: var(--text-heading-md); letter-spacing: var(--track-heading)">Conversations</h1>
+          <label class="select-wrap"><span class="sr-only">Assistant</span><select class="select" style="min-height: 28px; border-radius: 9999px; padding: 2px 28px 2px 10px; font-size: 13px" onChange="{{pickAgent}}"><option value="all">All assistants</option><sc-for list="{{agentOptions}}" as="o" hint-placeholder-count="3"><option value="{{o.id}}">{{o.name}}</option></sc-for></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></label>
+        </div>
+        <label class="search"><svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg><span class="sr-only">Search conversations</span><input type="search" placeholder="Search name or phone" value="{{q}}" onChange="{{typeQ}}"></label>
+        <div class="chips" role="group" aria-label="Filter">
+          <sc-for list="{{filters}}" as="c" hint-placeholder-count="4"><button type="button" class="chip" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}}<sc-if value="{{c.count}}" hint-placeholder-val="{{ false }}"><span class="count">{{c.count}}</span></sc-if></button></sc-for>
+        </div>
+      </div>
+      <div class="split-scroll">
+        <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 0 16px 12px"><div class="alert-box alert-danger" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="alert-body"><span class="alert-title">Couldn’t load new messages</span><span class="alert-text">Showing chats up to 2:41 PM.</span><div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Try again</button></div></div></div></div>
+        </sc-if>
+        <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+          <div class="skel-row"><span class="skel" style="width: 36px; height: 36px; border-radius: 18px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 50%"></span><span class="skel skel-line" style="width: 85%"></span></span></div>
+          <div class="skel-row"><span class="skel" style="width: 36px; height: 36px; border-radius: 18px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 40%"></span><span class="skel skel-line" style="width: 75%"></span></span></div>
+        </sc-if>
+        <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+          <div class="empty"><span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-chats"></use></svg></span><h2 class="empty-title">No conversations yet</h2><p class="empty-text">When customers message a connected channel, every chat shows up here.</p></div>
+        </sc-if>
+        <sc-for list="{{list}}" as="c" hint-placeholder-count="4">
+          <button type="button" class="{{c.cls}}" aria-current="{{c.current}}" onClick="{{c.pick}}" style="border-top: 0">
+            <span class="avatar">{{c.initials}}<sc-if value="{{c.anon}}" hint-placeholder-val="{{ true }}"><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg></sc-if><span class="{{c.logoCls}}"><svg aria-hidden="true"><use href="{{c.logoHref}}"></use></svg></span></span>
+            <span class="row-text">
+              <span class="row-flex"><span class="row-title truncate">{{c.name}}</span><span class="spacer"></span><span class="row-meta">{{c.time}}</span></span>
+              <span class="row-sub clamp-2" lang="vi">{{c.preview}}</span>
+              <span class="row-flex" style="gap: 6px; margin-top: 2px"><span class="{{c.agentCls}}">{{c.agentInitials}}</span><sc-if value="{{c.tag}}" hint-placeholder-val="{{ false }}"><span class="{{c.tagCls}}">{{c.tag}}</span></sc-if><sc-if value="{{c.example}}" hint-placeholder-val="{{ false }}"><span class="badge example">Example</span></sc-if></span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <section class="{{detailClass}}" aria-labelledby="th-name">
+      <div class="thread-head">
+        <button type="button" class="btn btn-ghost btn-icon back-link" aria-label="Back to conversations" onClick="{{back}}"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>
+        <span class="avatar">{{sel.initials}}<sc-if value="{{sel.anon}}" hint-placeholder-val="{{ true }}"><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg></sc-if><span class="{{sel.logoCls}}"><svg aria-hidden="true"><use href="{{sel.logoHref}}"></use></svg></span></span>
+        <div class="spacer stack" style="gap: 0; min-width: 160px">
+          <span id="th-name" class="strong">{{sel.name}}</span>
+          <span class="xs t2 row-flex" style="gap: 6px"><span>{{sel.channel}}</span><span class="t3">·</span><span class="{{sel.agentCls}}">{{sel.agentInitials}}</span><span class="truncate">{{sel.agentName}}</span></span>
+        </div>
+        <span class="row-flex" style="gap: 10px"><span class="medium">Your team replies</span><button type="button" class="switch" role="switch" aria-checked="{{sel.takeover}}" aria-label="Your team replies" onClick="{{toggleTakeover}}"></button></span>
+      </div>
+      <sc-if value="{{sel.takeover}}" hint-placeholder-val="{{ false }}">
+        <div class="alert-box alert-info" style="border-radius: 0; padding: 10px 24px"><svg class="icon" aria-hidden="true"><use href="#i-pause"></use></svg><div class="alert-body"><span class="alert-text" style="color: var(--color-text)">The assistant is paused here. Reply from {{sel.replyFrom}}; turn this off to hand the chat back.</span></div></div>
+      </sc-if>
+      <div class="thread-scroll">
+        <div class="thread" lang="vi">
+          <sc-for list="{{sel.msgs}}" as="m" hint-placeholder-count="2">
+            <sc-if value="{{m.sep}}" hint-placeholder-val="{{ false }}"><span class="time-sep" lang="en">{{m.sep}}</span></sc-if>
+            <sc-if value="{{m.customer}}" hint-placeholder-val="{{ true }}"><div class="msg-user">{{m.text}}</div></sc-if>
+            <sc-if value="{{m.ai}}" hint-placeholder-val="{{ false }}">
+              <div class="msg-ai">
+                <span class="row-flex xs t3" lang="en" style="gap: 6px"><span class="{{sel.agentCls}}">{{sel.agentInitials}}</span>{{m.by}}</span>
+                <div class="msg-ai-text">{{m.text}}<sc-if value="{{m.action}}" hint-placeholder-val="{{ false }}"><br><span class="msg-chip">{{m.action}}</span></sc-if></div>
+                <div class="msg-actions" lang="en">
+                  <button type="button" class="msg-action" aria-label="Copy" onClick="{{copy}}"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg></button>
+                  <button type="button" class="msg-action" onClick="{{fix}}"><svg class="icon" aria-hidden="true"><use href="#i-wrench"></use></svg>Fix this answer</button>
+                </div>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+      </div>
+      <div class="thread-foot">{{sel.footer}}</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"agents":{"editor":null},"onFix":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 'v9875', detailOpen: false, q: '', filter: 'all', agent: 'all', takeover: { rose: true } };
+  }
+  toast(m, a, f) { if (this.props.onToast) this.props.onToast(m, a, f); }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const agents = { a1: { name: 'Mr Spa Consultant', initials: 'MS', color: 'av-1' }, a3: { name: 'After-sales support', initials: 'AS', color: 'av-3' } };
+    const logo = (c) => c === 'api' ? { cls: 'avatar-badge logo sm logo-api', href: '#i-bolt', label: 'API' } : { cls: 'avatar-badge logo sm logo-' + c, href: '#logo-' + c, label: c === 'messenger' ? 'Messenger' : c === 'whatsapp' ? 'WhatsApp' : c };
+    const convs = [
+      { id: 'v9875', name: 'Visitor 9875', ch: 'api', channel: 'API · Generic API smoke test', agent: 'a1', time: '2:39 PM', replyFrom: 'your own system',
+        msgs: [{ sep: 'Today 2:39 PM', who: 'c', text: 'Chính sách bảo hành ghế pedicure thế nào?' }, { who: 'a', text: 'Dạ ghế pedicure bảo hành 12 tháng lỗi sản xuất và 3 năm cho hệ thống massage ạ. Trong 2 giờ lái xe thì kỹ thuật đến bảo hành trực tiếp, ở xa thì em hỗ trợ video call và gửi miễn phí linh kiện cần thay. Tiệm mình ở bang hay khu vực nào để em xem giúp ạ?', action: 'Xem chính sách' }] },
+      { id: 'st', name: 'Smoke Test', initials: 'ST', ch: 'api', channel: 'API · Generic API smoke test', agent: 'a1', time: '2:38 PM', replyFrom: 'your own system',
+        msgs: [{ sep: 'Today 2:37 PM', who: 'c', text: 'Ghế Birkin M4 có massage không?' }, { who: 'a', text: 'Dạ có anh/chị, ghế Birkin M4 có massage ạ. Ghế có đỡ toàn thân, đệm êm ôm dáng, gác chân và lưng ngả đều chỉnh được. Anh/chị đang tìm ghế cho tiệm mới hay thay ghế cũ ạ?' }] },
+      { id: 'v4f2a', name: 'Visitor 4F2A', ch: 'whatsapp', channel: 'WhatsApp via Zernio', agent: 'a1', time: 'Yesterday', example: true, lead: true, needs: true, tag: 'New lead', tagCls: 'badge badge-info', replyFrom: 'WhatsApp',
+        msgs: [{ sep: 'Yesterday 9:12 PM', who: 'c', text: 'Cho mình xin báo giá 6 ghế Birkin M4, số mình là [số điện thoại].' }, { who: 'a', text: 'Dạ em đã ghi nhận ạ. Tư vấn viên bên em sẽ gọi anh/chị trong giờ làm việc để gửi quote chi tiết nhé.' }] },
+      { id: 'rose', name: 'Tiệm Nail Rose', initials: 'NR', ch: 'messenger', channel: 'Messenger via Zernio', agent: 'a3', time: 'Yesterday', example: true, replyFrom: 'Messenger',
+        msgs: [{ sep: 'Yesterday 4:05 PM', who: 'c', text: 'Ghế số 3 bị rò nước ở bồn, có người qua sửa không?' }, { who: 'a', text: 'Dạ em rất tiếc về sự cố này. Em đã báo đội kỹ thuật, bên em sẽ liên hệ lại trong hôm nay ạ.' }] }
+    ];
+    const q = s.q.trim().toLowerCase();
+    const take = (id) => !!s.takeover[id];
+    const shown = (ui === 'loading' || ui === 'empty') ? [] : convs.filter((c) =>
+      (s.agent === 'all' || c.agent === s.agent) &&
+      (s.filter === 'all' || (s.filter === 'needs' && c.needs) || (s.filter === 'leads' && c.lead) || (s.filter === 'team' && take(c.id))) &&
+      (!q || c.name.toLowerCase().indexOf(q) >= 0));
+    const sel = convs.filter((c) => c.id === s.sel)[0] || convs[0];
+    const ag = agents[sel.agent];
+    const last = (c) => c.msgs[c.msgs.length - 1].text;
+    const sl = logo(sel.ch);
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      st: { error: ui === 'error', loading: ui === 'loading', empty: ui === 'empty' },
+      retry: () => { if (p.onRetry) p.onRetry(); },
+      listClass: s.detailOpen ? 'split-list is-hidden-phone' : 'split-list',
+      detailClass: (s.detailOpen ? 'split-detail' : 'split-detail is-hidden-phone') + (ui === 'empty' || ui === 'loading' ? ' is-hidden-phone' : ''),
+      back: () => this.setState({ detailOpen: false }),
+      agentOptions: [{ id: 'a1', name: 'Mr Spa Consultant' }, { id: 'a3', name: 'After-sales support' }],
+      pickAgent: (e) => this.setState({ agent: e.target.value }),
+      q: s.q, typeQ: (e) => this.setState({ q: e.target.value }),
+      filters: [['all', 'All', ''], ['needs', 'Needs reply', '1'], ['leads', 'Leads', '1'], ['team', 'Your team', String(Object.keys(s.takeover).filter((k) => s.takeover[k]).length || '')]].map((f) => ({ label: f[1], count: f[2], on: s.filter === f[0], pick: () => this.setState({ filter: f[0] }) })),
+      list: shown.map((c) => {
+        const t = take(c.id); const l = logo(c.ch); const a = agents[c.agent];
+        return {
+          name: c.name, time: c.time, preview: last(c), initials: c.initials || '', anon: !c.initials,
+          logoCls: l.cls, logoHref: l.href,
+          agentCls: 'agent-av xs ' + a.color, agentInitials: a.initials,
+          tag: t ? 'Your team is replying' : (c.tag || ''), tagCls: t ? 'badge badge-warning' : (c.tagCls || 'badge'),
+          example: !!c.example,
+          cls: c.id === sel.id ? 'row top is-selected' : 'row top',
+          current: c.id === sel.id ? 'true' : undefined,
+          pick: () => this.setState({ sel: c.id, detailOpen: true })
+        };
+      }),
+      sel: {
+        name: sel.name, initials: sel.initials || '', anon: !sel.initials, channel: sel.channel,
+        logoCls: sl.cls, logoHref: sl.href,
+        agentCls: 'agent-av xs ' + ag.color, agentInitials: ag.initials, agentName: ag.name,
+        takeover: take(sel.id), replyFrom: sel.replyFrom,
+        footer: take(sel.id) ? 'Your team is replying. New customer messages still appear here.' : 'The assistant replies automatically. Use Fix this answer on any reply that’s wrong.',
+        msgs: sel.msgs.map((m) => ({ sep: m.sep || '', customer: m.who === 'c', ai: m.who === 'a', text: m.text, action: m.action || '', by: ag.name + ' · version 3' }))
+      },
+      toggleTakeover: () => { const t = Object.assign({}, s.takeover); t[sel.id] = !t[sel.id]; this.setState({ takeover: t }); this.toast(t[sel.id] ? 'Assistant paused in this chat' : 'Assistant is replying again'); },
+      copy: () => this.toast('Copied'),
+      fix: () => { if (p.onFix) p.onFix(); else this.toast('Opens “Fix this answer”'); }
+    };
+  }
+}
+</script>
+</body>
+</html>

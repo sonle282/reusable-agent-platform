@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Channels</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page">
+    <header class="page-header">
+      <div><h1 class="page-title">Channels</h1><p class="page-sub">Where customers reach your assistants. Each channel is answered by one assistant.</p></div>
+      <button type="button" class="btn btn-primary" onClick="{{addAny}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Add channel</button>
+    </header>
+
+    <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+      <section class="card" style="border-color: transparent; background: var(--color-danger-soft)">
+        <div class="card-head" style="border-color: rgba(186,38,35,0.15)"><svg class="icon text-danger" aria-hidden="true"><use href="#i-warning"></use></svg><h2 class="card-title">2 replies not delivered</h2><button type="button" class="btn btn-sm btn-outline" onClick="{{retryAll}}">Retry all</button></div>
+        <div class="row compact" style="border-color: rgba(186,38,35,0.15)"><div class="row-text"><span class="row-title">Reply to Visitor 9875 · 2:39 PM</span><span class="row-sub xs">Generic API smoke test didn’t answer in time</span></div><button type="button" class="btn btn-sm btn-ghost" onClick="{{retryOne}}">Retry</button></div>
+        <div class="row compact" style="border-color: rgba(186,38,35,0.15)"><div class="row-text"><span class="row-title">Reply to Smoke Test · 2:38 PM</span><span class="row-sub xs">Generic API smoke test didn’t answer in time</span></div><button type="button" class="btn btn-sm btn-ghost" onClick="{{retryOne}}">Retry</button></div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+      <div class="card" aria-busy="true"><div class="skel-row"><span class="skel" style="width: 32px; height: 32px; border-radius: 8px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 40%"></span><span class="skel skel-line" style="width: 25%"></span></span></div></div>
+    </sc-if>
+
+    <sc-if value="{{st.connected}}" hint-placeholder-val="{{ true }}">
+      <section class="card" aria-labelledby="cn-h">
+        <div class="card-head"><h2 id="cn-h" class="card-title">Connected</h2><span class="xs t3">{{connectedCount}}</span></div>
+        <sc-for list="{{connected}}" as="c" hint-placeholder-count="3">
+          <div class="row">
+            <span class="{{c.logoCls}}"><svg aria-hidden="true"><use href="{{c.logoHref}}"></use></svg></span>
+            <button type="button" class="row-text" onClick="{{c.open}}" style="border: 0; padding: 0; background: none; text-align: left; cursor: pointer">
+              <span class="row-flex"><span class="row-title truncate">{{c.name}}</span><sc-if value="{{c.example}}" hint-placeholder-val="{{ false }}"><span class="badge example">Example</span></sc-if><sc-if value="{{c.problem}}" hint-placeholder-val="{{ false }}"><span class="badge badge-danger">2 not delivered</span></sc-if></span>
+              <span class="row-sub xs">{{c.sub}}</span>
+            </button>
+            <label class="select-wrap hide-phone"><span class="sr-only">Answered by</span>
+              <select class="select" style="min-height: 32px; padding: 4px 32px 4px 12px; border-radius: 9999px; width: 210px" onChange="{{c.assign}}">
+                <sc-for list="{{c.options}}" as="o" hint-placeholder-count="3"><option value="{{o.id}}" selected="{{o.selected}}">{{o.name}}</option></sc-for>
+              </select>
+              <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+            </label>
+            <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Open {{c.name}}" onClick="{{c.open}}"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg></button>
+          </div>
+        </sc-for>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+      <div class="hero-block" style="padding: 28px; display: flex; flex-direction: column; gap: 8px">
+        <h2 class="display" style="font-size: 28px; line-height: 34px">Meet customers where they already message you</h2>
+        <p class="t2" style="margin: 0; max-width: 560px">Connect Messenger, Instagram, WhatsApp and more. Your assistant answers within seconds, any time of day.</p>
+      </div>
+    </sc-if>
+
+    <section class="stack" style="gap: 12px" aria-labelledby="ad-h">
+      <h2 id="ad-h" class="section-title">{{addTitle}}</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px">
+        <sc-for list="{{platforms}}" as="pl" hint-placeholder-count="10">
+          <button type="button" class="agent-card" style="min-height: 0; gap: 10px; padding: 14px" onClick="{{pl.add}}" disabled="{{pl.disabled}}">
+            <span class="row-flex"><span class="{{pl.logoCls}}"><svg aria-hidden="true"><use href="{{pl.logoHref}}"></use></svg></span><span class="spacer"></span><span class="{{pl.badgeCls}}">{{pl.badge}}</span></span>
+            <span class="stack" style="gap: 2px"><span class="strong">{{pl.name}}</span><span class="xs t3">{{pl.sub}}</span></span>
+          </button>
+        </sc-for>
+      </div>
+      <p class="help">Messenger, Instagram, WhatsApp, iMessage, Telegram, TikTok and X connect through Zernio, which handles the sign-in to each platform. Logos identify the platforms only.</p>
+    </section>
+  </div>
+  </div>
+
+  <!-- Add channel -->
+  <sc-if value="{{add.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ac-t">
+      <span class="sheet-grabber" aria-hidden="true"></span>
+      <div class="sheet-header">
+        <span class="{{add.logoCls}}"><svg aria-hidden="true"><use href="{{add.logoHref}}"></use></svg></span>
+        <div class="spacer"><h2 id="ac-t" class="sheet-title">Connect {{add.name}}</h2><p class="sheet-sub">{{add.how}}</p></div>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{add.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+      </div>
+      <div class="sheet-body">
+        <sc-if value="{{add.viaZernio}}" hint-placeholder-val="{{ true }}">
+          <ol class="stack" style="gap: 12px; margin: 0; padding: 0; list-style: none">
+            <li class="row-flex" style="align-items: flex-start; gap: 12px"><span class="check-mark is-done"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg></span><span class="stack" style="gap: 0"><span class="medium">Zernio is connected</span><span class="xs t3">Your Zernio key is saved in Settings.</span></span></li>
+            <li class="row-flex" style="align-items: flex-start; gap: 12px"><span class="check-mark">2</span><span class="stack spacer" style="gap: 8px"><span class="medium">Choose the {{add.name}} account</span>
+              <span class="select-wrap" style="display: flex"><select class="select"><option>{{add.account}}</option><option>Connect another account in Zernio…</option></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span>
+              <span class="xs t3">Accounts come from your Zernio workspace. <a href="#">Open Zernio</a></span></span></li>
+          </ol>
+        </sc-if>
+        <sc-if value="{{add.isApi}}" hint-placeholder-val="{{ false }}">
+          <label class="field"><span class="field-label">Name</span><input class="input" type="text" placeholder="{{add.placeholder}}"><span class="help">{{add.help}}</span></label>
+          <sc-if value="{{add.isWebhook}}" hint-placeholder-val="{{ false }}"><label class="field"><span class="field-label">Send replies to</span><input class="input" type="url" placeholder="https://"></label></sc-if>
+        </sc-if>
+        <label class="field"><span class="field-label">Answered by</span>
+          <span class="select-wrap" style="display: flex"><select class="select"><sc-for list="{{agentOptions}}" as="o" hint-placeholder-count="3"><option>{{o.name}}</option></sc-for></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span>
+          <span class="help">Uses the assistant’s live version. A draft assistant can’t answer until it’s published.</span>
+        </label>
+      </div>
+      <div class="sheet-footer"><span class="spacer"></span><button type="button" class="btn btn-outline" onClick="{{add.close}}">Cancel</button><button type="button" class="btn btn-primary" onClick="{{add.create}}">Connect</button></div>
+    </div></div>
+  </sc-if>
+
+  <!-- Channel detail -->
+  <sc-if value="{{chan.show}}" hint-placeholder-val="{{ false }}">
+    <div class="drawer-backdrop"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="ch-t">
+      <div class="sheet-header"><span class="{{chan.logoCls}}"><svg aria-hidden="true"><use href="{{chan.logoHref}}"></use></svg></span><div class="spacer"><h2 id="ch-t" class="sheet-title">{{chan.name}}</h2><p class="sheet-sub">{{chan.sub}}</p></div><button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{chan.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button></div>
+      <div class="sheet-body">
+        <label class="field"><span class="field-label">Name</span><input class="input" type="text" value="{{chan.name}}" onChange="{{noop}}"></label>
+        <label class="field"><span class="field-label">Answered by</span><span class="select-wrap" style="display: flex"><select class="select"><sc-for list="{{agentOptions}}" as="o" hint-placeholder-count="3"><option>{{o.name}}</option></sc-for></select><svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span></label>
+        <sc-if value="{{chan.isApi}}" hint-placeholder-val="{{ true }}">
+          <div class="field"><span class="field-label">Address</span><div class="row-flex"><input class="input" type="text" value="[your endpoint]/api/chat" readOnly="{{yes}}" style="font: var(--text-mono)"><button type="button" class="btn btn-outline btn-icon" aria-label="Copy address" onClick="{{chan.copy}}"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg></button></div></div>
+          <div class="field"><span class="field-label">Key</span><div class="row-flex"><input class="input" type="text" value="•••• •••• 7Qx" readOnly="{{yes}}" style="font: var(--text-mono)"><button type="button" class="btn btn-outline" onClick="{{chan.rotate}}">New key</button></div><span class="help">A new key stops the old one right away.</span></div>
+        </sc-if>
+        <sc-if value="{{chan.viaZernio}}" hint-placeholder-val="{{ false }}">
+          <div class="field"><span class="field-label">Account</span><input class="input" type="text" value="{{chan.account}}" readOnly="{{yes}}"><span class="help">Connected through Zernio. Manage sign-in there.</span></div>
+        </sc-if>
+      </div>
+      <div class="sheet-footer"><button type="button" class="btn btn-danger-ghost" onClick="{{chan.off}}">Turn off channel</button><span class="spacer"></span><button type="button" class="btn btn-primary" onClick="{{chan.close}}">Done</button></div>
+    </div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"agents":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { add: null, chan: null, assign: {} };
+  }
+  toast(m, a, f) { if (this.props.onToast) this.props.onToast(m, a, f); }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const agents = (p.agents || [{ id: 'a1', name: 'Mr Spa Consultant' }, { id: 'a3', name: 'After-sales support' }, { id: 'a2', name: 'Booking assistant', status: 'draft' }]);
+    const agentOptions = agents.map((a) => ({ id: a.id, name: a.name + (a.status === 'draft' ? ' (draft)' : '') }));
+    const pf = {
+      messenger: { name: 'Messenger', zernio: true, account: 'Mr Spa · Facebook Page' },
+      instagram: { name: 'Instagram', zernio: true, account: '@mrspainc' },
+      whatsapp: { name: 'WhatsApp', zernio: true, account: 'Mr Spa · +1 (215) 772-1111' },
+      imessage: { name: 'iMessage', zernio: true, account: 'Mr Spa Business Chat' },
+      telegram: { name: 'Telegram', zernio: true, account: '@mrspa_bot' },
+      tiktok: { name: 'TikTok', zernio: true, account: '@mrspainc' },
+      x: { name: 'X', zernio: true, account: '@mrspainc' },
+      web: { name: 'Website chat', built: true, icon: '#i-globe', help: 'You get a snippet to paste into your website.', placeholder: 'mrspainc.com chat' },
+      api: { name: 'API', built: true, icon: '#i-bolt', help: 'You get an address and a key to use in your app.', placeholder: 'Mobile app' },
+      webhook: { name: 'Webhook', built: true, icon: '#i-branch', help: 'We send each reply to the address you choose.', placeholder: 'CRM' },
+      zalo: { name: 'Zalo', soon: true }
+    };
+    const logoOf = (k, size) => {
+      const x = pf[k];
+      return { cls: 'logo ' + (size || '') + ' logo-' + (x.icon ? (k === 'web' ? 'web' : 'api') : k), href: x.icon || ('#logo-' + k) };
+    };
+    const conns = [
+      { id: 'c1', k: 'api', name: 'Generic API smoke test', sub: 'API · last message today 2:39 PM', agent: 'a1' },
+      { id: 'c2', k: 'messenger', name: 'Mr Spa Facebook Page', sub: 'Messenger via Zernio · last message yesterday', agent: 'a3', example: true },
+      { id: 'c3', k: 'whatsapp', name: 'Mr Spa WhatsApp', sub: 'WhatsApp via Zernio · last message yesterday', agent: 'a3', example: true }
+    ];
+    const a = s.add ? pf[s.add] : null;
+    const al = s.add ? logoOf(s.add, 'lg') : { cls: '', href: '' };
+    const c = s.chan ? conns.filter((x) => x.id === s.chan)[0] : null;
+    const cl = c ? logoOf(c.k, 'lg') : { cls: '', href: '' };
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', loading: ui === 'loading', empty: ui === 'empty', connected: ui === 'normal' || ui === 'error' },
+      connectedCount: '3 channels',
+      addTitle: ui === 'empty' ? 'Choose your first channel' : 'Add a channel',
+      agentOptions: agentOptions,
+      connected: conns.map((x) => {
+        const l = logoOf(x.k);
+        const cur = s.assign[x.id] || x.agent;
+        return {
+          name: x.name, sub: x.sub, example: !!x.example, problem: ui === 'error' && x.id === 'c1', logoCls: l.cls, logoHref: l.href,
+          options: agentOptions.map((o) => ({ id: o.id, name: o.name, selected: o.id === cur })),
+          assign: (e) => { const m = Object.assign({}, s.assign); m[x.id] = e.target.value; this.setState({ assign: m }); this.toast(x.name + ' is now answered by ' + (agents.filter((g) => g.id === e.target.value)[0] || {}).name); },
+          open: () => this.setState({ chan: x.id })
+        };
+      }),
+      platforms: ['messenger', 'instagram', 'whatsapp', 'imessage', 'telegram', 'tiktok', 'x', 'web', 'api', 'webhook', 'zalo'].map((k) => {
+        const x = pf[k]; const l = logoOf(k, 'lg');
+        return {
+          name: x.name, logoCls: l.cls + (x.soon ? '' : ''), logoHref: k === 'zalo' ? '#logo-zalo' : l.href,
+          sub: x.soon ? 'Not available yet' : x.zernio ? 'Via Zernio' : 'Built in',
+          badge: x.soon ? 'Soon' : '', badgeCls: x.soon ? 'badge' : 'sr-only',
+          disabled: !!x.soon,
+          add: () => this.setState({ add: k })
+        };
+      }),
+      addAny: () => this.setState({ add: 'messenger' }),
+      retryAll: () => { if (p.onRetry) p.onRetry(); this.toast('2 replies delivered'); },
+      retryOne: () => this.toast('Reply delivered'),
+      noop: () => {},
+      add: {
+        show: !!a, name: a ? a.name : '', logoCls: al.cls, logoHref: al.href,
+        how: a ? (a.zernio ? 'Connected through Zernio' : 'Built in') : '',
+        viaZernio: !!(a && a.zernio), isApi: !!(a && a.built), isWebhook: s.add === 'webhook',
+        account: a ? (a.account || '') : '', placeholder: a ? (a.placeholder || '') : '', help: a ? (a.help || '') : '',
+        close: () => this.setState({ add: null }),
+        create: () => { const n = a.name; this.setState({ add: null }); this.toast(n + ' connected'); }
+      },
+      chan: {
+        show: !!c, name: c ? c.name : '', sub: c ? c.sub : '', logoCls: cl.cls, logoHref: cl.href,
+        isApi: !!(c && c.k === 'api'), viaZernio: !!(c && pf[c.k].zernio), account: c && pf[c.k].account ? pf[c.k].account : '',
+        close: () => this.setState({ chan: null }),
+        copy: () => this.toast('Address copied'),
+        rotate: () => this.toast('New key made — the old one stops working now'),
+        off: () => { this.setState({ chan: null }); this.toast('Channel turned off', 'Undo', () => {}); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

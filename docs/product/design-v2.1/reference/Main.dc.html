@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mr Spa Admin — prototype v2</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="--proto-h: 36px; font-family: var(--font-sans); color: var(--color-text)">
+  <dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import>
+
+  <div class="proto-bar" role="region" aria-label="Prototype controls">
+    <b>Prototype</b>
+    <div class="proto-group" role="group" aria-label="State"><span>State</span>
+      <sc-for list="{{states}}" as="s" hint-placeholder-count="4"><button type="button" class="proto-btn" aria-pressed="{{s.on}}" onClick="{{s.pick}}">{{s.label}}</button></sc-for>
+    </div>
+    <div class="proto-group" role="group" aria-label="Theme"><span>Theme</span>
+      <sc-for list="{{themes}}" as="t" hint-placeholder-count="2"><button type="button" class="proto-btn" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for>
+    </div>
+    <button type="button" class="proto-btn" onClick="{{reset}}">Reset</button>
+    <span class="spacer hide-phone"></span>
+    <span class="hide-phone" style="color: var(--color-proto-dim)">Purple “Example” tags mark data not taken from the live app</span>
+  </div>
+
+  <div class="app-shell">
+    <nav class="sidebar" aria-label="Main">
+      <button type="button" class="workspace" aria-label="Workspace: Mr Spa" onClick="{{wsMenu}}">
+        <span class="ws-logo">MS</span>
+        <span class="ws-name spacer strong truncate">Mr Spa</span>
+        <svg class="icon icon-16 t3 ws-name" aria-hidden="true"><use href="#i-chevron-updown"></use></svg>
+      </button>
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="7">
+        <button type="button" class="nav-item" aria-current="{{n.current}}" aria-label="{{n.label}}" onClick="{{n.go}}">
+          <svg class="icon" aria-hidden="true"><use href="{{n.href}}"></use></svg>
+          <span class="nav-label">{{n.label}}</span>
+          <sc-if value="{{n.count}}" hint-placeholder-val="{{ false }}"><span class="nav-count">{{n.count}}</span></sc-if>
+        </button>
+      </sc-for>
+
+      <div class="nav-heading"><span>Assistants</span>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="New assistant" onClick="{{newAgent}}" style="width: 24px; height: 24px"><svg class="icon icon-16" aria-hidden="true"><use href="#i-plus"></use></svg></button>
+      </div>
+      <sc-for list="{{agentNav}}" as="a" hint-placeholder-count="3">
+        <button type="button" class="nav-item" aria-current="{{a.current}}" aria-label="{{a.name}}" onClick="{{a.open}}">
+          <span class="{{a.avClass}}">{{a.initials}}</span>
+          <span class="nav-label">{{a.name}}</span>
+          <span class="{{a.dot}}" aria-label="{{a.statusLabel}}"></span>
+        </button>
+      </sc-for>
+
+      <div class="account">
+        <span class="avatar" style="width: 28px; height: 28px; font-size: 11px">OW</span>
+        <span class="account-name spacer stack" style="gap: 0"><span class="medium truncate">Owner</span><span class="xs t3 truncate">Mr Spa workspace</span></span>
+      </div>
+    </nav>
+
+    <main class="{{contentClass}}">
+      <sc-if value="{{is.home}}" hint-placeholder-val="{{ true }}">
+        <dc-import name="PHome" embedded="{{yes}}" ui-state="{{ui}}" agents="{{agents}}" published="{{published}}" version="{{version}}" fix-pending="{{fixPending}}" fix-failing="{{fixFailing}}" on-go="{{go}}" on-open-agent="{{openAgent}}" on-fix="{{openFix}}" on-publish="{{publish}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.leads}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PLeads" embedded="{{yes}}" ui-state="{{ui}}" on-go="{{go}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.assistants}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PAssistants" embedded="{{yes}}" ui-state="{{ui}}" agents="{{agents}}" create-open="{{createOpen}}" on-open-agent="{{openAgent}}" on-create="{{createAgent}}" on-close-create="{{closeCreate}}" on-open-create="{{newAgent}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.assistant}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PAssistant" embedded="{{yes}}" ui-state="{{ui}}" agent="{{agent}}" published="{{published}}" version="{{version}}" publishing="{{publishing}}" publish-error="{{publishError}}" on-publish="{{publish}}" on-dirty="{{markDirty}}" on-fix="{{openFix}}" on-go="{{go}}" on-toast="{{showToast}}" on-retry="{{retry}}" on-dismiss-error="{{clearPublishError}}" hint-size="100%,860px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.data}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PData" embedded="{{yes}}" ui-state="{{ui}}" on-open-table="{{openTable}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.table}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PTable" embedded="{{yes}}" ui-state="{{ui}}" table-id="{{tableId}}" on-go="{{go}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.conversations}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PConversations" embedded="{{yes}}" ui-state="{{ui}}" agents="{{agents}}" on-fix="{{openFix}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,860px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.channels}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PChannels" embedded="{{yes}}" ui-state="{{ui}}" agents="{{agents}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+      <sc-if value="{{is.settings}}" hint-placeholder-val="{{ false }}">
+        <dc-import name="PSettings" embedded="{{yes}}" ui-state="{{ui}}" theme="{{theme}}" on-theme="{{setTheme}}" on-toast="{{showToast}}" on-retry="{{retry}}" hint-size="100%,820px"></dc-import>
+      </sc-if>
+    </main>
+
+    <nav class="tabbar" aria-label="Main">
+      <sc-for list="{{tabs}}" as="n" hint-placeholder-count="6">
+        <button type="button" class="tab" aria-current="{{n.current}}" onClick="{{n.go}}">
+          <svg class="icon" aria-hidden="true"><use href="{{n.href}}"></use></svg>
+          <span>{{n.short}}</span>
+          <sc-if value="{{n.count}}" hint-placeholder-val="{{ false }}"><span class="nav-count">{{n.count}}</span></sc-if>
+        </button>
+      </sc-for>
+    </nav>
+  </div>
+
+  <sc-if value="{{fixOpen}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop">
+      <dc-import name="FixSheet" embedded="{{yes}}" on-close="{{closeFix}}" on-done="{{fixDone}}" on-kept="{{fixKept}}" hint-size="560px,640px"></dc-import>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}">
+    <div class="{{toast.cls}}" role="status" aria-live="polite">
+      <svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg>
+      <span>{{toast.msg}}</span>
+      <sc-if value="{{toast.hasAction}}" hint-placeholder-val="{{ false }}"><button type="button" class="toast-action" onClick="{{toast.act}}">{{toast.actionLabel}}</button></sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = this.initial(props);
+  }
+  initial(props) {
+    return {
+      page: 'home', agentId: 'a1', tableId: 'offers', theme: (props && props.theme) || 'light', ui: 'normal',
+      published: true, version: 3, publishing: false, publishError: false,
+      fixOpen: false, fixPending: false, fixFailing: false, createOpen: false, toast: null,
+      agents: [
+        { id: 'a1', name: 'Mr Spa Consultant', initials: 'MS', color: 'av-1', desc: 'Tư vấn sản phẩm salon, chính sách và ưu đãi cho chủ tiệm nail.', status: 'live', version: 3, channels: ['api'], chats: '2 chats today', example: false },
+        { id: 'a3', name: 'After-sales support', initials: 'AS', color: 'av-3', desc: 'Warranty claims, spare parts and repair visits for existing customers.', status: 'live', version: 1, channels: ['messenger', 'whatsapp'], chats: '5 chats today', example: true },
+        { id: 'a2', name: 'Booking assistant', initials: 'BA', color: 'av-2', desc: 'Books showroom visits and installation appointments.', status: 'draft', version: 0, channels: [], chats: 'Not live yet', example: true }
+      ]
+    };
+  }
+  componentWillUnmount() { clearTimeout(this.tt); clearTimeout(this.pt); }
+  showToast(msg, actionLabel, action) {
+    clearTimeout(this.tt);
+    this.setState({ toast: { msg: msg, actionLabel: actionLabel || '', action: action || null } });
+    this.tt = setTimeout(() => this.setState({ toast: null }), 3600);
+  }
+  publish() {
+    if (this.state.publishing) return;
+    if (this.state.ui === 'error') { this.setState({ publishError: true, page: 'assistant' }); return; }
+    this.setState({ publishing: true, publishError: false });
+    this.pt = setTimeout(() => {
+      const v = this.state.version + 1;
+      this.setState({ publishing: false, published: true, version: v, fixPending: false });
+      this.showToast('Version ' + v + ' is live');
+    }, 1500);
+  }
+  renderVals() {
+    const s = this.state;
+    const go = (p, id) => {
+      const patch = { page: p };
+      if (p === 'table' && id) patch.tableId = id;
+      if (p === 'assistant' && id) patch.agentId = id;
+      this.setState(patch);
+    };
+    const pages = [
+      { id: 'home', label: 'Home', short: 'Home', icon: 'home' },
+      { id: 'leads', label: 'Leads', short: 'Leads', icon: 'phone', count: s.ui === 'empty' ? '' : '2' },
+      { id: 'assistants', label: 'Assistants', short: 'Assistants', icon: 'robot', also: ['assistant'] },
+      { id: 'data', label: 'Data', short: 'Data', icon: 'table', also: ['table'] },
+      { id: 'conversations', label: 'Conversations', short: 'Chats', icon: 'chats', count: s.ui === 'empty' ? '' : '1' },
+      { id: 'channels', label: 'Channels', short: 'Channels', icon: 'link', count: s.ui === 'error' ? '2' : '' },
+      { id: 'settings', label: 'Settings', short: 'Settings', icon: 'settings' }
+    ];
+    const is = {};
+    ['home', 'leads', 'assistants', 'assistant', 'data', 'table', 'conversations', 'channels', 'settings'].forEach((k) => { is[k] = s.page === k; });
+    const agents = s.agents.map((a) => a.id === 'a1' ? Object.assign({}, a, { version: s.version, unpublished: !s.published }) : a);
+    const agent = agents.filter((a) => a.id === s.agentId)[0] || agents[0];
+    const t = s.toast;
+    return {
+      yes: true,
+      theme: s.theme,
+      ui: s.ui,
+      is: is,
+      contentClass: (s.page === 'assistant' || s.page === 'conversations') ? 'content is-flush' : 'content',
+      agents: agents,
+      agent: agent,
+      tableId: s.tableId,
+      published: s.published, version: s.version, publishing: s.publishing, publishError: s.publishError,
+      fixOpen: s.fixOpen, fixPending: s.fixPending, fixFailing: s.fixFailing, createOpen: s.createOpen,
+      nav: pages.map((p) => ({
+        label: p.label, short: p.short, href: '#i-' + p.icon, count: p.count || '',
+        current: (s.page === p.id || (p.also || []).indexOf(s.page) >= 0 || (p.id === 'assistants' && s.page === 'assistant' && false)) ? 'page' : undefined,
+        go: () => go(p.id)
+      })),
+      tabs: pages.filter((p) => p.id !== 'data').map((p) => ({
+        short: p.short, href: '#i-' + p.icon, count: p.count || '',
+        current: (s.page === p.id || (p.also || []).indexOf(s.page) >= 0) ? 'page' : undefined,
+        go: () => go(p.id)
+      })),
+      agentNav: agents.map((a) => ({
+        name: a.name, initials: a.initials, avClass: 'agent-av xs ' + a.color,
+        current: s.page === 'assistant' && s.agentId === a.id ? 'page' : undefined,
+        dot: a.status === 'draft' ? 'nav-dot dot-gray' : a.unpublished ? 'nav-dot dot-orange' : 'nav-dot dot-green',
+        statusLabel: a.status === 'draft' ? 'Draft' : a.unpublished ? 'Unpublished changes' : 'Live',
+        open: () => go('assistant', a.id)
+      })),
+      states: ['normal', 'empty', 'loading', 'error'].map((k) => ({ label: k.charAt(0).toUpperCase() + k.slice(1), on: s.ui === k, pick: () => this.setState({ ui: k, publishError: false }) })),
+      themes: ['light', 'dark'].map((k) => ({ label: k === 'light' ? 'Light' : 'Dark', on: s.theme === k, pick: () => this.setState({ theme: k }) })),
+      reset: () => { clearTimeout(this.tt); clearTimeout(this.pt); this.setState(Object.assign(this.initial(this.props), { theme: s.theme })); },
+      wsMenu: () => this.showToast('Workspace switcher — one workspace today'),
+      go: go,
+      openAgent: (id) => go('assistant', id),
+      openTable: (id) => go('table', id),
+      newAgent: () => this.setState({ page: 'assistants', createOpen: true }),
+      closeCreate: () => this.setState({ createOpen: false }),
+      createAgent: (a) => {
+        const colors = ['av-4', 'av-5', 'av-2', 'av-3'];
+        const id = 'n' + Date.now();
+        const name = a.name || 'New assistant';
+        const initials = name.split(' ').map((w) => w.charAt(0)).join('').slice(0, 2).toUpperCase();
+        const na = { id: id, name: name, initials: initials, color: colors[s.agents.length % colors.length], desc: a.desc || '', status: 'draft', version: 0, channels: [], chats: 'Not live yet', example: true };
+        this.setState({ agents: s.agents.concat([na]), createOpen: false, page: 'assistant', agentId: id });
+        this.showToast('“' + name + '” created as a draft');
+      },
+      setTheme: (k) => this.setState({ theme: k }),
+      openFix: () => this.setState({ fixOpen: true }),
+      closeFix: () => this.setState({ fixOpen: false }),
+      fixDone: (place) => {
+        if (place === 'data') { this.setState({ fixOpen: false, fixFailing: false }); this.showToast('Fixed. Data changes are live now.'); }
+        else { this.setState({ fixOpen: false, fixFailing: false, fixPending: true, published: false }); this.showToast('Fixed in the draft', 'Publish', () => { this.setState({ toast: null }); this.publish(); }); }
+      },
+      fixKept: () => { this.setState({ fixOpen: false, fixFailing: true, published: false }); this.showToast('Kept. It stays in Needs attention until it passes.'); },
+      publish: () => this.publish(),
+      retry: () => { this.setState({ ui: 'normal', publishError: false }); this.showToast('Back up to date'); },
+      clearPublishError: () => this.setState({ publishError: false }),
+      markDirty: () => { if (this.state.published) this.setState({ published: false }); },
+      showToast: (m, a, f) => this.showToast(m, a, f),
+      toast: {
+        show: !!t, msg: t ? t.msg : '', hasAction: !!(t && t.action), actionLabel: t ? t.actionLabel : '',
+        act: () => { if (t && t.action) t.action(); },
+        cls: t && t.action ? 'toast' : 'toast no-action'
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

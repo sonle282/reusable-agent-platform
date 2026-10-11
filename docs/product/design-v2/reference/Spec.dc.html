@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spec v2</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import>
+  <div style="max-width: 1180px; margin: 0 auto; padding: 56px 40px 96px; display: flex; flex-direction: column; gap: 48px">
+    <header class="hero-block" style="padding: 40px; display: flex; flex-direction: column; gap: 10px">
+      <span class="badge" style="align-self: flex-start; background: rgba(255,255,255,0.7); color: #0D0D0D">Spec v2</span>
+      <h1 class="display">Mr Spa Admin, in the OpenAI design language</h1>
+      <p class="page-sub" style="max-width: 760px">Look and feel follow openai.com/brand: minimal white and light gray, bold black type, black pill buttons, pastel blocks and soft gradients. Components follow OpenAI’s Apps SDK UI (MIT) so they match ChatGPT. No OpenAI logos, names or the proprietary OpenAI Sans font are used — Manrope stands in.</p>
+    </header>
+
+    <section class="stack" style="gap: 16px">
+      <h2 class="page-title" style="font-size: 24px">1 · What changed from v1</h2>
+      <div class="card"><sc-for list="{{changes}}" as="r" hint-placeholder-count="10"><div class="row top"><span class="tile"><svg class="icon" aria-hidden="true"><use href="{{r.icon}}"></use></svg></span><div class="row-text"><span class="row-title">{{r.k}}</span><span class="row-sub">{{r.v}}</span></div></div></sc-for></div>
+    </section>
+
+    <section class="stack" style="gap: 16px">
+      <h2 class="page-title" style="font-size: 24px">2 · Color tokens</h2>
+      <div class="card"><div class="table-wrap"><table class="table" style="cursor: default">
+        <thead><tr><th style="width: 26%">Token</th><th style="width: 22%">Light</th><th style="width: 22%">Dark</th><th>Use</th></tr></thead>
+        <tbody><sc-for list="{{colors}}" as="c" hint-placeholder-count="20"><tr style="cursor: default"><td style="font: var(--text-mono)">{{c.name}}</td><td><span class="row-flex"><span style="{{c.lsw}}"></span><span style="font: var(--text-mono)">{{c.light}}</span></span></td><td><span class="row-flex"><span style="{{c.dsw}}"></span><span style="font: var(--text-mono)">{{c.dark}}</span></span></td><td class="t2">{{c.use}}</td></tr></sc-for></tbody>
+      </table></div></div>
+      <div class="row-flex" style="flex-wrap: wrap; gap: 8px"><sc-for list="{{pastels}}" as="p" hint-placeholder-count="6"><span class="row-flex card" style="padding: 8px 12px 8px 8px; gap: 8px"><span style="{{p.sw}}"></span><span style="font: var(--text-mono)">{{p.name}}</span></span></sc-for></div>
+      <p class="help">Primary is monochrome: black buttons in light, white buttons in dark. Blue only for links, focus and info. Pastels are fills under black text (assistant avatars, onboarding, hero blocks) — never text colors.</p>
+    </section>
+
+    <section class="stack" style="gap: 16px">
+      <h2 class="page-title" style="font-size: 24px">3 · Type, radii, controls</h2>
+      <div class="card"><sc-for list="{{type}}" as="t" hint-placeholder-count="9"><div class="row" style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 280px; gap: 16px"><span style="font: var(--text-mono)">{{t.token}}</span><span style="{{t.sample}}" lang="vi">{{t.text}}</span><span class="xs t2">{{t.spec}}</span></div></sc-for></div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+        <div class="card card-pad stack" style="gap: 8px"><span class="strong">Radii</span><span class="xs t2">xs 4 badges · sm 6 · md 8 nav, tiles · lg 10 inputs · xl 12 cards, menus · 2xl 16 sheets · 3xl 20 bubbles · full pills</span></div>
+        <div class="card card-pad stack" style="gap: 8px"><span class="strong">Controls</span><span class="xs t2">sm 28 · md 32 (default) · lg 36 inputs, search · xl 40 · phone: md → 40, sm → 36 · gutters 10 / 12 / 14 · icons 16 / 18 / 20</span></div>
+        <div class="card card-pad stack" style="gap: 8px"><span class="strong">Motion and elevation</span><span class="xs t2">150 ms basic ease · enter 300 ms cubic-bezier(.19,1,.22,1) · shadows 100–400 + modal, hairline 1px · reduced motion: 0 ms</span></div>
+      </div>
+    </section>
+
+    <section class="stack" style="gap: 16px">
+      <h2 class="page-title" style="font-size: 24px">4 · Components (ui.tsx)</h2>
+      <div class="card card-pad stack" style="gap: 16px">
+        <div class="row-flex" style="flex-wrap: wrap; gap: 10px"><button type="button" class="btn btn-primary">Publish</button><button type="button" class="btn btn-outline">Cancel</button><button type="button" class="btn btn-soft">Soft</button><button type="button" class="btn btn-ghost">Ghost</button><button type="button" class="btn btn-danger">Delete</button><button type="button" class="btn btn-danger-ghost">Keep it anyway</button><button type="button" class="btn btn-primary" disabled="{{yes}}">Disabled</button><button type="button" class="btn btn-sm btn-outline">Small</button><button type="button" class="btn btn-lg btn-primary">Large</button></div>
+        <div class="row-flex" style="flex-wrap: wrap; gap: 10px"><span class="badge badge-success">Live</span><span class="badge badge-warning">Not live</span><span class="badge badge-danger">Failed</span><span class="badge badge-info">Starts Nov 27</span><span class="badge">Ended Sep 30</span><span class="badge badge-outline">Required</span><span class="badge badge-count">2</span><span class="badge example">Example</span><button type="button" class="switch" role="switch" aria-checked="true" aria-label="On"></button><button type="button" class="switch" role="switch" aria-checked="false" aria-label="Off"></button><div class="segmented" role="tablist" aria-label="Demo"><button type="button" role="tab" aria-selected="true">Text</button><button type="button" role="tab" aria-selected="false">Web page</button></div><button type="button" class="chip" aria-pressed="true">All</button><button type="button" class="chip" aria-pressed="false">Leads</button></div>
+        <div class="row-flex" style="flex-wrap: wrap; gap: 10px"><span class="logo logo-messenger"><svg aria-hidden="true"><use href="#logo-messenger"></use></svg></span><span class="logo logo-instagram"><svg aria-hidden="true"><use href="#logo-instagram"></use></svg></span><span class="logo logo-whatsapp"><svg aria-hidden="true"><use href="#logo-whatsapp"></use></svg></span><span class="logo logo-imessage"><svg aria-hidden="true"><use href="#logo-imessage"></use></svg></span><span class="logo logo-telegram"><svg aria-hidden="true"><use href="#logo-telegram"></use></svg></span><span class="logo logo-tiktok"><svg aria-hidden="true"><use href="#logo-tiktok"></use></svg></span><span class="logo logo-x"><svg aria-hidden="true"><use href="#logo-x"></use></svg></span><span class="agent-av av-1">MS</span><span class="agent-av av-3">AS</span><span class="agent-av av-2">BA</span></div>
+      </div>
+      <div class="card"><div class="table-wrap"><table class="table" style="cursor: default"><thead><tr><th style="width: 22%">Component</th><th>Spec</th></tr></thead><tbody><sc-for list="{{comps}}" as="c" hint-placeholder-count="16"><tr style="cursor: default"><td class="medium">{{c.k}}</td><td class="t2">{{c.v}}</td></tr></sc-for></tbody></table></div></div>
+    </section>
+
+    <section class="stack" style="gap: 16px">
+      <h2 class="page-title" style="font-size: 24px">5 · Screens per breakpoint</h2>
+      <div class="card"><div class="table-wrap"><table class="table" style="cursor: default"><thead><tr><th style="width: 14%">Screen</th><th>≥ 1080</th><th style="width: 22%">860–1079</th><th style="width: 26%">&lt; 860 (390)</th></tr></thead><tbody><sc-for list="{{layouts}}" as="l" hint-placeholder-count="10"><tr style="cursor: default"><td class="medium">{{l.n}}</td><td class="t2">{{l.d}}</td><td class="t2">{{l.c}}</td><td class="t2">{{l.p}}</td></tr></sc-for></tbody></table></div></div>
+    </section>
+
+    <section class="stack" style="gap: 16px">
+      <h2 class="page-title" style="font-size: 24px">6 · Product additions (recommended and designed)</h2>
+      <div class="card"><sc-for list="{{adds}}" as="r" hint-placeholder-count="8"><div class="row top"><span class="badge badge-info" style="margin-top: 2px">{{r.tag}}</span><div class="row-text"><span class="row-title">{{r.k}}</span><span class="row-sub">{{r.v}}</span></div></div></sc-for></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":8000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const sw = (c) => 'width: 20px; height: 20px; border-radius: 6px; flex: none; background: ' + c + '; box-shadow: inset 0 0 0 1px rgba(127,127,127,0.3)';
+    const kv = (rows) => rows.map((r) => ({ k: r[0], v: r[1], icon: r[2] ? '#i-' + r[2] : '', tag: r[2] || '' }));
+    return {
+      yes: true,
+      theme: this.props.theme || 'light',
+      changes: kv([
+        ['Design language', 'Apple HIG → OpenAI brand look + Apps SDK UI components. Grouped inset lists become bordered cards; labels sit above inputs; monochrome pill buttons.', 'color'],
+        ['Several assistants', 'New Assistants page (cards), “New assistant” sheet with templates, quick list of assistants in the sidebar. Builder opens per assistant.', 'robot'],
+        ['Builder fits one screen', '56 px top bar (back, name, status, Publish) replaces the large header. Left side scrolls on its own; Preview fills the full height on the right.', 'sidebar'],
+        ['Data split into two pages', 'Data = list of tables (rows, used by, updated). Clicking a table opens its records page with search, filters and a side drawer for editing.', 'table'],
+        ['Real platform logos', 'Channels show brand logos (Messenger, Instagram, WhatsApp, iMessage, Telegram, TikTok, X). Each channel picks which assistant answers.', 'link'],
+        ['ChatGPT-style chat', 'Customer messages are gray bubbles on the right; assistant replies are plain text on the left with an action row (Copy, sources, Fix this answer). Same in Preview and Conversations.', 'chats'],
+        ['Conversations full height', 'List and thread scroll separately. Filters: All · Needs reply · Leads · Your team, plus an assistant filter.', 'filter'],
+        ['Icons', 'OpenAI’s filled 24-grid icon set replaces the outline SF-style icons.', 'grid']
+      ]),
+      colors: [
+        ['--color-bg / surface', '#FFFFFF', '#212121', 'Main canvas and cards'], ['--color-surface-2', '#F9F9F9', '#181818', 'Sidebar, Preview pane'], ['--color-surface-3', '#F3F3F3', '#2A2A2A', 'Row hover, chips'], ['--color-surface-raised', '#FFFFFF', '#303030', 'Menus, sheets, drawers'],
+        ['--color-text', '#0D0D0D', '#FFFFFF', 'Primary text'], ['--color-text-2', '#5D5D5D', '#AFAFAF', 'Secondary text'], ['--color-text-3', '#767676', '#8F8F8F', 'Meta text (AA)'], ['--color-placeholder', '#8F8F8F', '#767676', 'Placeholders only'],
+        ['--color-border', 'rgba(13,13,13,.10)', 'rgba(255,255,255,.10)', 'Card borders, dividers'], ['--color-border-strong', 'rgba(13,13,13,.16)', 'rgba(255,255,255,.20)', 'Inputs, outline buttons'], ['--color-fill', 'rgba(13,13,13,.05)', 'rgba(255,255,255,.06)', 'Soft buttons, tiles'],
+        ['--color-primary', '#181818', '#FFFFFF', 'Primary button, switch on (light)'], ['--color-link', '#0169CC', '#48AAFF', 'Links, focus ring, info'],
+        ['--color-success', '#00692A', '#40C977', 'Live, passed'], ['--color-warning', '#923B0F', '#FF8549', 'Needs action'], ['--color-danger', '#BA2623', '#FF6764', 'Failed, destructive'], ['--color-discovery', '#6B33C4', '#B996FF', '“Example” tag'],
+        ['--color-bubble-user', '#F3F3F3', '#303030', 'Customer bubble']
+      ].map((c) => ({ name: c[0], light: c[1], dark: c[2], use: c[3], lsw: sw(c[1]), dsw: sw(c[2]) })),
+      pastels: [['--pastel-blue', '#D6E8FF'], ['--pastel-yellow', '#FFF1B8'], ['--pastel-orange', '#FFDCC7'], ['--pastel-green', '#D3F2DC'], ['--pastel-pink', '#FFD9EA'], ['--pastel-lilac', '#E6DEFF']].map((p) => ({ name: p[0] + ' ' + p[1], sw: sw(p[1]) })),
+      type: [
+        ['--text-display', 'font: var(--text-display); letter-spacing: -0.025em', 'Set up your first assistant', '40/44 · 700 · −0.025em · onboarding hero'],
+        ['--text-heading-lg', 'font: var(--text-heading-lg); letter-spacing: -0.02em', 'Assistants', '28/34 · 700 · page titles (phone 22/28)'],
+        ['--text-heading-md', 'font: var(--text-heading-md); letter-spacing: -0.02em', 'Fix this answer', '20/26 · 700 · sheet titles'],
+        ['--text-heading-xs', 'font: var(--text-heading-xs)', 'Needs attention', '16/24 · 600 · section and card titles'],
+        ['--text-md', 'font: var(--text-md)', 'Dạ hiện bên em đang có free giao hàng', '16/24 · 400 · chat messages'],
+        ['--text-sm', 'font: var(--text-sm)', 'Ưu đãi free giao hàng từ 6 ghế pedicure', '14/20 · 400 · default UI text'],
+        ['--text-xs', 'font: var(--text-xs); letter-spacing: 0.01em', 'Updated today · 7 active rows', '12/18 · 400 · meta, help'],
+        ['--font-sans', 'font: 500 14px/20px var(--font-sans)', 'Manrope → system sans', 'Swap for OpenAI Sans only with a license']
+      ].map((t) => ({ token: t[0], sample: t[1], text: t[2], spec: t[3] })),
+      comps: kv([
+        ['Button', 'primary (black/white) · outline · soft · ghost · danger · danger-ghost · link · sizes sm 28 / md 32 / lg 36 / xl 40 · pill · 14/20 500 · icon 18 (16 small) · disabled opacity .5 · one primary per screen'],
+        ['Card', 'surface, 1px border, radius 12, no shadow · card-head 52 min (title 16/600 + actions) · card-foot 12/18 text-2 · rows divided by full-width 1px lines'],
+        ['Row', 'min-h 56 (compact 44) · padding 10 16 · gap 12 · tile 32 r8 or avatar 36 · title 14/500 · sub 14 text-2 · meta 12 text-3 · hover surface-3 · selected fill-active'],
+        ['Field', 'label 14/500 above · gap 6 · input/textarea h 36 min, padding 7 12, radius 10, border-strong; hover/focus border 50% + 3px fill ring · textarea grows (field-sizing: content) · help 12 text-3'],
+        ['Switch', '32 × 19 · thumb 13 · black on (light) / blue on (dark) · role="switch" · hit area extended to 44'],
+        ['Segmented', 'pill track #EDEDED, padding 2 · items 28h, 13/600 · selected white thumb + shadow'],
+        ['Tabs', 'underline tabs 44h, 14/500 · active 2px black bar · used in the builder editor'],
+        ['Chips', 'filter chips 28h pill outline · pressed = primary fill'],
+        ['Search', '36h pill, border-strong, icon 16'],
+        ['Badge', '20h, padding 0 6, radius 4, 12/600 · neutral, success, warning, danger, info, outline, count, example · only for exceptions'],
+        ['Alert', 'padding 12 16, radius 12, soft fill per tone, icon 20, title 600, text text-2, actions small buttons'],
+        ['Table', 'fixed layout · header 40h 12/500 text-3 · cells 12 padding, top aligned · rows clickable, hover surface-3 · optional columns hide < 860'],
+        ['Sheet / Drawer / Dialog', 'Sheet: centered 560 (wide 720), radius 16, header 20/24 padding, single scroll body, footer border-top · Drawer: right side 480 for record and channel details · Dialog: 360 confirm · phone: bottom sheet with grabber'],
+        ['Chat', 'customer bubble right, surface-3, radius 20, 16/24 · assistant plain text left, action row (28h ghost) · Details card below the reply · composer pill 26 radius with 36 send button'],
+        ['Logo tile', 'brand color square r8 with white mark (32 / 20 small / 44 large); TikTok and X invert in dark mode · Website chat, API, Webhook use neutral tiles with OpenAI icons'],
+        ['Assistant avatar', 'square r10, pastel fill, black initials (40 / 28 / 20)'],
+        ['Toast', 'pill, inverse colors, bottom center (above tab bar on phone), optional underlined action, 3.6 s']
+      ]),
+      layouts: [
+        { n: 'Shell', d: 'Sidebar 260 (workspace switcher, 6 items, “Assistants” quick list, account) · content padding 32 40', c: 'Icon sidebar 64', p: 'Tab bar 6 items, 56h · content padding 16' },
+        { n: 'Home', d: 'Title + assistant filter · Needs attention card · 3 metrics · Assistants + Recent conversations side by side · empty = onboarding checklist hero', c: 'Cards stack', p: 'Single column' },
+        { n: 'Assistants', d: '3-column card grid + dashed “New assistant” card · New assistant sheet (wide)', c: '2 columns', p: '1 column, bottom sheet' },
+        { n: 'Builder', d: 'Full viewport, no page scroll: top bar 56 · editor (tabs + scroll) | Preview 440 (head 48, chat, scenarios, composer)', c: 'Preview 360', p: 'Top bar + segmented Test / Instructions / Sources / Versions; one pane at a time above the tab bar' },
+        { n: 'Data', d: 'Tables table: Table, Rows, Used by, Updated', c: 'Same', p: 'Used by and Updated hidden' },
+        { n: 'Table records', d: 'Breadcrumb · title + used by · Import CSV, Add row, ••• · search + chips · records table · drawer editor', c: 'Same', p: 'Details and Type columns hidden; drawer full width' },
+        { n: 'Conversations', d: 'Full height split: list 340 | thread (max 760 centered) · both scroll separately', c: 'List 300', p: 'List, then thread with back button' },
+        { n: 'Channels', d: 'Connected card with logo, account, “Answered by” select · platform grid · connect sheet · channel drawer', c: 'Same', p: 'Select moves into the drawer' },
+        { n: 'Settings', d: 'Form column 680: Appearance, Workspace, AI connection, Messaging platforms (Zernio), Backup, Account', c: 'Same', p: 'Full width' }
+      ],
+      adds: kv([
+        ['Several assistants per workspace', 'Assistants page, templates (Sales, Support, Booking, copy existing), duplicate, pause, delete. Data tables stay shared; each assistant picks which tables it can look up. Each channel picks one assistant.', 'Requested'],
+        ['Onboarding checklist', 'Home empty state guides a new owner through 6 steps (AI key → assistant → business → knowledge → prices → publish and connect).', 'New'],
+        ['Conversation starters', 'Up to 3 tap-to-ask questions per assistant, used in website chat, as Messenger ice breakers and in Preview.', 'New'],
+        ['Appearance setting', 'System / Light / Dark in Settings (the prototype already supports both themes).', 'New'],
+        ['Messaging platforms in Settings', 'Zernio connection status in one place, since 7 platforms depend on it.', 'New'],
+        ['Conversation filters', 'Needs reply, Leads, Your team, and per assistant.', 'New'],
+        ['Zalo', 'Shown as “Soon”: most Vietnamese customers use Zalo, but Zernio doesn’t support it yet — worth a direct Zalo OA integration later.', 'Later'],
+        ['Team members and roles', 'Not designed yet: today there is one owner. Recommended next when staff start replying from the admin.', 'Later']
+      ])
+    };
+  }
+}
+</script>
+</body>
+</html>

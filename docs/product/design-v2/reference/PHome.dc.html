@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Home</h1>
+        <p class="page-sub">Saturday, October 10</p>
+      </div>
+      <label class="select-wrap">
+        <span class="sr-only">Show</span>
+        <select class="select" style="min-height: 32px; border-radius: 9999px; padding: 4px 32px 4px 14px; font-weight: 500" onChange="{{pickAgent}}">
+          <option value="all">All assistants</option>
+          <sc-for list="{{agentOptions}}" as="o" hint-placeholder-count="3"><option value="{{o.id}}">{{o.name}}</option></sc-for>
+        </select>
+        <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+      </label>
+    </header>
+
+    <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+      <div class="alert-box alert-danger" role="alert">
+        <svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg>
+        <div class="alert-body">
+          <span class="alert-title">Couldn’t refresh Home</span>
+          <span class="alert-text">Showing what we had at 2:41 PM. Your assistants keep answering customers.</span>
+          <div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Try again</button></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+      <div class="card" aria-busy="true">
+        <div class="skel-row"><span class="skel" style="width: 32px; height: 32px; border-radius: 8px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 40%"></span><span class="skel skel-line" style="width: 65%"></span></span></div>
+        <div class="skel-row"><span class="skel" style="width: 32px; height: 32px; border-radius: 8px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span class="skel skel-line" style="width: 30%"></span><span class="skel skel-line" style="width: 55%"></span></span></div>
+      </div>
+      <div class="card metrics"><div class="metric"><span class="skel" style="width: 40px; height: 28px"></span></div><div class="metric"><span class="skel" style="width: 40px; height: 28px"></span></div><div class="metric"><span class="skel" style="width: 40px; height: 28px"></span></div></div>
+    </sc-if>
+
+    <!-- Empty: onboarding -->
+    <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+      <section class="card" aria-labelledby="ob-h">
+        <div class="hero-block" style="display: flex; flex-direction: column; gap: 12px; padding: 28px; margin: 8px; border-radius: 12px">
+          <span class="badge" style="align-self: flex-start; background: rgba(255,255,255,0.7); color: #0D0D0D">2 of 6 done</span>
+          <h2 id="ob-h" class="display" style="font-size: 32px; line-height: 38px">Set up your first assistant</h2>
+          <p class="t2" style="margin: 0; max-width: 560px; color: rgba(13,13,13,0.7)">Most owners finish in about 15 minutes. You can leave and come back — everything saves as you go.</p>
+          <div class="progress" aria-hidden="true" style="background: rgba(255,255,255,0.6)"><span style="width: 33%; background: #0D0D0D"></span></div>
+        </div>
+        <div class="checklist" style="border-top: 1px solid var(--color-border)">
+          <sc-for list="{{steps}}" as="c" hint-placeholder-count="6">
+            <div class="check-item">
+              <span class="{{c.markClass}}"><sc-if value="{{c.done}}" hint-placeholder-val="{{ false }}"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg></sc-if></span>
+              <div class="row-text"><span class="row-title">{{c.title}}</span><span class="row-sub">{{c.sub}}</span></div>
+              <sc-if value="{{c.todo}}" hint-placeholder-val="{{ true }}"><button type="button" class="{{c.btnClass}}" onClick="{{c.go}}">{{c.cta}}</button></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{st.ready}}" hint-placeholder-val="{{ true }}">
+      <section class="card" aria-labelledby="na-h" style="overflow: visible">
+        <div class="card-head">
+          <h2 id="na-h" class="card-title" style="flex: none">Needs attention</h2>
+          <sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}"><span class="badge badge-count">{{itemCount}}</span></sc-if>
+          <span class="spacer"></span>
+          <sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}"><span class="badge example">Example</span></sc-if>
+        </div>
+        <sc-for list="{{items}}" as="it" hint-placeholder-count="3">
+          <div class="row">
+            <span class="{{it.tileClass}}"><svg class="icon" aria-hidden="true"><use href="{{it.href}}"></use></svg></span>
+            <div class="row-text">
+              <span class="row-title">{{it.title}}</span>
+              <span class="row-sub truncate">{{it.sub}}</span>
+            </div>
+            <div class="row-flex" style="flex: none">
+              <button type="button" class="{{it.btnClass}}" onClick="{{it.primary}}">{{it.primaryLabel}}</button>
+              <div class="menu-anchor">
+                <button type="button" class="btn btn-sm btn-ghost btn-icon" aria-label="More actions" aria-haspopup="menu" aria-expanded="{{it.menuOpen}}" onClick="{{it.toggleMenu}}"><svg class="icon" aria-hidden="true"><use href="#i-dots"></use></svg></button>
+                <sc-if value="{{it.menuOpen}}" hint-placeholder-val="{{ false }}">
+                  <div class="menu" role="menu">
+                    <button type="button" class="menu-item" role="menuitem" onClick="{{it.open}}"><svg class="icon" aria-hidden="true"><use href="#i-chats"></use></svg>Open conversation</button>
+                    <div class="menu-sep"></div>
+                    <span class="menu-label">Dismiss because…</span>
+                    <sc-for list="{{it.reasons}}" as="r" hint-placeholder-count="3"><button type="button" class="menu-item" role="menuitem" onClick="{{r.pick}}">{{r.label}}</button></sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{noItems}}" hint-placeholder-val="{{ false }}">
+          <div class="row"><span class="tile tile-success"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg></span><div class="row-text"><span class="row-title">Nothing needs you</span><span class="row-sub">Wrong answers, new leads and missed replies show up here.</span></div></div>
+        </sc-if>
+      </section>
+
+      <section class="card metrics" aria-label="Last 24 hours">
+        <div class="metric"><span class="xs t3">Chats · last 24 hours</span><span class="metric-value">{{m.chats}}</span><span class="xs t2">{{m.chatsSub}}</span></div>
+        <div class="metric"><span class="xs t3">Waiting for your team</span><span class="metric-value is-zero">0</span><span class="xs t2">All handled</span></div>
+        <div class="metric"><span class="xs t3">Replies not delivered</span><span class="metric-value is-zero">0</span><span class="xs t2">All delivered</span></div>
+      </section>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 24px">
+        <section class="card" aria-labelledby="as-h">
+          <div class="card-head"><h2 id="as-h" class="card-title">Assistants</h2><button type="button" class="btn btn-sm btn-ghost" onClick="{{goAssistants}}">View all</button></div>
+          <sc-for list="{{agentRows}}" as="a" hint-placeholder-count="3">
+            <button type="button" class="row" onClick="{{a.open}}">
+              <span class="{{a.avClass}}">{{a.initials}}</span>
+              <span class="row-text"><span class="row-flex"><span class="row-title truncate">{{a.name}}</span><sc-if value="{{a.example}}" hint-placeholder-val="{{ false }}"><span class="badge example">Example</span></sc-if></span><span class="status"><span class="{{a.dot}}"></span>{{a.status}}</span></span>
+              <span class="row-meta">{{a.chats}}</span>
+            </button>
+          </sc-for>
+        </section>
+
+        <section class="card" aria-labelledby="rc-h">
+          <div class="card-head"><h2 id="rc-h" class="card-title">Recent conversations</h2><sc-if value="{{hasRecent}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-sm btn-ghost" onClick="{{goConversations}}">View all</button></sc-if></div>
+          <sc-if value="{{hasRecent}}" hint-placeholder-val="{{ true }}">
+            <button type="button" class="row top" onClick="{{goConversations}}">
+              <span class="avatar"><svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg><span class="avatar-badge logo sm logo-api"><svg aria-hidden="true"><use href="#i-bolt"></use></svg></span></span>
+              <span class="row-text"><span class="row-flex"><span class="row-title">Visitor 9875</span><span class="spacer"></span><span class="row-meta">2:39 PM</span></span><span class="row-sub clamp-2" lang="vi">Dạ ghế pedicure bảo hành 12 tháng lỗi sản xuất và 3 năm cho hệ thống massage ạ. Trong 2 giờ lái xe thì kỹ thuật đến bảo hành trực tiếp…</span></span>
+            </button>
+            <button type="button" class="row top" onClick="{{goConversations}}">
+              <span class="avatar">ST<span class="avatar-badge logo sm logo-api"><svg aria-hidden="true"><use href="#i-bolt"></use></svg></span></span>
+              <span class="row-text"><span class="row-flex"><span class="row-title">Smoke Test</span><span class="spacer"></span><span class="row-meta">2:38 PM</span></span><span class="row-sub clamp-2" lang="vi">Dạ có anh/chị, ghế Birkin M4 có massage ạ. Ghế có đỡ toàn thân, đệm êm ôm dáng, gác chân và lưng ngả đều chỉnh được…</span></span>
+            </button>
+          </sc-if>
+          <sc-if value="{{noRecent}}" hint-placeholder-val="{{ false }}">
+            <div class="empty"><span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-chats"></use></svg></span><h3 class="empty-title">No conversations yet</h3><p class="empty-text">Chats appear here once a channel is connected.</p></div>
+          </sc-if>
+        </section>
+      </div>
+    </sc-if>
+  </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"agents":{"editor":null},"published":{"editor":null},"version":{"editor":null},"fixPending":{"editor":null},"fixFailing":{"editor":null},"onGo":{"editor":null},"onOpenAgent":{"editor":null},"onFix":{"editor":null},"onPublish":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dismissed: {}, menuFor: null, agentFilter: 'all' };
+  }
+  renderVals() {
+    const p = this.props;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const version = p.version || 3;
+    const agents = p.agents || [
+      { id: 'a1', name: 'Mr Spa Consultant', initials: 'MS', color: 'av-1', status: 'live', version: 3, chats: '2 chats today' },
+      { id: 'a3', name: 'After-sales support', initials: 'AS', color: 'av-3', status: 'live', version: 1, chats: '5 chats today', example: true },
+      { id: 'a2', name: 'Booking assistant', initials: 'BA', color: 'av-2', status: 'draft', version: 0, chats: 'Not live yet', example: true }
+    ];
+    const toast = (m, a, f) => { if (p.onToast) p.onToast(m, a, f); };
+    const go = (x) => { this.setState({ menuFor: null }); if (p.onGo) p.onGo(x); else toast('Opens ' + x); };
+    const fix = () => { this.setState({ menuFor: null }); if (p.onFix) p.onFix(); else toast('Opens “Fix this answer”'); };
+    const q = '“Có ưu đãi gì nếu mua 8 ghế không?”';
+    let list = [];
+    if (p.fixFailing) list.push({ id: 'failing', agent: 'a1', tone: 'danger', icon: 'error', title: 'Fix kept but failing', sub: 'Mr Spa Consultant · ' + q + ' still fails its scenario', label: 'Try again', kind: 'outline', act: fix });
+    if (p.fixPending) list.push({ id: 'pending', agent: 'a1', tone: 'info', icon: 'wrench', title: 'Fix not live yet', sub: 'Mr Spa Consultant · customers still see version ' + version, label: 'Publish', kind: 'primary', act: () => { if (p.onPublish) p.onPublish(); } });
+    list.push({ id: 'price', agent: 'a1', tone: 'warning', icon: 'warning', title: 'Price given without checking Data', sub: 'Mr Spa Consultant · ' + q + ' · Visitor 9875 · 2 h ago', label: 'Fix', kind: 'outline', act: fix });
+    list.push({ id: 'lead', agent: 'a1', tone: 'info', icon: 'user-add', title: 'New lead to contact', sub: 'Visitor 4F2A left a phone number · reply within 19 h', label: 'Open', kind: 'outline', act: () => go('conversations') });
+    list.push({ id: 'team', agent: 'a3', tone: '', icon: 'pause', title: 'Your team is replying', sub: 'After-sales support · Messenger chat paused for 3 h', label: 'Open', kind: 'outline', act: () => go('conversations') });
+    const f = this.state.agentFilter;
+    list = list.filter((x) => !this.state.dismissed[x.id] && (f === 'all' || x.agent === f));
+    const reasons = ['The answer was fine', 'Already handled', 'Not a real customer'];
+    const items = list.map((x) => ({
+      title: x.title, sub: x.sub, primaryLabel: x.label, href: '#i-' + x.icon,
+      tileClass: 'tile' + (x.tone ? ' tile-' + x.tone : ''),
+      btnClass: 'btn btn-sm btn-' + x.kind,
+      primary: x.act,
+      menuOpen: this.state.menuFor === x.id,
+      toggleMenu: () => this.setState({ menuFor: this.state.menuFor === x.id ? null : x.id }),
+      open: () => go('conversations'),
+      reasons: reasons.map((r) => ({ label: r, pick: () => {
+        const d = Object.assign({}, this.state.dismissed); d[x.id] = true;
+        this.setState({ dismissed: d, menuFor: null });
+        toast('Dismissed', 'Undo', () => { const u = Object.assign({}, this.state.dismissed); delete u[x.id]; this.setState({ dismissed: u }); });
+      } }))
+    }));
+    const steps = [
+      { title: 'Add your AI key', sub: 'Done — the connection works.', done: true },
+      { title: 'Create your assistant', sub: 'Done — Mr Spa Consultant is a draft.', done: true },
+      { title: 'Describe your business', sub: 'What you sell, your hours, how to sound.', cta: 'Open instructions', target: 'assistants', next: true },
+      { title: 'Add knowledge', sub: 'Policies, buying guides or your website.', cta: 'Add knowledge', target: 'assistants' },
+      { title: 'Add your prices and offers', sub: 'So answers about money are always current.', cta: 'Open Data', target: 'data' },
+      { title: 'Publish and connect a channel', sub: 'Messenger, WhatsApp, Instagram and more.', cta: 'Add a channel', target: 'channels' }
+    ].map((c) => ({ title: c.title, sub: c.sub, done: !!c.done, todo: !c.done, cta: c.cta || '', markClass: c.done ? 'check-mark is-done' : 'check-mark', btnClass: c.next ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline', go: () => go(c.target) }));
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', loading: ui === 'loading', empty: ui === 'empty', ready: ui === 'normal' || ui === 'error' },
+      agentOptions: agents.map((a) => ({ id: a.id, name: a.name })),
+      pickAgent: (e) => this.setState({ agentFilter: e.target.value }),
+      items: items, hasItems: items.length > 0, noItems: items.length === 0, itemCount: String(items.length),
+      steps: steps,
+      m: { chats: '2', chatsSub: '2 this week' },
+      agentRows: agents.slice(0, 4).map((a) => ({
+        name: a.name, initials: a.initials, avClass: 'agent-av sm ' + a.color, example: !!a.example, chats: a.chats,
+        status: a.status === 'draft' ? 'Draft · not published' : a.unpublished ? 'Live · version ' + a.version + ' · unpublished changes' : 'Live · version ' + a.version,
+        dot: a.status === 'draft' ? 'dot dot-gray' : a.unpublished ? 'dot dot-orange' : 'dot dot-green',
+        open: () => { if (p.onOpenAgent) p.onOpenAgent(a.id); else toast('Opens ' + a.name); }
+      })),
+      hasRecent: true, noRecent: false,
+      goAssistants: () => go('assistants'),
+      goConversations: () => go('conversations'),
+      retry: () => { if (p.onRetry) p.onRetry(); else toast('Trying again…'); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Assistants</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" data-theme="{{theme}}" style="font-family: var(--font-sans); color: var(--color-text)">
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{ false }}"><dc-import name="Icons" sprite="{{yes}}" hint-size="0px,0px"></dc-import></sc-if>
+  <div class="{{padClass}}">
+  <div class="page">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Assistants</h1>
+        <p class="page-sub">Each assistant has its own instructions, knowledge and channels. Data tables are shared.</p>
+      </div>
+      <button type="button" class="btn btn-primary" onClick="{{openCreate}}"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>New assistant</button>
+    </header>
+
+    <sc-if value="{{st.error}}" hint-placeholder-val="{{ false }}">
+      <div class="alert-box alert-danger" role="alert"><svg class="icon" aria-hidden="true"><use href="#i-error"></use></svg><div class="alert-body"><span class="alert-title">Couldn’t load the latest numbers</span><span class="alert-text">Your assistants are still answering. Chat counts may be out of date.</span><div class="alert-actions"><button type="button" class="btn btn-sm btn-outline" onClick="{{retry}}">Try again</button></div></div></div>
+    </sc-if>
+
+    <sc-if value="{{st.loading}}" hint-placeholder-val="{{ false }}">
+      <div class="agent-grid" aria-busy="true">
+        <div class="agent-card" style="cursor: default"><span class="skel" style="width: 40px; height: 40px; border-radius: 10px"></span><span class="skel skel-line" style="width: 60%"></span><span class="skel skel-line" style="width: 90%"></span></div>
+        <div class="agent-card" style="cursor: default"><span class="skel" style="width: 40px; height: 40px; border-radius: 10px"></span><span class="skel skel-line" style="width: 50%"></span><span class="skel skel-line" style="width: 80%"></span></div>
+        <div class="agent-card" style="cursor: default"><span class="skel" style="width: 40px; height: 40px; border-radius: 10px"></span><span class="skel skel-line" style="width: 55%"></span><span class="skel skel-line" style="width: 85%"></span></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{st.empty}}" hint-placeholder-val="{{ false }}">
+      <div class="card"><div class="empty">
+        <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-robot"></use></svg></span>
+        <h2 class="empty-title">Create your first assistant</h2>
+        <p class="empty-text">Start from a template for sales, support or bookings, or from a blank page. You can test it privately before customers see it.</p>
+        <button type="button" class="btn btn-primary" onClick="{{openCreate}}">New assistant</button>
+      </div></div>
+    </sc-if>
+
+    <sc-if value="{{st.ready}}" hint-placeholder-val="{{ true }}">
+      <div class="agent-grid">
+        <sc-for list="{{cards}}" as="a" hint-placeholder-count="3">
+          <div class="agent-card" style="position: relative">
+            <div class="row-flex" style="align-items: flex-start">
+              <span class="{{a.avClass}}">{{a.initials}}</span>
+              <span class="spacer"></span>
+              <sc-if value="{{a.example}}" hint-placeholder-val="{{ false }}"><span class="badge example">Example</span></sc-if>
+              <div class="menu-anchor">
+                <button type="button" class="btn btn-sm btn-ghost btn-icon" aria-label="Actions for {{a.name}}" aria-haspopup="menu" aria-expanded="{{a.menuOpen}}" onClick="{{a.toggleMenu}}"><svg class="icon" aria-hidden="true"><use href="#i-dots"></use></svg></button>
+                <sc-if value="{{a.menuOpen}}" hint-placeholder-val="{{ false }}">
+                  <div class="menu" role="menu">
+                    <button type="button" class="menu-item" role="menuitem" onClick="{{a.open}}"><svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg>Edit</button>
+                    <button type="button" class="menu-item" role="menuitem" onClick="{{a.duplicate}}"><svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>Duplicate</button>
+                    <button type="button" class="menu-item" role="menuitem" onClick="{{a.pause}}"><svg class="icon" aria-hidden="true"><use href="#i-pause"></use></svg>{{a.pauseLabel}}</button>
+                    <div class="menu-sep"></div>
+                    <button type="button" class="menu-item is-danger" role="menuitem" onClick="{{a.del}}"><svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>Delete…</button>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <button type="button" onClick="{{a.open}}" style="all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 4px">
+              <span class="strong" style="font: var(--text-heading-xs)">{{a.name}}</span>
+              <span class="t2 clamp-2" lang="{{a.lang}}">{{a.desc}}</span>
+            </button>
+            <div class="agent-foot">
+              <span class="status"><span class="{{a.dot}}"></span>{{a.status}}</span>
+              <span class="spacer"></span>
+              <span class="logo-stack">
+                <sc-for list="{{a.logos}}" as="l" hint-placeholder-count="2"><span class="{{l.cls}}" title="{{l.name}}"><svg aria-hidden="true"><use href="{{l.href}}"></use></svg></span></sc-for>
+              </span>
+              <span>{{a.chats}}</span>
+            </div>
+          </div>
+        </sc-for>
+        <button type="button" class="agent-card new" onClick="{{openCreate}}">
+          <span class="empty-icon" style="margin: 0"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg></span>
+          <span class="medium">New assistant</span>
+          <span class="xs t3">From a template or blank</span>
+        </button>
+      </div>
+    </sc-if>
+  </div>
+  </div>
+
+  <sc-if value="{{create.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop">
+      <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="na-t">
+        <span class="sheet-grabber" aria-hidden="true"></span>
+        <div class="sheet-header">
+          <div class="spacer"><h2 id="na-t" class="sheet-title">New assistant</h2><p class="sheet-sub">It starts as a private draft. Test it, then publish when you’re happy.</p></div>
+          <button type="button" class="btn btn-ghost btn-icon" aria-label="Close" onClick="{{create.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg></button>
+        </div>
+        <div class="sheet-body">
+          <div class="field">
+            <span class="field-label">Start from</span>
+            <div class="template-grid" role="radiogroup" aria-label="Start from">
+              <sc-for list="{{create.starts}}" as="t" hint-placeholder-count="5">
+                <button type="button" class="choice" role="radio" aria-checked="{{t.on}}" onClick="{{t.pick}}" style="align-items: flex-start">
+                  <span class="{{t.tile}}"><svg class="icon" aria-hidden="true"><use href="{{t.href}}"></use></svg></span>
+                  <span class="row-text"><span class="row-title">{{t.title}}</span><span class="xs t2">{{t.sub}}</span></span>
+                  <span class="radio-dot" aria-hidden="true"></span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <label class="field"><span class="field-label">Name</span><input class="input" type="text" placeholder="e.g. Booking assistant" value="{{create.name}}" onChange="{{create.typeName}}"><span class="help">Only you see this name. Customers see your business name.</span></label>
+          <label class="field"><span class="field-label">What should it do?</span><textarea class="textarea" rows="3" placeholder="Book showroom visits and installation appointments, and collect the customer’s phone number." value="{{create.desc}}" onChange="{{create.typeDesc}}"></textarea><span class="help">One or two sentences. You can add details in Instructions next.</span></label>
+          <div class="alert-box alert-info"><svg class="icon" aria-hidden="true"><use href="#i-info"></use></svg><div class="alert-body"><span class="alert-text">Data tables are shared by all assistants. You’ll choose which tables this one can look up.</span></div></div>
+        </div>
+        <div class="sheet-footer">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-outline" onClick="{{create.close}}">Cancel</button>
+          <button type="button" class="btn btn-primary" onClick="{{create.submit}}" disabled="{{create.noName}}">Create assistant</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{confirmDel.show}}" hint-placeholder-val="{{ false }}">
+    <div class="sheet-backdrop">
+      <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dl-t">
+        <h2 id="dl-t" class="dialog-title">Delete {{confirmDel.name}}?</h2>
+        <p class="dialog-text">Its instructions, knowledge and versions are deleted. Its channels stop answering. Conversations and Data stay.</p>
+        <div class="dialog-actions"><button type="button" class="btn btn-outline" onClick="{{confirmDel.cancel}}">Cancel</button><button type="button" class="btn btn-danger" onClick="{{confirmDel.ok}}">Delete</button></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"uiState":{"editor":"enum","options":["normal","empty","loading","error"],"default":"normal"},"embedded":{"editor":null},"agents":{"editor":null},"createOpen":{"editor":null},"onOpenAgent":{"editor":null},"onCreate":{"editor":null},"onCloseCreate":{"editor":null},"onOpenCreate":{"editor":null},"onToast":{"editor":null},"onRetry":{"editor":null},"$preview":{"width":1200,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { menuFor: null, localCreate: false, start: 'blank', name: '', desc: '', del: null, paused: {} };
+  }
+  renderVals() {
+    const p = this.props;
+    const s = this.state;
+    const ui = p.uiState || 'normal';
+    const embedded = !!p.embedded;
+    const toast = (m, a, f) => { if (p.onToast) p.onToast(m, a, f); };
+    const agents = p.agents || [
+      { id: 'a1', name: 'Mr Spa Consultant', initials: 'MS', color: 'av-1', desc: 'Tư vấn sản phẩm salon, chính sách và ưu đãi cho chủ tiệm nail.', status: 'live', version: 3, channels: ['api'], chats: '2 chats today' },
+      { id: 'a3', name: 'After-sales support', initials: 'AS', color: 'av-3', desc: 'Warranty claims, spare parts and repair visits for existing customers.', status: 'live', version: 1, channels: ['messenger', 'whatsapp'], chats: '5 chats today', example: true },
+      { id: 'a2', name: 'Booking assistant', initials: 'BA', color: 'av-2', desc: 'Books showroom visits and installation appointments.', status: 'draft', version: 0, channels: [], chats: 'Not live yet', example: true }
+    ];
+    const logoOf = (c) => c === 'api' ? { cls: 'logo sm logo-api', href: '#i-bolt', name: 'API' } : { cls: 'logo sm logo-' + c, href: '#logo-' + c, name: c };
+    const createShow = embedded ? !!p.createOpen : s.localCreate;
+    const closeCreate = () => { this.setState({ localCreate: false, name: '', desc: '', start: 'blank' }); if (p.onCloseCreate) p.onCloseCreate(); };
+    const openCreate = () => { if (p.onOpenCreate) p.onOpenCreate(); else this.setState({ localCreate: true }); };
+    const starts = [
+      { id: 'blank', title: 'Blank', sub: 'Write everything yourself', href: '#i-document', tile: 'tile' },
+      { id: 'copy', title: 'Copy Mr Spa Consultant', sub: 'Same instructions and knowledge, no channels', href: '#i-copy', tile: 'tile' },
+      { id: 'sales', title: 'Sales consultant', sub: 'Recommends products, quotes from Data', href: '#i-tag', tile: 'tile tile-info' },
+      { id: 'support', title: 'Customer support', sub: 'Warranty, returns and repairs', href: '#i-users', tile: 'tile tile-success' },
+      { id: 'booking', title: 'Appointment booking', sub: 'Collects a time, name and phone', href: '#i-calendar', tile: 'tile tile-warning' }
+    ];
+    return {
+      yes: true,
+      theme: p.theme || 'light',
+      standalone: !embedded,
+      rootClass: embedded ? 'page-host' : 'app',
+      padClass: embedded ? '' : 'content',
+      st: { error: ui === 'error', loading: ui === 'loading', empty: ui === 'empty', ready: ui === 'normal' || ui === 'error' },
+      retry: () => { if (p.onRetry) p.onRetry(); },
+      openCreate: openCreate,
+      cards: agents.map((a) => {
+        const paused = !!s.paused[a.id];
+        return {
+          name: a.name, initials: a.initials, desc: a.desc || 'No description yet.', example: !!a.example, chats: a.chats,
+          lang: /[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỷỹ]/i.test(a.desc || '') ? 'vi' : 'en',
+          avClass: 'agent-av ' + a.color,
+          status: paused ? 'Paused' : a.status === 'draft' ? 'Draft' : a.unpublished ? 'Live · v' + a.version + ' · changes' : 'Live · v' + a.version,
+          dot: paused ? 'dot dot-gray' : a.status === 'draft' ? 'dot dot-gray' : a.unpublished ? 'dot dot-orange' : 'dot dot-green',
+          logos: (a.channels || []).map(logoOf),
+          menuOpen: s.menuFor === a.id,
+          pauseLabel: paused ? 'Resume' : 'Pause',
+          toggleMenu: () => this.setState({ menuFor: s.menuFor === a.id ? null : a.id }),
+          open: () => { this.setState({ menuFor: null }); if (p.onOpenAgent) p.onOpenAgent(a.id); else toast('Opens ' + a.name); },
+          duplicate: () => { this.setState({ menuFor: null }); if (p.onCreate) p.onCreate({ name: a.name + ' copy', desc: a.desc }); },
+          pause: () => { const pz = Object.assign({}, s.paused); pz[a.id] = !paused; this.setState({ paused: pz, menuFor: null }); toast(paused ? a.name + ' is answering again' : a.name + ' paused — its channels send the fallback reply'); },
+          del: () => this.setState({ del: a, menuFor: null })
+        };
+      }),
+      create: {
+        show: createShow,
+        starts: starts.map((t) => Object.assign({}, t, { on: s.start === t.id, pick: () => this.setState({ start: t.id, name: s.name || (t.id === 'blank' ? '' : t.id === 'copy' ? 'Mr Spa Consultant copy' : t.title) }) })),
+        name: s.name, desc: s.desc,
+        typeName: (e) => this.setState({ name: e.target.value }),
+        typeDesc: (e) => this.setState({ desc: e.target.value }),
+        noName: !s.name.trim(),
+        close: closeCreate,
+        submit: () => { const a = { name: s.name.trim(), desc: s.desc.trim(), start: s.start }; this.setState({ localCreate: false, name: '', desc: '', start: 'blank' }); if (p.onCreate) p.onCreate(a); else toast('Created ' + a.name); }
+      },
+      confirmDel: {
+        show: !!s.del, name: s.del ? s.del.name : '',
+        cancel: () => this.setState({ del: null }),
+        ok: () => { const n = s.del.name; this.setState({ del: null }); toast(n + ' deleted', 'Undo', () => {}); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
