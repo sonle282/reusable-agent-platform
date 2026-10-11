@@ -271,8 +271,9 @@ html, body, #root { min-height: 100%; }
 body { margin: 0; color: var(--color-label); font: var(--text-body); }
 .app { font: var(--text-body); letter-spacing: var(--track-body); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .page-host { min-width: 0; }
-.app :where(button, input, textarea, select) { font: inherit; color: inherit; letter-spacing: inherit; }
-.app :where(a) { color: var(--color-link); text-decoration: none; }
+/* Zero specificity so any component class (.btn-filled, .row…) always wins over the reset. */
+:where(.app) :where(button, input, textarea, select) { font: inherit; color: inherit; letter-spacing: inherit; }
+:where(.app) :where(a) { color: var(--color-link); text-decoration: none; }
 .app :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; border-radius: 6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .icon { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
