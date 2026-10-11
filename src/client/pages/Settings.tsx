@@ -4,12 +4,11 @@ import { formatDate } from "../format";
 import type { ThemeChoice } from "../theme";
 import type { Brand } from "../types";
 import { Alert, Button, Disclosure, errorMessage, Field, Icon, initialsOf, PageHeader, Segmented, SettingRow, TextInput, Tile, useToast } from "../ui";
-import { AnswerChecks, modelLabel } from "./Assistant";
+import { modelLabel } from "./Assistant";
 
 type Check = { state: "idle" | "checking" | "ok" | "failed"; detail?: string };
 
 export function SettingsPage({
-  agentId,
   zernio,
   onManageChannels,
   brand,
@@ -19,7 +18,6 @@ export function SettingsPage({
   themeChoice,
   setThemeChoice,
 }: {
-  agentId: string;
   zernio: boolean;
   onManageChannels: () => void;
   brand: Brand;
@@ -252,12 +250,6 @@ export function SettingsPage({
                 {zernio ? "Manage" : "Connect"}
               </Button>
             </div>
-          </div>
-        </Group>
-
-        <Group title="Answer checks" help="Publish already checks the required answers for you. Run every check here after a big change.">
-          <div className="card">
-            <AnswerChecks agentId={agentId} />
           </div>
         </Group>
 

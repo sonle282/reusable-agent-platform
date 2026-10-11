@@ -470,8 +470,13 @@ export function Tabs<T extends string>({
     value,
     onChange,
   );
+  const list = useRef<HTMLDivElement>(null);
+  // Scrolling tabs (phone): keep the selected one in view.
+  useEffect(() => {
+    if (scroll) list.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [scroll, value]);
   return (
-    <div className={`tabs${scroll ? " scroll" : ""}`} role="tablist" aria-label={label}>
+    <div ref={list} className={`tabs${scroll ? " scroll" : ""}`} role="tablist" aria-label={label}>
       {options.map((option) => (
         <button
           type="button"

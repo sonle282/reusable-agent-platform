@@ -308,8 +308,11 @@ app.post("/api/admin/agents/:id/evaluate", async (c) => {
   return c.json({ id: runId, passed, scope, results });
 });
 
+// What a check expects from a reply. addedBy marks checks the owner added in Assistant › Checks.
+const checkAssertions = z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional(), fromFix: z.string().optional(), criteria: z.string().trim().max(500).optional(), addedBy: z.literal("owner").optional() });
+
 app.post("/api/admin/agents/:id/eval-cases", async (c) => {
-  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional(), fromFix: z.string().optional(), criteria: z.string().trim().max(500).optional() }), critical: z.boolean().default(false) }).parse(await c.req.json());
+  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: checkAssertions, critical: z.boolean().default(false) }).parse(await c.req.json());
   const caseId = id("case");
   await c.env.DB.prepare("INSERT INTO eval_cases(id,agent_id,name,input,assertions_json,critical) VALUES(?,?,?,?,?,?)")
     .bind(caseId, c.req.param("id"), body.name, body.input, JSON.stringify(body.assertions), body.critical ? 1 : 0).run();
@@ -317,7 +320,7 @@ app.post("/api/admin/agents/:id/eval-cases", async (c) => {
 });
 
 app.patch("/api/admin/eval-cases/:caseId", async (c) => {
-  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional(), fromFix: z.string().optional(), criteria: z.string().trim().max(500).optional() }), critical: z.boolean() }).parse(await c.req.json());
+  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: checkAssertions, critical: z.boolean() }).parse(await c.req.json());
   const result = await c.env.DB.prepare("UPDATE eval_cases SET name=?,input=?,assertions_json=?,critical=? WHERE id=?").bind(body.name, body.input, JSON.stringify(body.assertions), body.critical ? 1 : 0, c.req.param("caseId")).run();
   if (!result.meta.changes) return c.json({ error: "Scenario not found" }, 404);
   return c.json({ id: c.req.param("caseId"), ...body });

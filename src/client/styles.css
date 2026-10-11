@@ -785,6 +785,7 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .textarea.diff-input:focus { box-shadow: none; }
 .choice .row-text { gap: 0; }
 .icon.flip { transform: rotate(180deg); }
+@container app (max-width: 859px) { .card-head { flex-wrap: wrap; } }
 
 /* Conversations */
 .thread-alert { border-radius: 0; padding: 10px 24px; }

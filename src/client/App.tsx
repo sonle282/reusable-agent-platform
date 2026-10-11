@@ -32,7 +32,7 @@ const tabs: Array<{ id: Page; short: string; icon: string }> = [
   { id: "channels", short: "Channels", icon: "link" },
   { id: "settings", short: "Settings", icon: "settings" },
 ];
-const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "followups", "behavior", "versions"];
+const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "followups", "behavior", "checks", "versions"];
 
 const defaultBrand: Brand = { name: "Assistant", logoUrl: "", primaryColor: "#007aff", supportUrl: "" };
 
@@ -164,7 +164,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
         {page === "data" && <DataPage agent={agent} collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id, recordId) => (id ? go("data", undefined, id, ...(recordId ? [recordId] : [])) : go("data"))} />}
         {page === "conversations" && <ConversationsPage agentId={agent.id} agentName={agent.name} connections={data.connections} openId={params[0]} onOpen={(id) => (id ? go("conversations", undefined, id) : go("conversations"))} onOpenSettings={() => go("settings")} />}
         {page === "channels" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} onOpenAssistant={() => go("assistant")} />}
-        {page === "settings" && <SettingsPage agentId={agent.id} zernio={data.connections.some((connection) => connection.type === "zernio" && connection.status === "active")} onManageChannels={() => go("channels")} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
+        {page === "settings" && <SettingsPage zernio={data.connections.some((connection) => connection.type === "zernio" && connection.status === "active")} onManageChannels={() => go("channels")} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
       </main>
       <nav className="tabbar" aria-label="Main">
         {tabs.map((item) => (
