@@ -528,7 +528,7 @@ export function Chips<T extends string>({
       {options.map((option) => (
         <button type="button" key={option.value} className="chip" aria-pressed={option.value === value} onClick={() => onChange(option.value)}>
           {option.label}
-          {option.count !== undefined && <span className="count tabular">{option.count}</span>}
+          {Boolean(option.count) && <span className="count tabular">{option.count}</span>}
         </button>
       ))}
     </div>

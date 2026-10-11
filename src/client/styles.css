@@ -669,6 +669,11 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .lead-who { width: 100%; gap: 12px; align-items: flex-start; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
 .lead-who .stack { min-width: 0; }
 .lead-col { width: 34%; }
+.chip .count { color: var(--color-text-3); font-weight: 500; opacity: 1; }
+.chip[aria-pressed="true"] .count { color: inherit; opacity: 0.75; }
+/* Activity: dots joined by a line. */
+.timeline .tl-item { position: relative; }
+.timeline .tl-item:not(:last-child)::before { content: ""; position: absolute; left: 3.5px; top: 18px; bottom: -6px; width: 1px; background: var(--color-border-strong); }
 @container app (max-width: 859px) { .lead-col { width: 56%; } }
 .avatar-badge.logo { width: 14px; height: 14px; right: -3px; bottom: -3px; border-radius: var(--radius-xs); box-shadow: 0 0 0 2px var(--color-surface); }
 .avatar-badge.logo svg, .avatar-badge.logo .icon { width: 9px; height: 9px; }

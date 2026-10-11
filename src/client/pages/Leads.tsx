@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, del, patch } from "../api";
 import { formatPhone } from "../../shared/contact";
-import { displayName, formatDate } from "../format";
+import { displayName, formatDate, parseDate } from "../format";
 import { platformKey, platformName } from "../platform";
 import { AgentAvatar, Alert, AvatarWithChannel, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, PageHeader, Segmented, Skeleton, Table, TextArea, useToast } from "../ui";
 
@@ -146,7 +146,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
                         </button>
                       </td>
                       <td>
-                        <span className="clamp-2">{lead.lead_summary || <span className="t3">No summary yet</span>}</span>
+                        <span className="clamp-2">{lead.lead_summary || <span className="t3">—</span>}</span>
                         <span className="row-flex xs t3" style={{ marginTop: 4 }}>
                           {lead.agent_name && <AgentAvatar id={lead.agent_id ?? lead.agent_name} name={lead.agent_name} size="xs" />}
                           <span className="truncate">{[lead.agent_name, lead.followup ? "Follow-up sent" : ""].filter(Boolean).join(" · ")}</span>
@@ -189,6 +189,7 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [error, setError] = useState("");
   const [notes, setNotes] = useState("");
+  const [notesSaved, setNotesSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   async function load() {
     try {
@@ -204,6 +205,7 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
     try {
       await patch(`/api/admin/leads/${encodeURIComponent(id)}`, change);
       if (change.status) toast(`Marked ${statusLabel[change.status]}`);
+      if (change.notes !== undefined) setNotesSaved(true);
       await Promise.all([load(), onChanged()]);
     } catch (caught) {
       toast(errorMessage(caught, "Couldn't save the lead"), "error");
@@ -225,7 +227,9 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
                 Delete lead
               </Button>
               <span className="spacer" />
-              <Button onClick={onClose}>Done</Button>
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
             </>
           )
         }
@@ -236,7 +240,7 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
           <>
             <div className="row-flex" style={{ flexWrap: "wrap" }}>
               {lead.phone && (
-                <a className="btn btn-primary" href={`tel:${lead.phone}`}>
+                <a className="btn btn-primary tabular" href={`tel:${lead.phone}`}>
                   <Icon name="phone" size={18} />
                   Call {phone}
                 </a>
@@ -295,7 +299,7 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
             <div className="stack" style={{ gap: 4 }}>
               <span className="field-label">Activity</span>
               <ol className="timeline" style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                {lead.activity.map((item, index) => (
+                {activityList(lead.activity).map((item, index) => (
                   <li key={`${item.kind}-${index}`} className="tl-item is-on">
                     <span className="tl-dot" aria-hidden="true" />
                     <span className="stack" style={{ gap: 0 }}>
@@ -306,8 +310,16 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
                 ))}
               </ol>
             </div>
-            <Field label="Notes">
-              <TextArea rows={3} value={notes} placeholder="Only your team sees this" onChange={(event) => setNotes(event.target.value)} onBlur={() => notes !== lead.lead_notes && void save({ notes })} />
+            <Field label="Notes" counter={notesSaved ? "Saved" : undefined} hint="Only your team sees this. Saved when you click away.">
+              <TextArea
+                rows={3}
+                value={notes}
+                onChange={(event) => {
+                  setNotes(event.target.value);
+                  setNotesSaved(false);
+                }}
+                onBlur={() => notes !== lead.lead_notes && void save({ notes })}
+              />
             </Field>
           </>
         )}
@@ -336,9 +348,22 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
   );
 }
 
-function activityText(item: { kind: string; detail: Record<string, unknown> }) {
+type Activity = { kind: string; at: string; detail: Record<string, unknown> };
+
+// Newest first; status clicks less than 2 minutes apart read as one change (the last one).
+function activityList(items: Activity[]) {
+  const time = (item: Activity) => parseDate(item.at)?.getTime() ?? 0;
+  const sorted = [...items].sort((a, b) => time(b) - time(a));
+  return sorted.filter((item, index) => {
+    if (item.kind !== "status" || index === 0) return true;
+    const newer = sorted[index - 1];
+    return !(newer.kind === "status" && time(newer) - time(item) < 120_000);
+  });
+}
+
+function activityText(item: Activity) {
   if (item.kind === "created") return "Left contact details — lead created";
-  if (item.kind === "status") return `Marked ${statusLabel[item.detail.to as LeadStatus] ?? String(item.detail.to)}`;
+  if (item.kind === "status") return `Status set to ${statusLabel[item.detail.to as LeadStatus] ?? String(item.detail.to)}`;
   if (item.kind === "followup_sent") return `Follow-up ${String(item.detail.step ?? "")} sent`.replace("  ", " ");
   if (item.kind === "followup_skipped") return `Follow-up ${String(item.detail.step ?? "")} skipped · ${String(item.detail.reason ?? "")}`;
   return item.kind;
