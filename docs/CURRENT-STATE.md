@@ -58,6 +58,15 @@ The repository contains a working single-tenant, multi-agent platform in one Clo
 - AES-GCM encrypted external credentials, PBKDF2 password hashes, signed HttpOnly sessions, CSRF/origin checks, login lockout, API-key rate limits, SSRF/MIME protections, and log redaction.
 - Mr Spa fixture importer without tenant-specific runtime branches.
 
+## Mr Spa go-live on Messenger (in progress, 2026-10-11)
+
+Runbook and confirmed data live outside this repo in `../mrspa-agent-data/` (`GO-LIVE.md`, `final/`). Nothing from it is committed here.
+
+- **Live version: v8** (`ver_8d4e56c709df4da69125292c784a809f`), published 2026-10-11. Data matches `final/`: 73 products (P071 kept), 14 offers (9 active; OF-010/OF-011 end 2027-01-31 ET), 34 policies, 7 knowledge sources (4 older sources switched off), 33 scenarios (30 from `final/` + 3 builder guards), 16 required.
+- Data tables now use **English keys** (`Mr Spa Products/Offers/Policies`, slugs `mr-spa-*`); the old Vietnamese-key tables are archived as "… (old keys)".
+- Last run on v8's draft: 16/16 required pass, 16/17 optional (the "Bớt thêm" wording check).
+- **Go-live date: not yet.** Remaining: connect the Mr Spa Fanpage in Zernio (only Freedom Business is connected today), turn off ManyChat's auto replies on that page first, then add the channel in Channels; owner test by chị Quý; offer pictures (`image_url` on OF-010/OF-011) when the files exist.
+
 ## Admin v2.1 (2026-10-11)
 
 Source: `docs/product/design-v2.1/HANDOFF.md`. **Scope rule (owner, 2026-10-11): build what Mr Spa uses now, scale later (KISS).** Single-owner install stays. Not in this round: SMS or email lead alerts, password reset by email, sign-up, onboarding, billing, multi-workspace, an own Meta app.
