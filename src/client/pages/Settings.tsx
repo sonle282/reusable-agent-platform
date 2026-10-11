@@ -4,11 +4,12 @@ import { formatDate } from "../format";
 import type { ThemeChoice } from "../theme";
 import type { Brand } from "../types";
 import { Banner, Button, Disclosure, FieldRow, Icon, PageHeader, Section, Segmented, TextInput, errorMessage, useToast } from "../ui";
-import { modelLabel } from "./Assistant";
+import { AnswerChecks, modelLabel } from "./Assistant";
 
 type Check = { state: "idle" | "checking" | "ok" | "failed"; detail?: string };
 
 export function SettingsPage({
+  agentId,
   brand,
   modelDefaults,
   reload,
@@ -16,6 +17,7 @@ export function SettingsPage({
   themeChoice,
   setThemeChoice,
 }: {
+  agentId: string;
   brand: Brand;
   modelDefaults: Record<string, unknown>;
   reload: () => Promise<void>;
@@ -229,6 +231,10 @@ export function SettingsPage({
               ]}
             />
           </div>
+        </Section>
+
+        <Section title="Answer checks" footer="Publish already checks the required answers for you. Run every check here after a big change.">
+          <AnswerChecks agentId={agentId} />
         </Section>
 
         <Section title="Backup">

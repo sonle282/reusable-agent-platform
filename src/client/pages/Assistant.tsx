@@ -88,11 +88,9 @@ export function AssistantPage({
   const [saveFailed, setSaveFailed] = useState(false);
   const [publishing, setPublishing] = useState<"" | "evaluating" | "publishing">("");
   const [injected, setInjected] = useState<{ text: string; step: number; at: number } | null>(null);
-  const [publishFailure, setPublishFailure] = useState<{ name: string; fromFix: boolean; input: string; reply: string } | null>(null);
+  const [publishFailure, setPublishFailure] = useState<{ fromFix: boolean; input: string; reply: string; problem: string } | null>(null);
   const [discarding, setDiscarding] = useState<"ask" | "busy" | null>(null);
   const { startFix: startPublishFix, fixSheet: publishFixSheet } = useFixAnswer({ agentId, onChanged: () => load(), onOpenSettings: () => navigate("settings") });
-  const [evalRun, setEvalRun] = useState<EvalRun | null>(null);
-  const [scenOpen, setScenOpen] = useState(false);
   const [editedSinceLoad, setEditedSinceLoad] = useState(false);
   const [error, setError] = useState("");
   const latest = useRef<AgentDetail | null>(null);
@@ -146,17 +144,16 @@ export function AssistantPage({
     setError("");
     setPublishFailure(null);
     try {
-      if (agent.evalCases.length) {
+      if (agent.evalCases.some((item) => item.critical)) {
         setPublishing("evaluating");
         const run = await post<EvalRun>(`/api/admin/agents/${agentId}/evaluate`);
-        setEvalRun(run);
         if (!run.passed) {
           const failing = agent.evalCases.filter((item) => item.critical && run.results.some((result) => result.caseId === item.id && !result.passed));
           // A broken fix is the most important one to show: it passed once and regressed.
           const failed = failing.find((item) => (JSON.parse(item.assertions_json || "{}") as Assertions).fromFix) ?? failing[0];
-          const reply = run.results.find((result) => result.caseId === failed?.id)?.output?.messages?.map((message) => message.text).join("\n") ?? "";
-          setPublishFailure({ name: failed?.name ?? "A scenario", fromFix: Boolean(failed && (JSON.parse(failed.assertions_json || "{}") as Assertions).fromFix), input: failed?.input ?? "", reply });
-          setScenOpen(true);
+          const result = run.results.find((item) => item.caseId === failed?.id);
+          const reply = result?.output?.messages?.map((message) => message.text).join("\n") ?? "";
+          setPublishFailure({ fromFix: Boolean(failed && (JSON.parse(failed.assertions_json || "{}") as Assertions).fromFix), input: failed?.input ?? "", reply, problem: plainProblem(result?.failures ?? []) });
           return;
         }
       }
@@ -214,7 +211,6 @@ export function AssistantPage({
     !agent.draft.instructions.trim() && !hasProfile(agent.draft) && { text: "Tell the assistant what its job is.", action: "Write instructions", go: () => onTab("instructions") },
     agent.sources.some((source) => source.status === "failed") && { text: "A knowledge source couldn't be read.", action: "View sources", go: () => onTab("sources") },
   ].filter(Boolean) as Array<{ text: string; action: string; go: () => void }>;
-  const requiredCount = agent.evalCases.length;
 
   return (
     <div className="page assistant-page">
@@ -223,7 +219,7 @@ export function AssistantPage({
         status={status}
         actions={
           publishing ? (
-            <Button busy>{publishing === "evaluating" ? `Checking ${plural(requiredCount, "scenario")}…` : "Publishing…"}</Button>
+            <Button busy>{publishing === "evaluating" ? "Checking answers…" : "Publishing…"}</Button>
           ) : upToDate ? (
             <span className="status-line published-line">
               <Icon name="check-circle" size={18} />
@@ -238,18 +234,15 @@ export function AssistantPage({
       {publishFailure && (
         <Banner
           tone="error"
-          title={publishFailure.fromFix ? "A fixed answer broke again" : "Not published — a required scenario failed"}
-          text={`“${publishFailure.name}” ${publishFailure.fromFix ? "passed when you fixed it, but fails with your latest changes" : "failed on the draft"}. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
+          title={publishFailure.fromFix ? "An answer you fixed is wrong again" : "Not published — an answer needs fixing"}
+          text={`“${publishFailure.input}”: ${publishFailure.problem}. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
           actions={
             <>
-              {publishFailure.fromFix && publishFailure.input && (
+              {publishFailure.input && (
                 <Button variant="gray" size="small" onClick={() => startPublishFix({ origin: "test", customerMessage: publishFailure.input, badReply: readable(publishFailure.reply) })}>
                   Fix this answer
                 </Button>
               )}
-              <Button variant="gray" size="small" onClick={() => setScenOpen(true)}>
-                Show scenario
-              </Button>
               {live && !agent.draftMatchesLive && (
                 <Button variant="plain" size="small" destructive onClick={() => setDiscarding("ask")}>
                   Discard unpublished changes
@@ -355,16 +348,26 @@ export function AssistantPage({
           collections={collections}
           flush={flush}
           reload={load}
-          run={evalRun}
-          setRun={setEvalRun}
-          scenOpen={scenOpen}
-          setScenOpen={setScenOpen}
           navigate={navigate}
           injected={injected}
         />
       </div>
     </div>
   );
+}
+
+// What a failed check means, in the owner's words.
+function plainProblem(failures: string[]) {
+  const first = failures[0] ?? "";
+  const quoted = (prefix: string) => first.slice(prefix.length).trim();
+  if (first.startsWith("Missing: ")) return `the reply no longer says “${quoted("Missing: ")}”`;
+  if (first.startsWith("Forbidden: ")) return `the reply says “${quoted("Forbidden: ")}”, which it shouldn't`;
+  if (first.startsWith("Longer than")) return `the reply is too long (${first.replace(/^Longer than (\d+) sentences \((\d+)\)$/, "$2 sentences, limit $1")})`;
+  if (first.startsWith("Tool not called")) return "the reply didn't check your Data first";
+  if (first.startsWith("Didn't meet: ")) return quoted("Didn't meet: ");
+  if (first.startsWith("Not checked")) return "the answer couldn't be checked this time; try Publish again";
+  if (first === "The assistant couldn't answer") return "the assistant couldn't answer";
+  return first || "the reply doesn't match what you set";
 }
 
 function AssistantSkeleton() {
@@ -1037,10 +1040,6 @@ function PreviewPane({
   collections,
   flush,
   reload,
-  run,
-  setRun,
-  scenOpen,
-  setScenOpen,
   navigate,
   injected,
 }: {
@@ -1049,10 +1048,6 @@ function PreviewPane({
   collections: Collection[];
   flush: () => Promise<boolean>;
   reload: () => Promise<void>;
-  run: EvalRun | null;
-  setRun: (run: EvalRun) => void;
-  scenOpen: boolean;
-  setScenOpen: (open: boolean) => void;
   navigate: Navigate;
 }) {
   const titleId = useId();
@@ -1240,7 +1235,6 @@ function PreviewPane({
           </div>
         )}
       </div>
-      <ScenarioBar agent={agent} flush={flush} reload={reload} run={run} setRun={setRun} open={scenOpen} setOpen={setScenOpen} />
       <form
         className="composer"
         onSubmit={(event) => {
@@ -1356,6 +1350,20 @@ function ReplyDetails({
 
 type Assertions = { criteria?: string; expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; fromFix?: string };
 
+// Settings › Answer checks (advanced): every saved check, run on demand.
+export function AnswerChecks({ agentId }: { agentId: string }) {
+  const [agent, setAgent] = useState<AgentDetail | null>(null);
+  const [run, setRun] = useState<EvalRun | null>(null);
+  const [open, setOpen] = useState(false);
+  const load = async () => setAgent(await api<AgentDetail>(`/api/admin/agents/${agentId}`));
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentId]);
+  if (!agent) return <span className="muted">Loading…</span>;
+  return <ScenarioBar agent={agent} flush={async () => true} reload={load} run={run} setRun={setRun} open={open} setOpen={setOpen} />;
+}
+
 function ScenarioBar({
   agent,
   flush,
@@ -1386,12 +1394,12 @@ function ScenarioBar({
     setBusy(true);
     setOpen(true);
     try {
-      const result = await post<EvalRun>(`/api/admin/agents/${agent.id}/evaluate`);
+      const result = await post<EvalRun>(`/api/admin/agents/${agent.id}/evaluate?scope=all`);
       setRun(result);
       const failed = result.results.filter((item) => !item.passed).length;
-      toast(failed ? `${plural(failed, "scenario")} failing` : `All ${plural(result.results.length, "scenario")} passed`, failed ? "error" : "default");
+      toast(failed ? `${plural(failed, "answer")} need fixing` : `All ${plural(result.results.length, "answer")} are right`, failed ? "error" : "default");
     } catch (caught) {
-      toast(errorMessage(caught, "Couldn't run the scenarios"), "error");
+      toast(errorMessage(caught, "Couldn't check the answers"), "error");
     } finally {
       setBusy(false);
     }
@@ -1401,7 +1409,7 @@ function ScenarioBar({
   ) : !cases.length ? (
     <span className="muted">None yet</span>
   ) : !ran.length ? (
-    <span className="muted">{plural(cases.length, "scenario")}</span>
+    <span className="muted">{plural(cases.length, "check")}</span>
   ) : failing ? (
     <Badge tone="red">
       {failing} of {cases.length} failing
@@ -1416,7 +1424,7 @@ function ScenarioBar({
       <div className="scen-head">
         <button type="button" className="scen-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
           <Icon name="chevron-right" className="chev" size={12} />
-          <b>Test scenarios</b>
+          <b>Answer checks</b>
           {summary}
         </button>
         {cases.length > 0 && (

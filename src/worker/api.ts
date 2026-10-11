@@ -287,18 +287,25 @@ app.post("/api/admin/agents/:id/preview", async (c) => {
 app.post("/api/admin/agents/:id/evaluate", async (c) => {
   const agent = await getAgent(c.env.DB, c.req.param("id"));
   if (!agent) return c.json({ error: "Agent not found" }, 404);
-  const cases = (await c.env.DB.prepare("SELECT * FROM eval_cases WHERE agent_id=?").bind(agent.id).all<{ id: string; input: string; assertions_json: string; critical: number }>()).results;
+  // Publish checks only the required answers (fixes and must-haves); "?scope=all" runs every check (Settings › Answer checks).
+  const scope = c.req.query("scope") === "all" ? "all" : "required";
+  const cases = (await c.env.DB.prepare(`SELECT * FROM eval_cases WHERE agent_id=?${scope === "required" ? " AND critical=1" : ""}`).bind(agent.id).all<{ id: string; input: string; assertions_json: string; critical: number }>()).results;
   const draft = agentDraftSchema.parse(JSON.parse(agent.draft_json));
-  const results = [];
-  for (const testCase of cases) {
-    const { caseId, passed, failures, output } = await runCase(c.env, agent.id, draft, testCase);
-    results.push({ caseId, passed, failures, output });
-  }
-  // Publish needs every required scenario to pass; the others are reported but don't block.
+  // A few at a time: about 1-2 minutes instead of one long sequential run. Each case is its own short conversation.
+  const results: Array<{ caseId: string; passed: boolean; failures: string[]; output: AgentResult }> = new Array(cases.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(4, cases.length) }, async () => {
+    while (next < cases.length) {
+      const index = next++;
+      const { caseId, passed, failures, output } = await runCase(c.env, agent.id, draft, cases[index]);
+      results[index] = { caseId, passed, failures, output };
+    }
+  }));
+  // Publish needs every required check to pass; others are reported but don't block.
   const passed = results.every((result, index) => result.passed || !cases[index].critical);
   const runId = id("eval");
   await c.env.DB.prepare("INSERT INTO eval_runs(id,agent_id,status,result_json,completed_at) VALUES(?,?,?,?,datetime('now'))").bind(runId, agent.id, passed ? "passed" : "failed", JSON.stringify(results)).run();
-  return c.json({ id: runId, passed, results });
+  return c.json({ id: runId, passed, scope, results });
 });
 
 app.post("/api/admin/agents/:id/eval-cases", async (c) => {

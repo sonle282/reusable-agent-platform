@@ -127,7 +127,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
         {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
         {page === "conversations" && <ConversationsPage agentId={agent.id} connections={data.connections} openId={params[0]} onOpen={(id) => go("conversations", undefined, id)} onOpenSettings={() => go("settings")} />}
         {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} onOpenAssistant={() => go("assistant")} />}
-        {page === "settings" && <SettingsPage brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
+        {page === "settings" && <SettingsPage agentId={agent.id} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
       </main>
       {/* Phone tab bar: unchanged for now; the phone layout is a later pass. */}
       <nav className="tab-bar" aria-label="Main">
