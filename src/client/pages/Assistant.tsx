@@ -12,7 +12,7 @@ import { Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState
 
 export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "versions";
 type EditorTab = Exclude<AssistantTab, "test">;
-type Navigate = (page: "data" | "conversations" | "connections" | "settings", ...params: string[]) => void;
+type Navigate = (page: "data" | "conversations" | "channels" | "settings", ...params: string[]) => void;
 type Mutate = (fn: (draft: AgentDraft) => AgentDraft) => void;
 
 export const modelOptions: Array<{ value: AnthropicModel; label: string; note: string }> = [

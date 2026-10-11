@@ -7,7 +7,7 @@ import { parseRichMessage } from "../RichMessage";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
 import { Alert, Avatar, Badge, Button, Card, EmptyState, errorMessage, Icon, Menu, PageHeader, SkeletonLine, useToast, type TileTone } from "../ui";
 
-type Go = (page: "assistant" | "conversations" | "connections" | "settings" | "leads", ...params: string[]) => void;
+type Go = (page: "assistant" | "conversations" | "channels" | "settings" | "leads" | "data", ...params: string[]) => void;
 
 const plainText = (value: string) =>
   parseRichMessage(value)
@@ -295,7 +295,7 @@ export function HomePage({
                 icon="bubbles"
                 title="No conversations yet"
                 text="When customers message you on a connected channel, their chats show up here."
-                action={<Button onClick={() => go("connections")}>Add a channel</Button>}
+                action={<Button onClick={() => go("channels")}>Add a channel</Button>}
               />
             ) : (
               recent.map((conversation) => {

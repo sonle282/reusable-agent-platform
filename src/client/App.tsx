@@ -10,18 +10,27 @@ import { LeadsPage } from "./pages/Leads";
 import { SettingsPage } from "./pages/Settings";
 import { useTheme, type ThemeChoice } from "./theme";
 import type { Bootstrap, Brand } from "./types";
-import { Alert, Button, Card, errorMessage, Field, Icon, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
+import { AgentAvatar, Alert, Button, Card, errorMessage, Field, Icon, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
 
-type Page = "home" | "leads" | "assistant" | "data" | "conversations" | "connections" | "settings";
+type Page = "home" | "leads" | "assistant" | "data" | "conversations" | "channels" | "settings";
 
-const nav: Array<{ id: Page; label: string; icon: string }> = [
-  { id: "home", label: "Home", icon: "house" },
-  { id: "leads", label: "Leads", icon: "person-plus" },
-  { id: "assistant", label: "Assistant", icon: "sparkles" },
-  { id: "data", label: "Data", icon: "table" },
-  { id: "conversations", label: "Conversations", icon: "bubbles" },
-  { id: "connections", label: "Channels", icon: "link" },
-  { id: "settings", label: "Settings", icon: "gear" },
+// Sidebar order. The one assistant has its own entry under "Assistants"; the phone tab bar adds it and drops Data.
+const nav: Array<{ id: Page; label: string; short: string; icon: string }> = [
+  { id: "home", label: "Home", short: "Home", icon: "home" },
+  { id: "leads", label: "Leads", short: "Leads", icon: "phone" },
+  { id: "data", label: "Data", short: "Data", icon: "table" },
+  { id: "conversations", label: "Conversations", short: "Chats", icon: "chats" },
+  { id: "channels", label: "Channels", short: "Channels", icon: "link" },
+  { id: "settings", label: "Settings", short: "Settings", icon: "settings" },
+];
+const pages: Page[] = ["home", "leads", "assistant", "data", "conversations", "channels", "settings"];
+const tabs: Array<{ id: Page; short: string; icon: string }> = [
+  { id: "home", short: "Home", icon: "home" },
+  { id: "leads", short: "Leads", icon: "phone" },
+  { id: "assistant", short: "Assistant", icon: "assistant" },
+  { id: "conversations", short: "Chats", icon: "chats" },
+  { id: "channels", short: "Channels", icon: "link" },
+  { id: "settings", short: "Settings", icon: "settings" },
 ];
 const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "followups", "behavior", "versions"];
 
@@ -29,8 +38,10 @@ const defaultBrand: Brand = { name: "Assistant", logoUrl: "", primaryColor: "#00
 
 // Route lives in the hash (#/assistant/sources) so reload and the back button keep the place.
 function readRoute(): { page: Page; tab: AssistantTab; params: string[] } {
-  const [page, ...rest] = window.location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
-  const known = nav.some((item) => item.id === page);
+  const [raw, ...rest] = window.location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  // #/connections was renamed to #/channels; old links keep working.
+  const page = raw === "connections" ? "channels" : raw;
+  const known = pages.includes(page as Page);
   return {
     page: known ? (page as Page) : "home",
     tab: page === "assistant" && assistantTabs.includes(rest[0] as AssistantTab) ? (rest[0] as AssistantTab) : "test",
@@ -40,6 +51,9 @@ function readRoute(): { page: Page; tab: AssistantTab; params: string[] } {
 
 function useRoute() {
   const [route, setRoute] = useState(readRoute);
+  useEffect(() => {
+    if (/^#\/?connections\b/.test(window.location.hash)) window.history.replaceState(null, "", window.location.hash.replace(/connections/, "channels"));
+  }, []);
   useEffect(() => {
     const onHash = () => setRoute(readRoute());
     window.addEventListener("hashchange", onHash);
@@ -59,7 +73,7 @@ function BrandTile({ brand }: { brand: Brand }) {
     .map((part) => part[0]?.toUpperCase())
     .join("");
   return (
-    <span className="brand-tile" role="img" aria-label={`${brand.name} logo`}>
+    <span className="ws-logo" role="img" aria-label={`${brand.name} logo`}>
       {brand.logoUrl ? <img src={brand.logoUrl} alt="" /> : initials}
     </span>
   );
@@ -74,42 +88,65 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
   const failed = data.attention?.failedDeliveries ?? 0;
   const newLeads = data.attention?.newLeads ?? 0;
   useEffect(() => {
-    document.title = `${nav.find((item) => item.id === page)?.label ?? ""} · ${data.brand.name}`;
+    document.title = `${page === "assistant" ? "Assistant" : (nav.find((item) => item.id === page)?.label ?? "")} · ${data.brand.name}`;
   }, [page, data.brand.name]);
   if (!agent) return <CreateAssistant brand={data.brand} onDone={reload} />;
-  const signal = (id: Page) => ({
-    dot: id === "assistant" && unpublished,
-    badge: id === "connections" && failed > 0 ? failed : id === "leads" ? newLeads : 0,
-    hint: id === "assistant" && unpublished ? ", unpublished changes" : id === "connections" && failed > 0 ? `, ${failed} not delivered` : id === "leads" && newLeads > 0 ? `, ${newLeads} new` : "",
-  });
+  const count = (id: Page) => (id === "channels" ? failed : id === "leads" ? newLeads : 0);
+  const hint = (id: Page) => (id === "channels" && failed > 0 ? `, ${failed} not delivered` : id === "leads" && newLeads > 0 ? `, ${newLeads} new` : "");
+  const status = !agent.active_version_id ? { dot: "dot-gray", label: "Not live yet" } : unpublished ? { dot: "dot-orange", label: "Unpublished changes" } : { dot: "dot-green", label: "Live" };
+  const flush = page === "assistant" || page === "conversations";
   return (
     <div className="app-shell">
       <nav className="sidebar" aria-label="Main">
-        <div className="brand">
+        <div className="workspace">
           <BrandTile brand={data.brand} />
-          <span className="brand-name truncate">{data.brand.name}</span>
+          <span className="ws-name spacer strong truncate">{data.brand.name}</span>
         </div>
-        {nav.map((item) => {
-          const { dot, badge, hint } = signal(item.id);
-          return (
-            <button
-              type="button"
-              key={item.id}
-              className="nav-item"
-              aria-current={page === item.id ? "page" : undefined}
-              aria-label={`${item.label}${hint}`}
-              title={item.label}
-              onClick={() => go(item.id)}
-            >
-              <Icon name={item.icon} size={18} />
-              <span className="nav-label">{item.label}</span>
-              {dot && <span className="nav-dot" aria-hidden="true" />}
-              {badge > 0 && <span className="nav-badge" aria-hidden="true">{badge}</span>}
-            </button>
-          );
-        })}
+        {nav.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            className="nav-item"
+            aria-current={page === item.id ? "page" : undefined}
+            aria-label={`${item.label}${hint(item.id)}`}
+            title={item.label}
+            onClick={() => go(item.id)}
+          >
+            <Icon name={item.icon} />
+            <span className="nav-label">{item.label}</span>
+            {count(item.id) > 0 && (
+              <span className="nav-count" aria-hidden="true">
+                {count(item.id)}
+              </span>
+            )}
+          </button>
+        ))}
+        <div className="nav-heading">
+          <span>Assistants</span>
+        </div>
+        <button
+          type="button"
+          className="nav-item"
+          aria-current={page === "assistant" ? "page" : undefined}
+          aria-label={`${agent.name}, ${status.label}`}
+          title={agent.name}
+          onClick={() => go("assistant")}
+        >
+          <AgentAvatar id={agent.id} name={agent.name} size="xs" />
+          <span className="nav-label">{agent.name}</span>
+          <span className={`nav-dot ${status.dot}`} aria-hidden="true" />
+        </button>
+        <div className="account">
+          <span className="avatar" style={{ width: 28, height: 28, fontSize: 11 }} aria-hidden="true">
+            <Icon name="user" size={16} />
+          </span>
+          <span className="account-name spacer stack" style={{ gap: 0 }}>
+            <span className="medium truncate">Owner</span>
+            <span className="xs t3 truncate">{data.brand.name} workspace</span>
+          </span>
+        </div>
       </nav>
-      <main className="content">
+      <main className={`content${flush ? " is-flush" : ""}`}>
         {page === "home" && <HomePage agent={agent} connections={data.connections} liveVersion={data.attention?.liveVersion ?? null} unpublished={unpublished} refresh={reload} go={(target, ...rest) => go(target, undefined, ...rest)} />}
         {page === "leads" && <LeadsPage openId={params[0]} onOpen={(id) => (id ? go("leads", undefined, id) : go("leads"))} onOpenConversation={(id) => go("conversations", undefined, id)} onChanged={() => void reload()} />}
         {page === "assistant" && (
@@ -126,15 +163,27 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
         )}
         {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
         {page === "conversations" && <ConversationsPage agentId={agent.id} connections={data.connections} openId={params[0]} onOpen={(id) => go("conversations", undefined, id)} onOpenSettings={() => go("settings")} />}
-        {page === "connections" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} onOpenAssistant={() => go("assistant")} />}
+        {page === "channels" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} onOpenAssistant={() => go("assistant")} />}
         {page === "settings" && <SettingsPage agentId={agent.id} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
       </main>
-      {/* Phone tab bar: unchanged for now; the phone layout is a later pass. */}
-      <nav className="tab-bar" aria-label="Main">
-        {nav.filter((item) => item.id !== "data").map((item) => (
-          <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => go(item.id)}>
-            <Icon name={item.icon} size={22} />
-            <span>{item.label}</span>
+      <nav className="tabbar" aria-label="Main">
+        {tabs.map((item) => (
+          <button
+            type="button"
+            key={item.id}
+            className="tab"
+            aria-current={page === item.id ? "page" : undefined}
+            aria-label={`${item.id === "assistant" ? agent.name : item.short}${item.id === "assistant" ? `, ${status.label}` : hint(item.id)}`}
+            onClick={() => go(item.id)}
+          >
+            <Icon name={item.icon} />
+            <span>{item.short}</span>
+            {count(item.id) > 0 && (
+              <span className="nav-count" aria-hidden="true">
+                {count(item.id)}
+              </span>
+            )}
+            {item.id === "assistant" && status.dot !== "dot-green" && <span className={`nav-dot ${status.dot}`} aria-hidden="true" />}
           </button>
         ))}
       </nav>
