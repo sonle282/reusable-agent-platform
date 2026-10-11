@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { channelParts } from "../src/shared/channel-parts";
 import { hasImageField, lookupLinks, takeImageLines, withImages } from "../src/shared/media";
 
-const offer = { id: "OF-010", tieu_de: "RELAXO $2,095", link_anh: "https://cdn.example.com/of-010.webp", link_trang: "https://shop.example.com/relaxo" };
+const offer = { id: "OF-010", title: "RELAXO $2,095", image_url: "https://cdn.example.com/of-010.webp", page_url: "https://shop.example.com/relaxo" };
 
 describe("photos from Data rows", () => {
   it("keeps only links that came back from lookups", () => {
@@ -19,7 +19,8 @@ describe("photos from Data rows", () => {
     expect(withImages("plain", [])).toBe("plain");
   });
   it("binds the rule only for tables with a photo column", () => {
-    expect(hasImageField(["id", "link_anh"])).toBe(true);
-    expect(hasImageField(["id", "tieu_de"])).toBe(false);
+    expect(hasImageField([{ key: "id", type: "text" }, { key: "picture", type: "image_url" }])).toBe(true);
+    expect(hasImageField([{ key: "image_url", type: "url" }])).toBe(true);
+    expect(hasImageField([{ key: "id", type: "text" }, { key: "title", type: "text" }])).toBe(false);
   });
 });

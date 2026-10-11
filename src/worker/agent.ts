@@ -281,7 +281,7 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
       const boundIds = snapshot.collectionBindings.map((binding) => binding.collectionId);
       const photos = boundIds.length
         ? (await this.env.DB.prepare(`SELECT schema_json FROM data_collections WHERE id IN (${boundIds.map(() => "?").join(",")})`).bind(...boundIds).all<{ schema_json: string }>()).results.some((row) =>
-            hasImageField((JSON.parse(row.schema_json) as { fields?: Array<{ key: string }> }).fields?.map((field) => field.key) ?? []),
+            hasImageField((JSON.parse(row.schema_json) as { fields?: Array<{ key: string; type?: string }> }).fields ?? []),
           )
         : false;
       const knowledgeContext = retrieved.length

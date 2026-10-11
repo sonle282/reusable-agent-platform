@@ -37,5 +37,5 @@ export function withImages(text: string, images: string[]) {
   return JSON.stringify({ version: "v2", content: { messages: [{ type: "text", text }, ...images.map((url) => ({ type: "image", url }))] } });
 }
 
-// Bind the rule only when a lookup table has a photo column.
-export const hasImageField = (keys: string[]) => keys.some((key) => /^(link_anh|anh|image|image_url|photo|photo_url|hinh|hinh_anh)$/i.test(key));
+// Bind the rule only when a lookup table has a photo column (an image_url field, or a key named like one).
+export const hasImageField = (fields: Array<{ key: string; type?: string }>) => fields.some((field) => field.type === "image_url" || /^(image|image_url|photo|photo_url)$/i.test(field.key));

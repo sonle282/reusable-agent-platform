@@ -485,7 +485,8 @@ app.post("/api/admin/collections/:id/import", async (c) => {
     const externalKey = body.uniqueKey ? String(row.data[body.uniqueKey] ?? "") : null;
     const source = body.rows[row.index];
     const statusValue = body.statusField ? String(source[body.statusField] ?? "").toLowerCase() : "";
-    const status = ["khong", "false", "0", "archived", "inactive"].includes(statusValue) ? "archived" : "active";
+    // Rows marked off (or waiting for approval) import switched off.
+    const status = ["no", "off", "false", "0", "archived", "inactive", "pending"].includes(statusValue) ? "archived" : "active";
     const validFrom = body.validFromField ? String(source[body.validFromField] ?? "") || null : null;
     const validUntil = body.validUntilField ? String(source[body.validUntilField] ?? "") || null : null;
     return c.env.DB.prepare(`INSERT INTO data_records(id,collection_id,external_key,data_json,search_text,status,valid_from,valid_until) VALUES(?,?,?,?,?,?,?,?)
