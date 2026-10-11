@@ -213,7 +213,7 @@ async function applyChange(env: Env, agentId: string, fixId: string, change: Cha
 
 type AttentionItem = {
   key: string;
-  type: "team" | "lead" | "backup" | "price" | "fix_pending" | "fix_failing";
+  type: "team" | "lead" | "backup" | "price" | "fix_pending" | "fix_failing" | "contact_again";
   at: string;
   conversationId?: string;
   leadId?: string;
@@ -302,12 +302,14 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
     if (!agent) return c.json({ error: "Agent not found" }, 404);
     const real = "c.connection_id NOT IN ('preview','eval')";
     const person = "ct.display_name,ct.phone,c.external_user_id";
-    const [team, leads, events, fixes, dismissed] = await Promise.all([
+    const [team, leads, events, fixes, dismissed, quiet] = await Promise.all([
       c.env.DB.prepare(`SELECT c.id,c.last_activity_at AS at,${person} FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND c.agent_id=? AND c.human_takeover=1`).bind(agent.id).all<Record<string, string | null>>(),
       c.env.DB.prepare(`SELECT c.id,c.last_activity_at AS at,ct.id AS lead_id,${person} FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND c.agent_id=? AND c.stage='lead_captured' AND c.human_takeover=0 AND COALESCE(ct.lead_status,'new')='new'  AND c.last_activity_at >= datetime('now','-7 day')`).bind(agent.id).all<Record<string, string | null>>(),
       c.env.DB.prepare(`SELECT e.id,e.request_id,e.status,e.metadata_json,e.created_at AS at,c.id AS conversation_id,${person} FROM runtime_events e JOIN conversations c ON c.id=e.conversation_id LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND e.agent_id=? AND e.created_at >= datetime('now','-7 day') AND (e.status='failed' OR e.metadata_json LIKE '%"priced":true%') ORDER BY e.created_at DESC LIMIT 40`).bind(agent.id).all<Record<string, string | null>>(),
       c.env.DB.prepare("SELECT id,status,target_kind,customer_message,COALESCE(applied_at,created_at) AS at FROM answer_fixes WHERE agent_id=? AND (status='kept_failing' OR (status='verified' AND target_kind IN ('knowledge','rule')))").bind(agent.id).all<Record<string, string | null>>(),
       c.env.DB.prepare("SELECT item_key FROM attention_dismissals").all<{ item_key: string }>(),
+      // Followed up, still no contact, and Meta's 24-hour window has closed: only a person can reach them now.
+      c.env.DB.prepare(`SELECT c.id,c.last_activity_at AS at,${person} FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND c.agent_id=? AND c.human_takeover=0 AND c.stage!='lead_captured' AND julianday(c.last_activity_at) < julianday('now','-1 day') AND julianday(c.last_activity_at) >= julianday('now','-7 day') AND EXISTS (SELECT 1 FROM runtime_events e WHERE e.conversation_id=c.id AND e.event_type='followup_sent')`).bind(agent.id).all<Record<string, string | null>>(),
     ]);
     const hidden = new Set(dismissed.results.map((row) => row.item_key));
     const who = (row: Record<string, string | null>) => ({ display_name: row.display_name ?? null, phone: row.phone ?? null, external_user_id: row.external_user_id ?? null });
@@ -322,16 +324,28 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
         requestId: String(row.request_id),
         person: who(row),
       })),
+      ...quiet.results.map((row) => ({ key: `contact_again:${row.id}:${row.at}`, type: "contact_again" as const, at: String(row.at), conversationId: String(row.id), person: who(row) })),
       ...fixes.results.map((row) => ({ key: `${row.status === "kept_failing" ? "fix_failing" : "fix_pending"}:${row.id}`, type: row.status === "kept_failing" ? ("fix_failing" as const) : ("fix_pending" as const), at: String(row.at), fixId: String(row.id), message: String(row.customer_message ?? "") })),
     ]
       .filter((item) => !hidden.has(item.key))
       .map((item) => ({ ...item, waitingDays: ageDays(item.at) >= (item.type === "lead" ? 1 : 2) ? ageDays(item.at) : undefined }));
     // Unpublished fixes only matter while the draft differs from the live version.
     const live = agent.active_version_id ? await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>() : null;
-    const unpublished = !live || JSON.stringify(parseVersionSnapshot(JSON.parse(live.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(agent.draft_json)));
-    const visible = items.filter((item) => item.type !== "fix_pending" || unpublished);
+    const liveSnapshot = live ? parseVersionSnapshot(JSON.parse(live.snapshot_json)) : null;
+    const unpublished = !liveSnapshot || JSON.stringify(liveSnapshot) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(agent.draft_json)));
+    const contactAgain = Boolean(liveSnapshot?.followUps.contactAgain);
+    const visible = items.filter((item) => (item.type !== "fix_pending" || unpublished) && (item.type !== "contact_again" || contactAgain));
     visible.sort((a, b) => Number(Boolean(b.waitingDays)) - Number(Boolean(a.waitingDays)) || (b.at > a.at ? 1 : -1));
     return c.json(visible.slice(0, 30));
+  });
+
+  // "Follow-ups brought back N leads": a lead created after a follow-up went out in the same conversation, last 30 days.
+  app.get("/api/admin/agents/:id/followups/stats", async (c) => {
+    const row = await c.env.DB.prepare(`SELECT COUNT(DISTINCT ct.id) AS count FROM contacts ct JOIN conversations cv ON cv.contact_id=ct.id
+      WHERE cv.agent_id=? AND ct.lead_status IS NOT NULL AND julianday(ct.lead_created_at) >= julianday('now','-30 day')
+      AND EXISTS (SELECT 1 FROM runtime_events e WHERE e.conversation_id=cv.id AND e.event_type='followup_sent' AND julianday(e.created_at) <= julianday(ct.lead_created_at))`).bind(c.req.param("id")).first<{ count: number }>();
+    const sent = await c.env.DB.prepare("SELECT COUNT(*) AS count FROM runtime_events WHERE agent_id=? AND event_type='followup_sent' AND julianday(created_at) >= julianday('now','-30 day')").bind(c.req.param("id")).first<{ count: number }>();
+    return c.json({ broughtBack: row?.count ?? 0, sent: sent?.count ?? 0 });
   });
 
   app.get("/api/admin/fixes/:fixId", async (c) => {

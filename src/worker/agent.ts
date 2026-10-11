@@ -6,7 +6,9 @@ import { composeSystemPrompt } from "../shared/prompt";
 import { generateWithAnthropic, type ModelMessage } from "./model/anthropic";
 import { mentionsPrice } from "../shared/checks";
 import { LEAD_LINE_RULE, findContact, takeLeadLine } from "../shared/contact";
-import { channelActions } from "./connectors";
+import { channelActions, sendOutbound } from "./connectors";
+import type { ConnectionRow } from "./db";
+import { OPT_OUT, asksAboutPrice, decideFollowUp, dueAt, emptyFollowUpState, followUpKey, type FollowUpState } from "../shared/followups";
 import { executeTool, modelTools } from "./tools";
 
 type RuntimeOptions = { versionId?: string; snapshotOverride?: AgentVersionSnapshot };
@@ -92,6 +94,76 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
       result_json TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`;
+    this.sql`CREATE TABLE IF NOT EXISTS followup_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+    this.sql`CREATE TABLE IF NOT EXISTS followups_sent (key TEXT PRIMARY KEY, sent_at TEXT NOT NULL)`;
+  }
+
+  private followUpState(): FollowUpState {
+    const row = this.sql<{ value: string }>`SELECT value FROM followup_state WHERE key = 'state'`[0];
+    return row ? { ...emptyFollowUpState, ...(JSON.parse(row.value) as Partial<FollowUpState>) } : { ...emptyFollowUpState };
+  }
+
+  private saveFollowUpState(state: FollowUpState) {
+    this.sql`INSERT INTO followup_state(key, value) VALUES('state', ${JSON.stringify(state)}) ON CONFLICT(key) DO UPDATE SET value = excluded.value`;
+  }
+
+  private async scheduleFollowUp(state: FollowUpState, snapshot: AgentVersionSnapshot, step: number) {
+    const item = snapshot.followUps.steps[step];
+    const when = item ? dueAt(state.lastCustomerAt, item.delay) : null;
+    if (!snapshot.followUps.enabled || !item || when === null || when <= Date.now()) return state;
+    const scheduled = await this.schedule(new Date(when), "followUp", { step, lastCustomerAt: state.lastCustomerAt });
+    return { ...state, scheduleId: scheduled.id };
+  }
+
+  private async logFollowUp(type: "followup_sent" | "followup_skipped", key: string, detail: Record<string, unknown>) {
+    const { agentId, connectionId, externalConversationId, agentVersionId } = this.state;
+    await this.env.DB.prepare("INSERT INTO runtime_events(id, conversation_id, agent_id, version_id, request_id, event_type, status, latency_ms, metadata_json) VALUES(?,?,?,?,?,?,?,0,?)")
+      .bind(id("evt"), `${agentId}:${connectionId}:${externalConversationId}`, agentId, agentVersionId, key, type, type === "followup_sent" ? "completed" : "skipped", JSON.stringify(detail))
+      .run();
+  }
+
+  // Alarm callback (agents SDK schedule). Re-checks every stop rule, then sends the text exactly as written, once.
+  async followUp(payload: { step: number; lastCustomerAt: string }) {
+    if (!this.state.initialized) return;
+    const state = this.followUpState();
+    const conversationId = `${this.state.agentId}:${this.state.connectionId}:${this.state.externalConversationId}`;
+    const key = followUpKey(conversationId, payload.step, payload.lastCustomerAt);
+    if (this.sql<{ key: string }>`SELECT key FROM followups_sent WHERE key = ${key}`[0]) return;
+    const { snapshot } = await getRuntimeSnapshot(this.env.DB, this.state.agentId, this.state.agentVersionId);
+    const row = await this.env.DB.prepare("SELECT c.human_takeover, ct.lead_status, ct.phone, ct.email FROM conversations c LEFT JOIN contacts ct ON ct.id = c.contact_id WHERE c.id = ?")
+      .bind(conversationId)
+      .first<{ human_takeover: number; lead_status: string | null; phone: string | null; email: string | null }>();
+    const decision = decideFollowUp({
+      config: snapshot.followUps,
+      step: payload.step,
+      state: { ...state, contactCaptured: state.contactCaptured || Boolean(row?.phone || row?.email) },
+      scheduledFor: payload.lastCustomerAt,
+      now: Date.now(),
+      leadStatus: row?.lead_status,
+      takeover: row?.human_takeover === 1 || this.state.humanTakeover,
+    });
+    if (!decision.send) {
+      if (decision.reason !== "customer_replied") await this.logFollowUp("followup_skipped", key, { step: payload.step + 1, reason: decision.reason });
+      return;
+    }
+    const connection = await this.env.DB.prepare("SELECT * FROM connections WHERE id = ? AND status = 'active'").bind(this.state.connectionId).first<ConnectionRow>();
+    if (connection?.type !== "zernio") {
+      await this.logFollowUp("followup_skipped", key, { step: payload.step + 1, reason: "channel_not_supported" });
+      return;
+    }
+    // Recorded before sending: a replayed alarm finds the key and stops. Zernio also dedupes on the same key.
+    const sentAt = new Date().toISOString();
+    this.sql`INSERT INTO followups_sent(key, sent_at) VALUES(${key}, ${sentAt})`;
+    const text = snapshot.followUps.steps[payload.step].text;
+    try {
+      await sendOutbound(this.env, connection, { requestId: key, conversationId: this.state.externalConversationId, status: "completed", messages: [{ type: "text", text }] });
+    } catch (error) {
+      await this.logFollowUp("followup_skipped", key, { step: payload.step + 1, reason: "delivery_failed", error: error instanceof Error ? error.message.slice(0, 200) : "unknown" });
+      return;
+    }
+    this.sql`INSERT INTO conversation_messages(id, role, content, created_at) VALUES(${id("msg")}, ${"assistant"}, ${text}, ${sentAt})`;
+    await this.logFollowUp("followup_sent", key, { step: payload.step + 1 });
+    this.saveFollowUpState(await this.scheduleFollowUp(this.followUpState(), snapshot, payload.step + 1));
   }
 
   async setHumanTakeover(enabled: boolean) {
@@ -101,6 +173,9 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
 
   // Customer asked to be forgotten: drop the transcript and what we remembered about them. The version pointer stays.
   async eraseCustomerData() {
+    const pending = this.followUpState().scheduleId;
+    if (pending) await this.cancelSchedule(pending).catch(() => false);
+    this.sql`DELETE FROM followup_state`;
     this.sql`DELETE FROM conversation_messages`;
     this.sql`UPDATE processed_events SET result_json = '{"status":"completed","messages":[]}'`;
     if (this.state.initialized) this.setState({ ...this.state, profile: {}, rollingSummary: "" });
@@ -155,6 +230,14 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     const snapshot = runtime.snapshot;
     const versionId = runtime.versionId;
     const conversationId = `${input.agentId}:${input.connectionId}:${input.conversationId}`;
+    const realChannel = !["preview", "eval"].includes(input.connectionId);
+    let followUps = realChannel ? this.followUpState() : null;
+    if (followUps) {
+      // A customer message restarts the quiet period: drop whatever was waiting.
+      if (followUps.scheduleId) await this.cancelSchedule(followUps.scheduleId).catch(() => false);
+      followUps = { ...followUps, scheduleId: undefined, lastCustomerAt: new Date().toISOString(), optedOut: followUps.optedOut || OPT_OUT.test(input.content.text ?? "") };
+      this.saveFollowUpState(followUps);
+    }
     const indexed = await this.env.DB.prepare("SELECT human_takeover FROM conversations WHERE id = ?").bind(conversationId).first<{ human_takeover: number }>();
     const takeover = indexed?.human_takeover === 1 || this.state.humanTakeover;
 
@@ -244,6 +327,12 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
         trace: { model: snapshot.modelConfig.model, sources, toolCalls: traces, latencyMs: Date.now() - started },
       };
       this.sql`INSERT INTO processed_events(event_id, result_json, created_at) VALUES(${input.eventId}, ${JSON.stringify(result)}, ${now})`;
+      if (followUps) {
+        const next = { ...followUps, contactCaptured: followUps.contactCaptured || contact.captured, askedPrice: followUps.askedPrice || asksAboutPrice(messageText, traces.map((trace) => trace.name), mentionsPrice(answer)) };
+        // Follow-ups only go out on Meta channels through Zernio (the 24-hour window applies there).
+        const onZernio = snapshot.followUps.enabled && !next.contactCaptured && !next.optedOut && (await this.env.DB.prepare("SELECT type FROM connections WHERE id = ?").bind(input.connectionId).first<{ type: string }>())?.type === "zernio";
+        this.saveFollowUpState(onZernio ? await this.scheduleFollowUp(next, snapshot, 0) : next);
+      }
       await this.env.DB.prepare("INSERT INTO runtime_events(id, conversation_id, agent_id, version_id, request_id, event_type, status, latency_ms, metadata_json) VALUES(?,?,?,?,?,'message','completed',?,?)")
         .bind(id("evt"), conversationId, input.agentId, versionId, input.eventId, Date.now() - started, JSON.stringify({ sources: sources.length, tools: traces.map((trace) => trace.name), priced: snapshot.collectionBindings.length > 0 && traces.length === 0 && mentionsPrice(answer) })).run();
       return result;

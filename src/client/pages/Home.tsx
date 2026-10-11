@@ -157,6 +157,8 @@ export function HomePage({
         return { tone: "soft-gray", icon: "pause", title: "Your team is replying", sub: `${name} · assistant paused · ${when}`, label: "Open", variant: "gray", act: open };
       case "lead":
         return { tone: "soft-blue", icon: "person-plus", title: "New lead to contact", sub: `${name} left contact details · ${when}`, label: "Open", variant: "gray", act: () => (item.leadId ? go("leads", item.leadId) : open()) };
+      case "contact_again":
+        return { tone: "soft-orange", icon: "reply", title: "Contact again", sub: `${name} went quiet after a follow-up · reply by hand from the page · ${when}`, label: "Open", variant: "gray", act: open };
       case "backup":
         return { tone: "soft-orange", icon: "warning", title: "Sent the backup reply", sub: `${name} · the AI didn't answer · ${when}`, label: "Open", variant: "gray", act: open };
       case "price":

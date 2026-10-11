@@ -5,7 +5,7 @@ import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/pr
 import { formatDate, timeSeparator, titleField } from "../format";
 import { paceDelay, splitParts } from "../../shared/channel-parts";
 import { readable, useFixAnswer } from "../FixSheet";
-import { BehaviorTab } from "./AssistantBehavior";
+import { BehaviorTab, FollowUpsTab } from "./AssistantBehavior";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import {
@@ -87,6 +87,7 @@ export function AssistantPage({
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving">("saved");
   const [saveFailed, setSaveFailed] = useState(false);
   const [publishing, setPublishing] = useState<"" | "evaluating" | "publishing">("");
+  const [injected, setInjected] = useState<{ text: string; step: number; at: number } | null>(null);
   const [publishFailure, setPublishFailure] = useState<{ name: string; fromFix: boolean; input: string; reply: string } | null>(null);
   const [discarding, setDiscarding] = useState<"ask" | "busy" | null>(null);
   const { startFix: startPublishFix, fixSheet: publishFixSheet } = useFixAnswer({ agentId, onChanged: () => load(), onOpenSettings: () => navigate("settings") });
@@ -318,6 +319,7 @@ export function AssistantPage({
         options={[
           { value: "instructions", label: "Instructions" },
           { value: "sources", label: "Sources" },
+          { value: "followups", label: "Follow-ups" },
           { value: "behavior", label: "Behavior" },
           { value: "versions", label: "Versions" },
         ]}
@@ -334,6 +336,7 @@ export function AssistantPage({
               reload={load}
             />
           )}
+          {editorTab === "followups" && <FollowUpsTab agentId={agent.id} draft={agent.draft} mutate={mutate} onPreview={(text, step) => setInjected({ text, step, at: Date.now() })} />}
           {editorTab === "behavior" && <BehaviorTab draft={agent.draft} mutate={mutate} hasZernio={hasZernio} />}
           {editorTab === "versions" && (
             <VersionsTab
@@ -357,6 +360,7 @@ export function AssistantPage({
           scenOpen={scenOpen}
           setScenOpen={setScenOpen}
           navigate={navigate}
+          injected={injected}
         />
       </div>
     </div>
@@ -1038,7 +1042,9 @@ function PreviewPane({
   scenOpen,
   setScenOpen,
   navigate,
+  injected,
 }: {
+  injected?: { text: string; step: number; at: number } | null;
   agent: AgentDetail;
   collections: Collection[];
   flush: () => Promise<boolean>;
@@ -1063,6 +1069,12 @@ function PreviewPane({
   const toast = useToast();
   const scroller = useRef<HTMLDivElement>(null);
   const { startFix, fixSheet } = useFixAnswer({ agentId: agent.id, onChanged: reload, onOpenSettings: () => navigate("settings") });
+  // "Show in Preview" from the Follow-ups tab: the step text appears as the assistant's next message (nothing is sent).
+  useEffect(() => {
+    if (!injected) return;
+    setTurns((current) => [...current, { role: "assistant" as const, text: injected.text, at: new Date().toISOString(), last: true }]);
+    toast(`Follow-up ${injected.step} added to Preview`);
+  }, [injected?.at]);
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [turns, busy, openId]);

@@ -159,7 +159,7 @@ export type Dashboard = { chats24h: number; waitingForTeam: number; failedDelive
 
 export type AttentionItem = {
   key: string;
-  type: "team" | "lead" | "backup" | "price" | "fix_pending" | "fix_failing";
+  type: "team" | "lead" | "backup" | "price" | "fix_pending" | "fix_failing" | "contact_again";
   at: string;
   conversationId?: string;
   leadId?: string;

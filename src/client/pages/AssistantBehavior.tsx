@@ -1,6 +1,9 @@
-import type { Behavior } from "../../shared/contracts";
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import type { Behavior, FollowUps } from "../../shared/contracts";
+import { DELAY_LABEL, DELAY_MS, WINDOW_MS } from "../../shared/followups";
 import type { AgentDraft } from "../types";
-import { FieldRow, Row, Section, Segmented, TextInput, Toggle } from "../ui";
+import { Button, FieldRow, Icon, Row, Section, Segmented, TextArea, TextInput, Toggle } from "../ui";
 
 type Mutate = (fn: (draft: AgentDraft) => AgentDraft) => void;
 
@@ -62,6 +65,102 @@ export function BehaviorTab({ draft, mutate, hasZernio }: { draft: AgentDraft; m
             <option value="none">Answer as usual, say nothing</option>
           </select>
         </FieldRow>
+      </Section>
+    </>
+  );
+}
+
+// Up to 2 nudges inside Meta's 24-hour window. Texts go out exactly as written.
+export function FollowUpsTab({ agentId, draft, mutate, onPreview }: { agentId: string; draft: AgentDraft; mutate: Mutate; onPreview: (text: string, step: number) => void }) {
+  const followUps = draft.followUps;
+  const [broughtBack, setBroughtBack] = useState(0);
+  useEffect(() => {
+    void api<{ broughtBack: number }>(`/api/admin/agents/${agentId}/followups/stats`).then(
+      (stats) => setBroughtBack(stats.broughtBack),
+      () => setBroughtBack(0),
+    );
+  }, [agentId]);
+  const set = (value: Partial<FollowUps>) => mutate((current) => ({ ...current, followUps: { ...current.followUps, ...value } }));
+  const setStep = (index: number, value: Partial<FollowUps["steps"][number]>) => set({ steps: followUps.steps.map((step, at) => (at === index ? { ...step, ...value } : step)) });
+  const firstDelays: Array<FollowUps["steps"][number]["delay"]> = ["30m", "1h", "2h", "4h"];
+  const laterDelays: Array<FollowUps["steps"][number]["delay"]> = ["4h", "12h", "20h", "23h"];
+  return (
+    <>
+      {broughtBack > 0 && (
+        <div className="fu-hero" role="status">
+          <Icon name="bolt" />
+          <span>
+            <b>
+              Follow-ups brought back {broughtBack} {broughtBack === 1 ? "lead" : "leads"} in the last 30 days
+            </b>
+            <span className="fu-hero-sub">Customers who went quiet, then left a phone number or email after a nudge.</span>
+          </span>
+        </div>
+      )}
+      <Section
+        title="Within 24 hours"
+        action={<Toggle label="Follow up within 24 hours" checked={followUps.enabled} onChange={(enabled) => set({ enabled })} />}
+        footer="At most 2 per conversation. Make each one useful (an active offer, a next step), never just “are you there?”."
+      >
+        <div className="fu-window" aria-hidden="true">
+          <div className="window-bar">
+            <span className="wb-in" />
+            {followUps.steps.map((step, index) => (
+              <span key={index} className="wb-mark" style={{ left: `${(DELAY_MS[step.delay] / WINDOW_MS) * 100}%` }} />
+            ))}
+          </div>
+          <div className="fu-window-labels">
+            <span>Customer’s last message</span>
+            <span>24 h · Meta closes the window</span>
+          </div>
+        </div>
+        {followUps.enabled &&
+          followUps.steps.map((step, index) => (
+            <div className="fu-step" key={index}>
+              <span className="fu-num" aria-hidden="true">
+                {index + 1}
+              </span>
+              <div className="fu-body">
+                <div className="inline-select">
+                  <span>Send</span>
+                  <select className="select" aria-label={`Follow-up ${index + 1} wait time`} value={step.delay} onChange={(event) => setStep(index, { delay: event.target.value as typeof step.delay })}>
+                    {(index === 0 ? firstDelays : laterDelays).map((delay) => (
+                      <option key={delay} value={delay}>
+                        {DELAY_LABEL[delay]}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="muted">after they go quiet, if they</span>
+                  <select className="select" aria-label={`Follow-up ${index + 1} condition`} value={step.condition} onChange={(event) => setStep(index, { condition: event.target.value as typeof step.condition })}>
+                    <option value="price_no_contact">asked about price but left no contact</option>
+                    <option value="any_no_contact">asked anything and left no contact</option>
+                  </select>
+                </div>
+                <TextArea aria-label={`Follow-up ${index + 1} message`} rows={2} maxLength={1000} value={step.text} onChange={(event) => setStep(index, { text: event.target.value })} />
+                <div className="fu-foot">
+                  <span className="muted">{index === followUps.steps.length - 1 && index > 0 ? "Sent exactly as written · last chance before the 24-hour window closes" : "Sent exactly as written"}</span>
+                  <Button variant="plain" size="small" disabled={!step.text.trim()} onClick={() => onPreview(step.text, index + 1)}>
+                    Show in Preview
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+      </Section>
+      <Section title="After 24 hours" footer="Meta doesn’t allow free-form messages after 24 hours. Your team can still reply by hand for 7 days with Meta’s Human Agent tag.">
+        <Row
+          icon="reply"
+          tone="blue"
+          title="Add “Contact again” to Needs attention"
+          subtitle="So your team can reply by hand from the page, or call if they left a number"
+          multiline
+          accessory={<Toggle label="Add contact again to Needs attention" checked={followUps.contactAgain} onChange={(contactAgain) => set({ contactAgain })} />}
+        />
+      </Section>
+      <Section title="Stops automatically when">
+        {["The customer replies", "They leave a phone number or email", "They say they’re not interested or ask you to stop", "You mark the lead Won or Not a fit, or your team takes over"].map((text) => (
+          <Row key={text} icon="check" tone="green" title={text} />
+        ))}
       </Section>
     </>
   );
