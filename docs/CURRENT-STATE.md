@@ -65,6 +65,7 @@ Runbook and confirmed data live outside this repo in `../mrspa-agent-data/` (`GO
 - **Live version: v8** (`ver_8d4e56c709df4da69125292c784a809f`), published 2026-10-11. Data matches `final/`: 73 products (P071 kept), 14 offers (9 active; OF-010/OF-011 end 2027-01-31 ET), 34 policies, 7 knowledge sources (4 older sources switched off), 33 scenarios (30 from `final/` + 3 builder guards), 16 required.
 - Data tables now use **English keys** (`Mr Spa Products/Offers/Policies`, slugs `mr-spa-*`); the old Vietnamese-key tables are archived as "… (old keys)".
 - Last run on v8's draft: 16/16 required pass, 16/17 optional (the "Bớt thêm" wording check).
+- **Testing order (owner, 2026-10-11):** Sơn tests v8 on the **Freedom Business** page first (Zernio channel `Freedom Business`, webhook active), then chị Quý and test customers there, then the Mr Spa Fanpage goes live. Sơn's own test thread was moved to v8 with Conversations › ••• › "Use the live version" (audited `conversation.version_moved`); other chats keep their version.
 - **Go-live date: not yet.** Remaining: connect the Mr Spa Fanpage in Zernio (only Freedom Business is connected today), turn off ManyChat's auto replies on that page first, then add the channel in Channels; owner test by chị Quý; offer pictures (`image_url` on OF-010/OF-011) when the files exist.
 
 ## Admin v2.1 (2026-10-11)
