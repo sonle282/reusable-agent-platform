@@ -72,12 +72,12 @@ export function Icon({ name, size = 20, label, className }: { name: string; size
 
 const builtInPlatforms: Record<string, string> = { api: "link", web: "website", website: "website", webhook: "branch", email: "mail" };
 
-export function BrandLogo({ platform, size, label }: { platform: string; size?: "sm" | "lg"; label?: string }) {
+export function BrandLogo({ platform, size, label, className }: { platform: string; size?: "sm" | "lg"; label?: string; className?: string }) {
   const key = platform.toLowerCase();
   const mark = logoPaths[key];
   const neutral = !mark;
   return (
-    <span className={`logo logo-${neutral ? (key === "web" || key === "website" ? "web" : "api") : key}${size ? ` ${size}` : ""}`} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <span className={`logo logo-${neutral ? (key === "web" || key === "website" ? "web" : "api") : key}${size ? ` ${size}` : ""}${className ? ` ${className}` : ""}`} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
       {mark ? <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" dangerouslySetInnerHTML={{ __html: mark }} /> : <Icon name={builtInPlatforms[key] ?? "link"} />}
     </span>
   );
@@ -109,11 +109,7 @@ export function Avatar({ name, icon, platform }: { name?: string; tone?: string;
   return (
     <span className="avatar" aria-hidden="true">
       {icon || !initials ? <Icon name={icon ?? "user"} /> : initials}
-      {platform && (
-        <span className="avatar-badge">
-          <BrandLogo platform={platform} size="sm" />
-        </span>
-      )}
+      {platform && <BrandLogo platform={platform} size="sm" className="avatar-badge" />}
     </span>
   );
 }

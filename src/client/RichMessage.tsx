@@ -30,21 +30,21 @@ const safeUrl = (value?: string) => {
   }
 };
 
-// side "out" = right/blue, "in" = left/gray. Preview: the owner (as customer) is out; Conversations: the customer is in.
-export function RichBubbles({ text, side, selected }: { text: string; side: "out" | "in"; selected?: boolean }) {
+// ChatGPT-style thread: the customer is a gray bubble on the right, the assistant (or team) plain text on the left.
+export function RichBubbles({ text, side }: { text: string; side: "customer" | "assistant" }) {
   return (
     <>
       {parseRichMessage(text).map((part, index) => {
         const buttons = (part.buttons ?? []).filter((button) => safeUrl(button.url));
         const image = part.type === "image" ? safeUrl(part.url) : undefined;
         return (
-          <div className={`bubble bubble-${side}${image ? " media" : ""}${selected ? " is-selected" : ""}`} key={index}>
-            {image && <img src={image} alt="" loading="lazy" />}
-            {part.text && <p>{part.text}</p>}
+          <div className={`${side === "customer" ? "msg-user" : "msg-ai-text"}${image ? " has-media" : ""}`} key={index}>
+            {image && <img className="msg-image" src={image} alt="" loading="lazy" />}
+            {part.text && <p className="msg-text">{part.text}</p>}
             {buttons.length > 0 && (
-              <div className="bubble-buttons">
+              <div className="row-flex" style={{ flexWrap: "wrap" }}>
                 {buttons.map((button, buttonIndex) => (
-                  <a href={safeUrl(button.url)} target="_blank" rel="noreferrer noopener" key={buttonIndex}>
+                  <a className="msg-chip" href={safeUrl(button.url)} target="_blank" rel="noreferrer noopener" key={buttonIndex}>
                     {button.caption || "Open link"}
                   </a>
                 ))}

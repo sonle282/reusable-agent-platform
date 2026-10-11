@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { api, del, patch } from "../api";
 import { formatPhone } from "../../shared/contact";
 import { displayName, formatDate } from "../format";
-import { Alert, Avatar, Button, Card, Dialog, EmptyState, errorMessage, PageHeader, Segmented, Sheet, Skeleton, TextArea, useToast } from "../ui";
+import { platformKey, platformName } from "../platform";
+import { AgentAvatar, Alert, Avatar, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, PageHeader, Segmented, Skeleton, Table, TextArea, useToast } from "../ui";
 
 export type LeadStatus = "new" | "called" | "won" | "not_fit";
 type Lead = {
@@ -14,6 +15,7 @@ type Lead = {
   lead_notes: string;
   lead_summary: string;
   lead_created_at: string;
+  agent_id?: string | null;
   agent_name: string | null;
   platform: string | null;
   conversation_id: string | null;
@@ -31,12 +33,8 @@ const filters: Array<{ value: LeadStatus | "all"; label: string }> = [
   { value: "won", label: "Won" },
   { value: "not_fit", label: "Not a fit" },
 ];
-const platformLabel = (value?: string | null) =>
-  value ? ({ facebook: "Messenger", instagram: "Instagram", whatsapp: "WhatsApp", generic_api: "Website chat", generic_webhook: "Webhook", zernio: "Messenger" } as Record<string, string>)[value] ?? value : "Chat";
-
-function StatusPill({ status }: { status: LeadStatus }) {
-  return <span className={`lead-status ls-${status}`}>{statusLabel[status]}</span>;
-}
+// Website chat and API leads have no brand platform; name them plainly.
+const platformLabel = (value?: string | null) => (value === "generic_api" ? "Website chat" : value === "generic_webhook" ? "Webhook" : value ? (platformName[platformKey(value)] ?? value) : "Chat");
 
 const contactLine = (lead: Lead) => formatPhone(lead.phone) || lead.email || "";
 
@@ -70,7 +68,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
   }
   const rows = (data?.leads ?? []).filter((lead) => filter === "all" || lead.lead_status === filter);
   return (
-    <div className="page leads-page">
+    <div className="page">
       <PageHeader
         title="Leads"
         subtitle="People who left a phone number or email. Call the new ones first."
@@ -84,7 +82,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
       />
       {error && (
         <Alert
-          tone="error"
+          tone="danger"
           title="Leads didn't load"
           text="Your leads are safe. Check your connection and try again."
           actions={
@@ -96,87 +94,83 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
       )}
       {!data && !error && <Skeleton rows={5} avatar />}
       {data && data.counts.all === 0 && (
-        <Card>
-          <EmptyState icon="person-plus" title="No leads yet" text="When a customer leaves a phone number or email, they show up here and in Needs attention on Home." />
-        </Card>
+        <div className="card">
+          <EmptyState icon="phone" title="No leads yet" text="When a customer leaves a phone number or email, they show up here and in Needs attention on Home." />
+        </div>
       )}
       {data && data.counts.all > 0 && (
         <>
-          <Card>
-            <div className="metrics">
-              <div className="metric">
-                <span className="metric-label">New · call these</span>
-                <span className={`metric-value${data.counts.new ? "" : " is-zero"}`}>{data.counts.new}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">This month</span>
-                <span className={`metric-value${data.thisMonth ? "" : " is-zero"}`}>{data.thisMonth}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">Won this month</span>
-                <span className={`metric-value${data.wonThisMonth ? "" : " is-zero"}`}>{data.wonThisMonth}</span>
-              </div>
+          <section className="card metrics" aria-label="Lead counts">
+            <div className="metric">
+              <span className="xs t3">New · call these</span>
+              <span className={`metric-value${data.counts.new ? "" : " is-zero"}`}>{data.counts.new}</span>
             </div>
-          </Card>
-          <div className="chips" role="group" aria-label="Status">
-            {filters.map((item) => (
-              <button type="button" key={item.value} className="chip" aria-pressed={filter === item.value} onClick={() => setFilter(item.value)}>
-                {item.label} <span className="chip-count">{data.counts[item.value]}</span>
-              </button>
-            ))}
-          </div>
-          <Card>
-            {rows.length === 0 ? (
-              <p className="leads-none">No leads with this status.</p>
-            ) : (
-              <div className="leads-table-wrap">
-                <table className="leads-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Lead</th>
-                      <th scope="col">What they want</th>
-                      <th scope="col" className="lt-optional">
-                        Status
-                      </th>
-                      <th scope="col" className="lt-optional">
-                        Received
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((lead) => (
-                      <tr key={lead.id} onClick={() => onOpen(lead.id)}>
-                        <td>
-                          <button type="button" className="lt-who" onClick={(event) => (event.stopPropagation(), onOpen(lead.id))}>
-                            <Avatar name={lead.display_name ?? undefined} tone={lead.lead_status === "new" ? "indigo" : undefined} />
-                            <span className="lt-who-text">
-                              <span className="lt-name truncate">{displayName(lead)}</span>
-                              <span className="lt-sub tabular">{contactLine(lead)}</span>
-                              <span className="lt-sub lt-phone-only">
-                                {statusLabel[lead.lead_status]} · {formatDate(lead.lead_created_at)}
-                              </span>
+            <div className="metric">
+              <span className="xs t3">This month</span>
+              <span className={`metric-value${data.thisMonth ? "" : " is-zero"}`}>{data.thisMonth}</span>
+            </div>
+            <div className="metric">
+              <span className="xs t3">Won this month</span>
+              <span className={`metric-value${data.wonThisMonth ? "" : " is-zero"}`}>{data.wonThisMonth}</span>
+            </div>
+          </section>
+          <div className="stack" style={{ gap: 12 }}>
+            <Chips label="Status" value={filter} onChange={setFilter} options={filters.map((item) => ({ ...item, count: data.counts[item.value] }))} />
+            <div className="card">
+              <Table label="Leads">
+                <thead>
+                  <tr>
+                    <th style={{ width: "34%" }}>Lead</th>
+                    <th>What they want</th>
+                    <th className="table-cols-optional" style={{ width: 130 }}>
+                      Status
+                    </th>
+                    <th className="table-cols-optional" style={{ width: 110 }}>
+                      Received
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((lead) => (
+                    <tr key={lead.id} onClick={() => onOpen(lead.id)}>
+                      <td>
+                        <button type="button" className="row-flex lead-who" onClick={(event) => (event.stopPropagation(), onOpen(lead.id))}>
+                          <Avatar name={lead.display_name ?? undefined} platform={platformKey(lead.platform)} />
+                          <span className="stack" style={{ gap: 0 }}>
+                            <span className="medium truncate">{displayName(lead)}</span>
+                            <span className="xs t3 tabular">{contactLine(lead)}</span>
+                            <span className="xs t3 only-phone">
+                              {statusLabel[lead.lead_status]} · {formatDate(lead.lead_created_at)}
                             </span>
-                          </button>
-                        </td>
-                        <td>
-                          <span className="clamp-2">{lead.lead_summary || <span className="muted">No summary yet</span>}</span>
-                          <span className="lt-sub">{[platformLabel(lead.platform), lead.agent_name, lead.followup ? "Follow-up sent" : ""].filter(Boolean).join(" · ")}</span>
-                        </td>
-                        <td className="lt-optional">
-                          <StatusPill status={lead.lead_status} />
-                        </td>
-                        <td className="lt-optional lt-sub tabular">{formatDate(lead.lead_created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
+                          </span>
+                        </button>
+                      </td>
+                      <td>
+                        <span className="clamp-2">{lead.lead_summary || <span className="t3">No summary yet</span>}</span>
+                        <span className="row-flex xs t3" style={{ marginTop: 4 }}>
+                          {lead.agent_name && <AgentAvatar id={lead.agent_id ?? lead.agent_name} name={lead.agent_name} size="xs" />}
+                          <span className="truncate">{[lead.agent_name, lead.followup ? "Follow-up sent" : ""].filter(Boolean).join(" · ")}</span>
+                        </span>
+                      </td>
+                      <td className="table-cols-optional">
+                        <StatusPill status={lead.lead_status} />
+                      </td>
+                      <td className="table-cols-optional xs t3 tabular">{formatDate(lead.lead_created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+              {rows.length === 0 && (
+                <div className="empty" style={{ padding: 32 }}>
+                  <p className="empty-text">No leads with this status.</p>
+                </div>
+              )}
+            </div>
+          </div>
         </>
       )}
       {openId && (
-        <LeadSheet
+        <LeadDrawer
           id={openId}
           onClose={() => onOpen(undefined)}
           onOpenConversation={onOpenConversation}
@@ -190,7 +184,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
   );
 }
 
-function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string; onClose: () => void; onOpenConversation: (id: string) => void; onChanged: () => Promise<void> }) {
+function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string; onClose: () => void; onOpenConversation: (id: string) => void; onChanged: () => Promise<void> }) {
   const toast = useToast();
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [error, setError] = useState("");
@@ -219,15 +213,15 @@ function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string;
   const phone = lead ? formatPhone(lead.phone) : "";
   return (
     <>
-      <Sheet
-        drawer
+      <Drawer
         title={name}
         subtitle={lead ? `${platformLabel(lead.platform)} · ${formatDate(lead.lead_created_at)}` : undefined}
+        leading={lead ? <Avatar name={lead.display_name ?? undefined} platform={platformKey(lead.platform)} /> : undefined}
         onClose={onClose}
         footer={
           lead && (
             <>
-              <Button variant="ghost" destructive onClick={() => setConfirmDelete(true)}>
+              <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
                 Delete lead
               </Button>
               <span className="spacer" />
@@ -236,29 +230,31 @@ function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string;
           )
         }
       >
-        {error && <Alert tone="error" title="Couldn't open the lead" text={error} />}
+        {error && <Alert tone="danger" title="Couldn't open the lead" text={error} />}
         {!lead && !error && <Skeleton rows={4} card={false} />}
         {lead && (
           <>
-            <div className="lead-actions">
+            <div className="row-flex" style={{ flexWrap: "wrap" }}>
               {lead.phone && (
                 <a className="btn btn-primary" href={`tel:${lead.phone}`}>
+                  <Icon name="phone" size={18} />
                   Call {phone}
                 </a>
               )}
               {!lead.phone && lead.email && (
                 <a className="btn btn-primary" href={`mailto:${lead.email}`}>
+                  <Icon name="mail" size={18} />
                   Email {lead.email}
                 </a>
               )}
               {lead.conversation_id && (
-                <Button variant="outline" onClick={() => onOpenConversation(lead.conversation_id!)}>
+                <Button variant="outline" icon="chats" onClick={() => onOpenConversation(lead.conversation_id!)}>
                   Open conversation
                 </Button>
               )}
             </div>
-            <div className="lead-block">
-              <span className="lead-label">Status</span>
+            <div className="field">
+              <span className="field-label">Status</span>
               <Segmented
                 full
                 label="Status"
@@ -266,16 +262,16 @@ function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string;
                 onChange={(status) => void save({ status })}
                 options={(Object.keys(statusLabel) as LeadStatus[]).map((value) => ({ value, label: statusLabel[value] }))}
               />
-              <span className="lead-help">Won and Not a fit stop follow-ups for this person.</span>
+              <span className="help">Won and Not a fit stop follow-ups for this person.</span>
             </div>
-            <div className="lead-block">
-              <span className="lead-label">Summary</span>
+            <div className="stack" style={{ gap: 8 }}>
+              <span className="field-label">Summary</span>
               <div className="lead-sum">{lead.lead_summary || "No summary yet. It's written when the customer leaves contact details."}</div>
-              <span className="lead-help">Written by the assistant from the conversation.</span>
+              <span className="help">Written by the assistant from the conversation.</span>
             </div>
-            <div className="lead-block">
-              <span className="lead-label">Details collected</span>
-              <dl className="lead-fields">
+            <div className="stack" style={{ gap: 4 }}>
+              <span className="field-label">Details collected</span>
+              <div className="card">
                 {[
                   ["Name", lead.display_name],
                   ["Phone", phone],
@@ -285,34 +281,37 @@ function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string;
                 ]
                   .filter(([, value]) => value)
                   .map(([label, value]) => (
-                    <div key={label}>
-                      <dt>{label}</dt>
-                      <dd>{value}</dd>
+                    <div className="row compact" key={label}>
+                      <span className="row-text">
+                        <span className="row-sub xs">{label}</span>
+                        <span className="row-title" style={{ overflowWrap: "anywhere" }}>
+                          {value}
+                        </span>
+                      </span>
                     </div>
                   ))}
-              </dl>
+              </div>
             </div>
-            <div className="lead-block">
-              <span className="lead-label">Activity</span>
-              <ol className="timeline">
+            <div className="stack" style={{ gap: 4 }}>
+              <span className="field-label">Activity</span>
+              <ol className="timeline" style={{ margin: 0, padding: 0, listStyle: "none" }}>
                 {lead.activity.map((item, index) => (
                   <li key={`${item.kind}-${index}`} className="tl-item is-on">
                     <span className="tl-dot" aria-hidden="true" />
-                    <span className="tl-text">
+                    <span className="stack" style={{ gap: 0 }}>
                       <span>{activityText(item)}</span>
-                      <span className="lead-help">{formatDate(item.at)}</span>
+                      <span className="xs t3">{formatDate(item.at)}</span>
                     </span>
                   </li>
                 ))}
               </ol>
             </div>
-            <label className="lead-block">
-              <span className="lead-label">Notes</span>
+            <Field label="Notes">
               <TextArea rows={3} value={notes} placeholder="Only your team sees this" onChange={(event) => setNotes(event.target.value)} onBlur={() => notes !== lead.lead_notes && void save({ notes })} />
-            </label>
+            </Field>
           </>
         )}
-      </Sheet>
+      </Drawer>
       {confirmDelete && (
         <Dialog
           title="Delete this lead?"

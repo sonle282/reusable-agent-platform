@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, post, setCsrf } from "./api";
-import { AppIcon, Login, Setup } from "./pages/Auth";
+import { AuthLayout, Login, Setup } from "./pages/Auth";
 import { AssistantPage, type AssistantTab } from "./pages/Assistant";
 import { ConnectionsPage } from "./pages/Connections";
 import { ConversationsPage } from "./pages/Conversations";
@@ -10,7 +10,7 @@ import { LeadsPage } from "./pages/Leads";
 import { SettingsPage } from "./pages/Settings";
 import { useTheme, type ThemeChoice } from "./theme";
 import type { Bootstrap, Brand } from "./types";
-import { AgentAvatar, Alert, Button, Card, errorMessage, Field, Icon, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
+import { AgentAvatar, Alert, Button, errorMessage, Field, Icon, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
 
 type Page = "home" | "leads" | "assistant" | "data" | "conversations" | "channels" | "settings";
 
@@ -147,7 +147,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
         </div>
       </nav>
       <main className={`content${flush ? " is-flush" : ""}`}>
-        {page === "home" && <HomePage agent={agent} connections={data.connections} liveVersion={data.attention?.liveVersion ?? null} unpublished={unpublished} refresh={reload} go={(target, ...rest) => go(target, undefined, ...rest)} />}
+        {page === "home" && <HomePage agent={agent} connections={data.connections} tableCount={data.collections.filter((collection) => !collection.archived_at).length} liveVersion={data.attention?.liveVersion ?? null} unpublished={unpublished} refresh={reload} go={(target, ...rest) => go(target, undefined, ...rest)} />}
         {page === "leads" && <LeadsPage openId={params[0]} onOpen={(id) => (id ? go("leads", undefined, id) : go("leads"))} onOpenConversation={(id) => go("conversations", undefined, id)} onChanged={() => void reload()} />}
         {page === "assistant" && (
           <AssistantPage
@@ -161,10 +161,10 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
             hasZernio={data.connections.some((connection) => connection.type === "zernio")}
           />
         )}
-        {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}
-        {page === "conversations" && <ConversationsPage agentId={agent.id} connections={data.connections} openId={params[0]} onOpen={(id) => go("conversations", undefined, id)} onOpenSettings={() => go("settings")} />}
+        {page === "data" && <DataPage agent={agent} collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id, recordId) => (id ? go("data", undefined, id, ...(recordId ? [recordId] : [])) : go("data"))} />}
+        {page === "conversations" && <ConversationsPage agentId={agent.id} agentName={agent.name} connections={data.connections} openId={params[0]} onOpen={(id) => (id ? go("conversations", undefined, id) : go("conversations"))} onOpenSettings={() => go("settings")} />}
         {page === "channels" && <ConnectionsPage agent={agent} connections={data.connections} reload={reload} onOpenAssistant={() => go("assistant")} />}
-        {page === "settings" && <SettingsPage agentId={agent.id} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
+        {page === "settings" && <SettingsPage agentId={agent.id} zernio={data.connections.some((connection) => connection.type === "zernio" && connection.status === "active")} onManageChannels={() => go("channels")} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
       </main>
       <nav className="tabbar" aria-label="Main">
         {tabs.map((item) => (
@@ -216,13 +216,17 @@ function CreateAssistant({ brand, onDone }: { brand: Brand; onDone: () => Promis
     }
   }
   return (
-    <main className="auth-screen">
-      <form className="auth-panel" onSubmit={submit}>
-        <AppIcon brand={brand} />
-        <h1>Create your assistant</h1>
-        <p className="auth-lead">It answers your customers like a trained team member — on your website, inbox or any channel you connect.</p>
+    <AuthLayout brand={brand}>
+      <form className="auth-form" style={{ maxWidth: 420 }} onSubmit={submit} aria-labelledby="create-title">
+        <div className="stack" style={{ gap: 12 }}>
+          <h1 id="create-title" className="auth-title">
+            Create your assistant
+          </h1>
+          <p className="auth-lead">It answers your customers like a trained team member — on your website, inbox or any channel you connect.</p>
+        </div>
         <Segmented
           label="Assistant type"
+          full
           value={form.template}
           onChange={(template) => setForm({ ...form, template })}
           options={[
@@ -231,22 +235,18 @@ function CreateAssistant({ brand, onDone }: { brand: Brand; onDone: () => Promis
             { value: "blank", label: "Blank" },
           ]}
         />
-        <Card>
-          <Field label="Business name">
-            <TextInput value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} required />
-          </Field>
-          <Field label="What do you offer?">
-            <TextInput value={form.offering} onChange={(event) => setForm({ ...form, offering: event.target.value })} placeholder="e.g. Handmade furniture for homes and offices" />
-          </Field>
-        </Card>
-        {error && <Alert>{error}</Alert>}
-        <div className="auth-actions">
-          <Button size="lg" busy={busy} disabled={!form.businessName.trim()}>
-            Create assistant
-          </Button>
-        </div>
+        <Field label="Business name">
+          <TextInput value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} required />
+        </Field>
+        <Field label="What do you offer?">
+          <TextInput value={form.offering} onChange={(event) => setForm({ ...form, offering: event.target.value })} placeholder="e.g. Handmade furniture for homes and offices" />
+        </Field>
+        {error && <Alert title="Couldn't create the assistant" text={error} />}
+        <Button size="xl" block busy={busy} disabled={!form.businessName.trim()}>
+          Create assistant
+        </Button>
       </form>
-    </main>
+    </AuthLayout>
   );
 }
 

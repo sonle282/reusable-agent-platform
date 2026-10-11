@@ -3,7 +3,7 @@ import { post } from "./api";
 import { maskContact } from "../shared/mask";
 import { publishWithChecks } from "./publish";
 import { parseRichMessage } from "./RichMessage";
-import { Alert, Badge, Button, Card, Dialog, Diff, errorMessage, Icon, Segmented, Sheet, Spinner, Steps, TextArea, useToast } from "./ui";
+import { Alert, Badge, Button, Dialog, Diff, errorMessage, Field, Icon, Segmented, Sheet, Spinner, Steps, TextArea, Tile, useToast, type TileTone } from "./ui";
 
 type Kind = "data" | "knowledge" | "rule";
 type RuleSection = "alwaysDo" | "neverDo" | "handoffWhen";
@@ -32,10 +32,10 @@ type Outcome = { state: "running" } | { state: "pass"; reply: string; scenario: 
 export type FixFinished = { kind: Kind; kept?: boolean };
 
 const sectionLabel: Record<RuleSection, string> = { alwaysDo: "Always", neverDo: "Never", handoffWhen: "Hand off to a person when" };
-const places: Record<Kind, { title: string; tile: string; icon: string; choice: string }> = {
-  data: { title: "Update a row in Data", tile: "soft-green", icon: "table", choice: "Update the row it looked up" },
-  knowledge: { title: "Add to Corrected answers", tile: "soft-indigo", icon: "check-bubble", choice: "Save the question and the right answer" },
-  rule: { title: "Add a line to Instructions", tile: "soft-orange", icon: "sparkles", choice: "A rule for every conversation" },
+const places: Record<Kind, { title: string; tone: TileTone; icon: string; choice: string }> = {
+  data: { title: "Update a row in Data", tone: "success", icon: "table", choice: "Update the row it looked up" },
+  knowledge: { title: "Add to Corrected answers", tone: "discovery", icon: "chat", choice: "Save the question and the right answer" },
+  rule: { title: "Add a line to Instructions", tone: "warning", icon: "sparkle", choice: "A rule for every conversation" },
 };
 const stepLabels = ["What it should say", "Where to fix it", "Result"];
 
@@ -181,7 +181,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
       </>
     ) : (
       <>
-        <Button variant="ghost" destructive onClick={() => setConfirmKeep(true)}>
+        <Button variant="danger-ghost" onClick={() => setConfirmKeep(true)}>
           Keep it anyway
         </Button>
         <span className="spacer" />
@@ -204,26 +204,23 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
 
         {step === 1 && (
           <>
-            <div className="fix-quotes">
+            <div className="stack" style={{ gap: 10 }}>
               <span className="mini-label">The customer asked</span>
-              <div className="quote bubble-out fix-customer">{question}</div>
+              <div className="msg-user">{question}</div>
               <span className="mini-label">Your assistant replied</span>
-              <div className="quote bubble-in fix-reply">
-                <span className={replyOpen ? undefined : "clamp-2"}>{input.badReply}</span>
+              <div className="card card-pad" style={{ background: "var(--color-surface-2)" }}>
+                <span className={replyOpen ? "msg-text" : "msg-text clamp-2"}>{input.badReply}</span>
                 {input.badReply.length > 120 && (
-                  <button type="button" className="btn btn-ghost btn-sm fix-more" onClick={() => setReplyOpen(!replyOpen)}>
+                  <button type="button" className="btn btn-link btn-sm" style={{ display: "block", marginTop: 4 }} onClick={() => setReplyOpen(!replyOpen)}>
                     {replyOpen ? "Show less" : "Show all"}
                   </button>
                 )}
               </div>
             </div>
-            {error && <Alert tone="error" title="No suggestion yet" text={error} />}
-            <Card footer="Edit the reply until it's right. The facts are enough — we'll find where to fix it.">
-              <label className="field stacked">
-                <span className="field-label">What it should have said</span>
-                <TextArea rows={4} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write the answer you'd give, in your own words." data-autofocus />
-              </label>
-            </Card>
+            {error && <Alert tone="danger" title="No suggestion yet" text={error} />}
+            <Field label="What it should have said" hint="Edit the reply until it's right. The facts are enough — we'll find where to fix it.">
+              <TextArea rows={4} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write the answer you'd give, in your own words." data-autofocus />
+            </Field>
           </>
         )}
 
@@ -244,22 +241,19 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
               />
             )}
             {suggestion.aiError === "failed" && <Alert tone="warning" title="The AI didn't suggest a place" text="We picked Corrected answers. Choose another place below if it fits better." />}
-            {error && <Alert tone="error" title="Couldn't apply the fix" text={error} />}
-            <Card title={kind === suggestion.recommended ? "Best place to fix it" : "You chose"}>
-              <div className="fix-card">
-                <div className="fix-card-head">
-                  <span className={`tile tile-${places[kind].tile}`} aria-hidden="true">
-                    <Icon name={places[kind].icon} size={18} />
-                  </span>
+            {error && <Alert tone="danger" title="Couldn't apply the fix" text={error} />}
+            <div className="stack" style={{ gap: 10 }}>
+              <span className="mini-label">{kind === suggestion.recommended ? "Best place to fix it" : "You chose"}</span>
+              <div className="card card-pad stack" style={{ gap: 12 }}>
+                <div className="row-flex" style={{ gap: 12 }}>
+                  <Tile icon={places[kind].icon} tone={places[kind].tone} />
                   <span className="row-text">
-                    <span className="row-title strong">{places[kind].title}</span>
-                    <span className="row-subtitle">
-                      {kind === "data" && suggestion.data ? `${suggestion.data.collectionName} › ${suggestion.data.recordTitle}` : kind === "rule" ? `Instructions › ${sectionLabel[edit.section]}` : "Sources › Corrected answers"}
-                    </span>
+                    <span className="row-title">{places[kind].title}</span>
+                    <span className="row-sub xs">{kind === "data" && suggestion.data ? `${suggestion.data.collectionName} › ${suggestion.data.recordTitle}` : kind === "rule" ? `Instructions › ${sectionLabel[edit.section]}` : "Sources › Corrected answers"}</span>
                   </span>
-                  {kind === suggestion.recommended && <Badge tone="blue">Suggested</Badge>}
+                  {kind === suggestion.recommended && <Badge tone="info">Suggested</Badge>}
                 </div>
-                {kind === suggestion.recommended && <p className="fix-reason">{suggestion.reason}</p>}
+                {kind === suggestion.recommended && <p className="xs t2" style={{ margin: 0 }}>{suggestion.reason}</p>}
                 {kind === "data" && suggestion.data && (
                   <Diff head={suggestion.data.fieldLabel} removed={suggestion.data.before || undefined} added={<TextArea className="diff-input" rows={1} value={edit.value} onChange={(event) => setEdit({ ...edit, value: event.target.value })} aria-label={`New ${suggestion.data.fieldLabel}`} />} />
                 )}
@@ -267,8 +261,8 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
                   <Diff
                     head="New corrected answer"
                     added={
-                      <span className="fix-qa">
-                        <span className="muted">Q: {suggestion.knowledge.question}</span>
+                      <span className="stack" style={{ gap: 4 }}>
+                        <span className="t2">Q: {suggestion.knowledge.question}</span>
                         <TextArea className="diff-input" rows={2} value={edit.answer} onChange={(event) => setEdit({ ...edit, answer: event.target.value })} aria-label="Corrected answer" />
                       </span>
                     }
@@ -276,104 +270,112 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
                 )}
                 {kind === "rule" && (
                   <>
-                    <Segmented<RuleSection>
-                      label="Rule list"
-                      value={edit.section}
-                      onChange={(section) => setEdit({ ...edit, section })}
-                      options={[
-                        { value: "alwaysDo", label: "Always" },
-                        { value: "neverDo", label: "Never" },
-                        { value: "handoffWhen", label: "Hand off" },
-                      ]}
-                    />
+                    <div style={{ alignSelf: "flex-start" }}>
+                      <Segmented<RuleSection>
+                        label="Rule list"
+                        value={edit.section}
+                        onChange={(section) => setEdit({ ...edit, section })}
+                        options={[
+                          { value: "alwaysDo", label: "Always" },
+                          { value: "neverDo", label: "Never" },
+                          { value: "handoffWhen", label: "Hand off" },
+                        ]}
+                      />
+                    </div>
                     <Diff head={`${sectionLabel[edit.section]} · new line`} added={<TextArea className="diff-input" rows={1} value={edit.line} onChange={(event) => setEdit({ ...edit, line: event.target.value })} aria-label="New rule" />} />
                   </>
                 )}
-                <p className="status-line fix-note">
+                <span className="status xs">
                   <Icon name="info" size={16} />
                   {kind === "data" ? "Data changes reach customers right away — no publish needed." : "Goes into the draft. Publish to make it live."}
-                </p>
+                </span>
               </div>
-            </Card>
-            <Card>
-              <button type="button" className="disclosure" aria-expanded={showOthers} onClick={() => setShowOthers(!showOthers)}>
-                <span className="spacer fix-other">Choose another place</span>
-                <Icon name="chevron-right" className="chev" size={13} />
+            </div>
+            <div className="stack" style={{ gap: 10 }}>
+              <button type="button" className="btn btn-sm btn-ghost" style={{ alignSelf: "flex-start", marginLeft: -8 }} aria-expanded={showOthers} onClick={() => setShowOthers(!showOthers)}>
+                Choose another place
+                <Icon name="chevron-down" size={16} className={showOthers ? "flip" : undefined} />
               </button>
               {showOthers && (
-                <div role="radiogroup" aria-label="Where to fix it" className="disclosure-body">
+                <div role="radiogroup" aria-label="Where to fix it" className="choice-list">
                   {kinds.map((option) => (
-                    <button type="button" key={option} className="row" role="radio" aria-checked={kind === option} onClick={() => setKind(option)}>
-                      <span className={`tile tile-${places[option].tile}`} aria-hidden="true">
-                        <Icon name={places[option].icon} size={18} />
-                      </span>
-                      <span className="row-body">
-                        <span className="row-text">
-                          <span className="row-title">{option === "data" ? "Data" : option === "knowledge" ? "Corrected answers" : "Instructions"}</span>
-                          <span className="row-subtitle">{places[option].choice}</span>
-                        </span>
-                        {kind === option && <Icon name="check" className="choice-check" size={18} />}
+                    <button type="button" key={option} className="choice" role="radio" aria-checked={kind === option} onClick={() => setKind(option)}>
+                      <span className="radio-dot" aria-hidden="true" />
+                      <Tile icon={places[option].icon} tone={places[option].tone} />
+                      <span className="row-text">
+                        <span className="row-title">{option === "data" ? "Data" : option === "knowledge" ? "Corrected answers" : "Instructions"}</span>
+                        <span className="xs t2">{places[option].choice}</span>
                       </span>
                     </button>
                   ))}
                 </div>
               )}
-            </Card>
+            </div>
           </>
         )}
 
         {step === 3 && outcome?.state === "running" && (
-          <div className="result fix-running" role="status" aria-live="polite">
-            <Spinner large label="Testing the fix" />
+          <div className="result" style={{ padding: "40px 0" }} role="status" aria-live="polite">
+            <span style={{ marginBottom: 12 }}>
+              <Spinner large label="Testing the fix" />
+            </span>
             <h3 className="result-title">Testing the fix…</h3>
-            <p className="result-text">Asking the draft “{question}” again.</p>
+            <p className="t2" style={{ margin: 0 }}>
+              Asking the draft “{question}” again.
+            </p>
           </div>
         )}
         {step === 3 && outcome?.state === "pass" && (
           <>
             <div className="result" role="status">
-              <span className="result-icon result-pass" aria-hidden="true">
-                <Icon name="check" size={28} />
+              <span className="result-icon tile-success" aria-hidden="true">
+                <Icon name="check" />
               </span>
               <h3 className="result-title">Fixed and protected</h3>
-              <p className="result-text">
+              <p className="t2" style={{ margin: 0, maxWidth: 400 }}>
                 {kind === "data"
-                  ? "The draft now gives the right answer, and customers get it right away. We saved a test scenario so it stays fixed."
-                  : "The draft now gives the right answer. We saved a test scenario so it stays fixed. Publish to make it live."}
+                  ? "The draft now gives the right answer, and customers get it right away. We saved an answer check so it stays fixed."
+                  : "The draft now gives the right answer. We saved an answer check so it stays fixed. Publish to make it live."}
               </p>
             </div>
-            <Card title="New reply">
-              <div className="quote bubble-in fix-new">{outcome.reply}</div>
-            </Card>
-            <Card title="Saved as a test scenario">
-              <div className="row">
-                <span className="tile tile-soft-green" aria-hidden="true">
-                  <Icon name="check-circle" size={18} />
-                </span>
-                <div className="row-body">
-                  <span className="row-text">
-                    <span className="row-title">{outcome.scenario}</span>
-                    <span className="row-subtitle truncate">“{question}”</span>
-                  </span>
-                  <Badge tone="outline">Required</Badge>
-                </div>
+            <div className="stack" style={{ gap: 8 }}>
+              <span className="mini-label">New reply</span>
+              <div className="msg-ai-text" style={{ font: "var(--text-sm)" }}>
+                <p className="msg-text">{outcome.reply}</p>
               </div>
-            </Card>
+            </div>
+            <div className="card">
+              <div className="row compact">
+                <Tile icon="check-circle" tone="success" />
+                <span className="row-text">
+                  <span className="row-title">Saved as an answer check</span>
+                  <span className="row-sub xs truncate">
+                    {outcome.scenario} · “{question}”
+                  </span>
+                </span>
+                <Badge tone="outline">Required</Badge>
+              </div>
+            </div>
           </>
         )}
         {step === 3 && outcome?.state === "fail" && (
           <>
             <div className="result" role="alert">
-              <span className="result-icon result-fail" aria-hidden="true">
-                <Icon name="xmark" size={28} />
+              <span className="result-icon tile-danger" aria-hidden="true">
+                <Icon name="x" />
               </span>
-              <h3 className="result-title">Not applied — the scenario still fails</h3>
-              <p className="result-text">{friendlyFailure(outcome.failures)} Nothing was changed for customers.</p>
+              <h3 className="result-title">Not applied — the check still fails</h3>
+              <p className="t2" style={{ margin: 0, maxWidth: 400 }}>
+                {friendlyFailure(outcome.failures)} Nothing was changed for customers.
+              </p>
             </div>
             {outcome.reply && (
-              <Card title="What the draft says now">
-                <div className="quote bubble-in fix-new">{outcome.reply}</div>
-              </Card>
+              <div className="stack" style={{ gap: 8 }}>
+                <span className="mini-label">What the draft says now</span>
+                <div className="msg-ai-text" style={{ font: "var(--text-sm)" }}>
+                  <p className="msg-text">{outcome.reply}</p>
+                </div>
+              </div>
             )}
           </>
         )}
@@ -381,7 +383,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
       {confirmKeep && (
         <Dialog
           title="Keep a fix that still fails?"
-          text={kind === "data" ? "Customers see the new value right away. It stays in Needs attention until its scenario passes." : "It goes into the draft anyway and stays in Needs attention until its scenario passes."}
+          text={kind === "data" ? "Customers see the new value right away. It stays in Needs attention until its check passes." : "It goes into the draft anyway and stays in Needs attention until its check passes."}
           confirmLabel="Keep it"
           destructive
           busy={busy}

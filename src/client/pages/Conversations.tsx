@@ -4,23 +4,32 @@ import { displayName, formatDate, previewSnippet, timeSeparator } from "../forma
 import { useFixAnswer } from "../FixSheet";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { Connection, Conversation, TranscriptMessage } from "../types";
-import { Alert, Avatar, Badge, Button, Dialog, EmptyState, errorMessage, Icon, Menu, PageHeader, SearchField, Skeleton, SkeletonLine, Switch, useToast } from "../ui";
+
+// "Messenger via Zernio", "API" — how this chat reaches the customer.
+const channelLabel = (connection?: Connection) => {
+  if (!connection) return "";
+  const name = platformName[platformOf(connection)] ?? connection.name;
+  return connection.type === "zernio" ? `${name} via Zernio` : connection.name || name;
+};
+import { formatPhone } from "../../shared/contact";
+import { platformName, platformOf } from "../platform";
+import { AgentAvatar, Alert, Avatar, Badge, Button, Chips, Dialog, EmptyState, errorMessage, Icon, Menu, SearchField, Skeleton, SkeletonLine, Switch, useToast } from "../ui";
 
 const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 
 type Detail = { conversation: Conversation & { custom_json?: string | null }; messages: TranscriptMessage[] };
 
-// Split view: chats on the left, the transcript on the right (customer left, assistant and team right).
-export function ConversationsPage({ agentId, connections, openId, onOpen, onOpenSettings }: { agentId: string; connections: Connection[]; openId?: string; onOpen: (id: string) => void; onOpenSettings: () => void }) {
+// Full-height split: chats on the left, the thread on the right (customer as a gray bubble on the right, the assistant as plain text).
+export function ConversationsPage({ agentId, agentName, connections, openId, onOpen, onOpenSettings }: { agentId: string; agentName: string; connections: Connection[]; openId?: string; onOpen: (id?: string) => void; onOpenSettings: () => void }) {
   const toast = useToast();
   const { startFix, fixSheet } = useFixAnswer({ agentId, onOpenSettings });
   const [items, setItems] = useState<Conversation[] | null>(null);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "leads" | "team">("all");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
-  const [openMessage, setOpenMessage] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const [erasing, setErasing] = useState<"ask" | "busy" | null>(null);
   const [moving, setMoving] = useState<"ask" | "busy" | null>(null);
@@ -53,7 +62,6 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
   }, [query]);
   useEffect(() => {
     setDetail(null);
-    setOpenMessage(null);
     if (selectedId) void loadDetail(selectedId);
   }, [selectedId]);
   useEffect(() => {
@@ -111,204 +119,226 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
     }
   }
 
-  const channelName = (id?: string) => connections.find((connection) => connection.id === id)?.name;
+  const channelOf = (id?: string) => connections.find((connection) => connection.id === id);
   const selected = items?.find((item) => item.id === selectedId) ?? (detail?.conversation.id === selectedId ? detail?.conversation : undefined);
-  const empty = items !== null && items.length === 0 && !query;
+  const shown = (items ?? []).filter((item) => filter === "all" || (filter === "leads" ? item.stage === "lead_captured" : Boolean(item.human_takeover)));
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Copied");
+    } catch {
+      toast("Couldn't copy. Select the text and copy it.", "error");
+    }
+  };
 
   return (
-    <div className="page conversations-page">
-      <PageHeader title="Conversations" />
-      {listError && (
-        <Alert
-          tone="error"
-          title="Couldn't load new messages"
-          text={`${loadedAt ? `You're seeing chats up to ${formatDate(loadedAt.toISOString())}. ` : ""}Customers are still being answered.`}
-          actions={
-            <Button variant="outline" size="sm" onClick={() => void load()}>
-              Try again
-            </Button>
-          }
-        />
-      )}
-
-      {empty ? (
-        <div className="section-card">
-          <EmptyState icon="bubbles" title="No conversations yet" text="When customers message you on a connected channel, every chat shows up here — and you can step in at any time." />
+    <div className="split">
+      <section className={`split-list${openId ? " is-hidden-phone" : ""}`} aria-labelledby="conversations-title">
+        <div className="split-list-head">
+          <h1 id="conversations-title" style={{ margin: 0, font: "var(--text-heading-md)", letterSpacing: "var(--track-heading)" }}>
+            Conversations
+          </h1>
+          <SearchField value={query} onChange={setQuery} onSubmit={() => void load(query.trim())} placeholder="Search name or phone" />
+          <Chips
+            label="Filter"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: "all", label: "All" },
+              { value: "leads", label: "Leads", count: items?.filter((item) => item.stage === "lead_captured").length || undefined },
+              { value: "team", label: "Your team", count: items?.filter((item) => item.human_takeover).length || undefined },
+            ]}
+          />
         </div>
-      ) : (
-        <div className="split">
-          <div className="master">
-            <SearchField value={query} onChange={setQuery} onSubmit={() => void load(query.trim())} placeholder="Search name or phone" />
-            {items === null ? (
-              listError ? null : <Skeleton rows={3} avatar />
-            ) : items.length === 0 ? (
-              <div className="section-card">
-                <EmptyState icon="search" title="No matches" text="Try a name or the last digits of a phone number." />
-              </div>
-            ) : (
-              <div className="section-card">
-                {items.map((item) => {
-                  const name = displayName(item);
-                  const current = item.id === selectedId;
-                  return (
-                    <button type="button" key={item.id} className={`row top${current ? " is-selected" : ""}`} aria-current={current || undefined} onClick={() => onOpen(item.id)}>
-                      <Avatar name={item.display_name ? name : undefined} tone={item.human_takeover ? "orange" : item.display_name ? "indigo" : undefined} />
-                      <span className="row-body recent-body">
-                        <span className="row-text">
-                          <span className="recent-line">
-                            <span className="row-title strong truncate">{name}</span>
-                            <span className="spacer" />
-                            <span className="row-detail conversation-time">{formatDate(item.last_activity_at)}</span>
-                          </span>
-                          <span className="row-subtitle clamp-2">{previewText(item.last_message_preview)}</span>
-                          {(Boolean(item.human_takeover) || item.stage === "lead_captured") && (
-                            <span className="conversation-tags">
-                              {Boolean(item.human_takeover) && <Badge tone="orange">Your team is replying</Badge>}
-                              {item.stage === "lead_captured" && <Badge tone="blue">New lead</Badge>}
-                            </span>
-                          )}
-                        </span>
+        <div className="split-scroll">
+          {listError && (
+            <div style={{ padding: "0 16px 12px" }}>
+              <Alert
+                tone="danger"
+                title="Couldn't load new messages"
+                text={`${loadedAt ? `Showing chats up to ${formatDate(loadedAt.toISOString())}. ` : ""}Customers are still being answered.`}
+                actions={
+                  <Button variant="outline" size="sm" onClick={() => void load()}>
+                    Try again
+                  </Button>
+                }
+              />
+            </div>
+          )}
+          {items === null ? (
+            listError ? null : <Skeleton rows={3} avatar card={false} />
+          ) : items.length === 0 && !query ? (
+            <EmptyState icon="chats" title="No conversations yet" text="When customers message a connected channel, every chat shows up here — and you can step in at any time." />
+          ) : shown.length === 0 ? (
+            <EmptyState icon="search" title="No matches" text={query ? "Try a name or the last digits of a phone number." : "No chats with this filter."} />
+          ) : (
+            shown.map((item) => {
+              const name = displayName(item);
+              const current = item.id === selectedId;
+              return (
+                <button type="button" key={item.id} className={`row top${current ? " is-selected" : ""}`} style={{ borderTop: 0 }} aria-current={current || undefined} onClick={() => onOpen(item.id)}>
+                  <Avatar name={item.display_name ? name : undefined} platform={platformOf(channelOf(item.connection_id))} />
+                  <span className="row-text">
+                    <span className="row-flex">
+                      <span className="row-title truncate">{name}</span>
+                      <span className="spacer" />
+                      <span className="row-meta">{formatDate(item.last_activity_at)}</span>
+                    </span>
+                    <span className="row-sub clamp-2">{previewText(item.last_message_preview)}</span>
+                    {(Boolean(item.human_takeover) || item.stage === "lead_captured") && (
+                      <span className="row-flex" style={{ gap: 6, marginTop: 2 }}>
+                        {Boolean(item.human_takeover) && <Badge tone="warning">Your team is replying</Badge>}
+                        {item.stage === "lead_captured" && <Badge tone="info">New lead</Badge>}
                       </span>
-                    </button>
-                  );
-                })}
+                    )}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </section>
+
+      <section className={`split-detail${openId ? "" : " is-hidden-phone"}`} aria-labelledby="thread-name">
+        {selected ? (
+          <>
+            <div className="thread-head">
+              <Button variant="ghost" icon="chevron-left" className="back-link" aria-label="Back to conversations" onClick={() => onOpen(undefined)} />
+              <Avatar name={selected.display_name ? displayName(selected) : undefined} platform={platformOf(channelOf(selected.connection_id))} />
+              <div className="spacer stack" style={{ gap: 0, minWidth: 160 }}>
+                <span id="thread-name" className="strong truncate">
+                  {displayName(selected)}
+                </span>
+                <span className="xs t2 truncate">
+                  {selected.erased_at ? `Customer data erased ${formatDate(selected.erased_at)}` : [channelLabel(channelOf(selected.connection_id)), formatPhone(selected.phone), selected.email].filter(Boolean).join(" · ") || "No contact details yet"}
+                </span>
+              </div>
+              <label className="row-flex" style={{ gap: 10 }}>
+                <span className="medium">Your team replies</span>
+                <Switch label="Your team replies" checked={Boolean(selected.human_takeover)} disabled={switching} onChange={(enabled) => void setTakeover(selected, enabled)} />
+              </label>
+              <Menu
+                label="Conversation actions"
+                size="md"
+                items={[
+                  { group: "Assistant" },
+                  { label: "Use the live version…", icon: "reload", onSelect: () => setMoving("ask") },
+                  { separator: true },
+                  { group: "Customer data" },
+                  { label: "Export", icon: "download", onSelect: () => void exportCustomer(selected) },
+                  { label: "Erase…", icon: "trash", destructive: true, onSelect: () => setErasing("ask") },
+                ]}
+              />
+            </div>
+            {Boolean(selected.human_takeover) && (
+              <div className="alert-box alert-info thread-alert" role="status">
+                <Icon name="pause" />
+                <div className="alert-body">
+                  <span className="alert-text" style={{ color: "var(--color-text)" }}>
+                    The assistant is paused here. Reply from the app this customer wrote in; turn this off to hand the chat back.
+                  </span>
+                </div>
               </div>
             )}
-          </div>
-
-          <div className="detail">
-            {selected ? (
-              <section className="transcript-pane" aria-labelledby="transcript-name">
-                <div className="pane-head transcript-head">
-                  <Avatar name={selected.display_name ? displayName(selected) : undefined} tone={selected.human_takeover ? "orange" : selected.display_name ? "indigo" : undefined} />
-                  <div className="spacer transcript-who">
-                    <div id="transcript-name" className="pane-title truncate">
-                      {displayName(selected)}
-                    </div>
-                    <div className="pane-sub truncate">{selected.erased_at ? `Customer data erased ${formatDate(selected.erased_at)}` : [selected.phone, selected.email, channelName(selected.connection_id)].filter(Boolean).join(" · ") || "No contact details yet"}</div>
-                  </div>
-                  <label className="takeover">
-                    <span>Your team replies</span>
-                    <Switch label="Your team replies" checked={Boolean(selected.human_takeover)} disabled={switching} onChange={(enabled) => void setTakeover(selected, enabled)} />
-                  </label>
-                  <Menu
-                    label="Conversation actions"
-                    items={[
-                      { group: "Assistant" },
-                      { label: "Use the live version…", icon: "refresh", onSelect: () => setMoving("ask") },
-                      { separator: true },
-                      { group: "Customer data" },
-                      { label: "Export", icon: "download", onSelect: () => void exportCustomer(selected) },
-                      { label: "Erase…", icon: "trash", destructive: true, onSelect: () => setErasing("ask") },
-                    ]}
+            <div className="thread-scroll" ref={scroller}>
+              {detailError ? (
+                <div className="thread">
+                  <Alert
+                    tone="danger"
+                    title="Couldn't open this chat"
+                    text={`${detailError}. The customer is not affected.`}
+                    actions={
+                      <Button variant="outline" size="sm" onClick={() => void loadDetail(selected.id)}>
+                        Try again
+                      </Button>
+                    }
                   />
-                  {moving && (
-                    <Dialog
-                      title="Use the live version in this chat?"
-                      text="Chats keep the version they started on. This one switches to the version customers see now; the chat history stays. Other chats are not affected."
-                      confirmLabel="Switch"
-                      busy={moving === "busy"}
-                      onCancel={() => setMoving(null)}
-                      onConfirm={() => void useLiveVersion(selected)}
-                    />
-                  )}
-                  {erasing && (
-                    <Dialog
-                      title="Erase this customer's data?"
-                      text="Their name, phone, email and every chat with them are deleted for good. Export first if you need a copy. Business data and fixes you made stay."
-                      confirmLabel="Erase"
-                      destructive
-                      busy={erasing === "busy"}
-                      onCancel={() => setErasing(null)}
-                      onConfirm={() => void eraseCustomer(selected)}
-                    />
-                  )}
                 </div>
-                {Boolean(selected.human_takeover) && (
-                  <div className="banner banner-info takeover-banner" role="status">
-                    <Icon name="pause" size={18} />
-                    <div className="banner-body">
-                      <span className="banner-text">The assistant is paused here. Reply from the app this customer wrote in; turn this off to hand the chat back.</span>
-                    </div>
-                  </div>
-                )}
-                <div className="pane-scroll" ref={scroller}>
-                  {detailError ? (
-                    <div className="pane-banner pane-banner-top">
-                      <Alert
-                        tone="error"
-                        title="Couldn't open this chat"
-                        text={`${detailError}. The customer is not affected.`}
-                        actions={
-                          <Button variant="outline" size="sm" onClick={() => void loadDetail(selected.id)}>
-                            Try again
-                          </Button>
-                        }
-                      />
-                    </div>
-                  ) : !detail ? (
-                    <div className="chat" aria-busy="true">
-                      <span className="skel" style={{ width: "60%", height: 36, borderRadius: 18 }} />
-                      <span className="skel" style={{ alignSelf: "flex-end", width: "70%", height: 72, borderRadius: 18 }} />
-                      <SkeletonLine width="40%" />
-                    </div>
-                  ) : detail.messages.length === 0 ? (
-                    <EmptyState icon="bubbles" title="No messages yet" text="Messages appear here as soon as the customer writes." />
-                  ) : (
-                    <div className="chat">
-                      {detail.messages.map((message, index) => {
-                        const separator = timeSeparator(index ? detail.messages[index - 1].created_at : null, message.created_at);
-                        const customer = message.role === "user";
-                        const open = openMessage === message.id;
-                        return (
-                          <MessageGroup key={message.id} separator={separator}>
-                            {customer ? (
-                              <RichBubbles side="in" text={message.content} />
-                            ) : (
-                              <>
-                                <div className="reply has-trace" onClick={() => setOpenMessage(open ? null : message.id)}>
-                                  <RichBubbles side="out" text={message.content} selected={open} />
-                                </div>
-                                {open && (
-                                  <span className="reply-meta">
-                                    <span>Sent by the assistant · {formatDate(message.created_at)}</span>
-                                    <Button
-                                      variant="soft"
-                                      size="sm"
-                                      icon="wrench"
-                                      onClick={() =>
-                                        startFix({
-                                          origin: "conversation",
-                                          conversationId: selected.id,
-                                          customerMessage: plainText([...detail.messages.slice(0, index)].reverse().find((item) => item.role === "user")?.content ?? ""),
-                                          badReply: plainText(message.content),
-                                        })
-                                      }
-                                    >
-                                      Fix this answer
-                                    </Button>
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </MessageGroup>
-                        );
-                      })}
-                    </div>
-                  )}
+              ) : !detail ? (
+                <div className="thread" aria-busy="true">
+                  <span className="skel" style={{ alignSelf: "flex-end", width: "60%", height: 40, borderRadius: 20 }} />
+                  <span className="skel" style={{ width: "80%", height: 72 }} />
+                  <SkeletonLine width="40%" />
                 </div>
-                <div className="transcript-foot">
-                  {selected.human_takeover ? "Your team is replying in this chat. The assistant stays quiet until you hand it back." : "The assistant replies automatically. Turn on Your team replies to step in."}
+              ) : detail.messages.length === 0 ? (
+                <EmptyState icon="chats" title="No messages yet" text="Messages appear here as soon as the customer writes." />
+              ) : (
+                <div className="thread">
+                  {detail.messages.map((message, index) => {
+                    const separator = timeSeparator(index ? detail.messages[index - 1].created_at : null, message.created_at);
+                    if (message.role === "user")
+                      return (
+                        <MessageGroup key={message.id} separator={separator}>
+                          <RichBubbles side="customer" text={message.content} />
+                        </MessageGroup>
+                      );
+                    return (
+                      <MessageGroup key={message.id} separator={separator}>
+                        <div className="msg-ai">
+                          <span className="row-flex xs t3" style={{ gap: 6 }}>
+                            <AgentAvatar id={agentId} name={agentName} size="xs" />
+                            {agentName} · {formatDate(message.created_at)}
+                          </span>
+                          <RichBubbles side="assistant" text={message.content} />
+                          <div className="msg-actions">
+                            <button type="button" className="msg-action" aria-label="Copy reply" onClick={() => void copy(plainText(message.content))}>
+                              <Icon name="copy" size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              className="msg-action"
+                              onClick={() =>
+                                startFix({
+                                  origin: "conversation",
+                                  conversationId: selected.id,
+                                  customerMessage: plainText([...detail.messages.slice(0, index)].reverse().find((item) => item.role === "user")?.content ?? ""),
+                                  badReply: plainText(message.content),
+                                })
+                              }
+                            >
+                              <Icon name="wrench" size={16} />
+                              Fix this answer
+                            </button>
+                          </div>
+                        </div>
+                      </MessageGroup>
+                    );
+                  })}
                 </div>
-              </section>
-            ) : items && items.length > 0 ? (
-              <div className="section-card">
-                <EmptyState icon="bubbles" title="Choose a conversation" text="See the messages and contact details, and step in when needed." />
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+            <div className="thread-foot">{selected.human_takeover ? "Your team is replying in this chat. The assistant stays quiet until you hand it back." : "The assistant replies automatically. Turn on Your team replies to step in."}</div>
+            {moving && (
+              <Dialog
+                title="Use the live version in this chat?"
+                text="Chats keep the version they started on. This one switches to the version customers see now; the chat history stays. Other chats are not affected."
+                confirmLabel="Switch"
+                busy={moving === "busy"}
+                onCancel={() => setMoving(null)}
+                onConfirm={() => void useLiveVersion(selected)}
+              />
+            )}
+            {erasing && (
+              <Dialog
+                title="Erase this customer's data?"
+                text="Their name, phone, email and every chat with them are deleted for good. Export first if you need a copy. Business data and fixes you made stay."
+                confirmLabel="Erase"
+                destructive
+                busy={erasing === "busy"}
+                onCancel={() => setErasing(null)}
+                onConfirm={() => void eraseCustomer(selected)}
+              />
+            )}
+          </>
+        ) : (
+          items &&
+          items.length > 0 && (
+            <div className="thread-scroll">
+              <EmptyState icon="chats" title="Choose a conversation" text="See the messages and contact details, and step in when needed." />
+            </div>
+          )
+        )}
+      </section>
       {fixSheet}
     </div>
   );

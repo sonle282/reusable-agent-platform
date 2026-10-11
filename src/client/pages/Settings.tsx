@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { patch, post } from "../api";
 import { formatDate } from "../format";
 import type { ThemeChoice } from "../theme";
 import type { Brand } from "../types";
-import { Alert, Button, Card, Disclosure, errorMessage, Field, Icon, PageHeader, Segmented, TextInput, useToast } from "../ui";
+import { Alert, Button, Disclosure, errorMessage, Field, Icon, initialsOf, PageHeader, Segmented, SettingRow, TextInput, Tile, useToast } from "../ui";
 import { AnswerChecks, modelLabel } from "./Assistant";
 
 type Check = { state: "idle" | "checking" | "ok" | "failed"; detail?: string };
 
 export function SettingsPage({
   agentId,
+  zernio,
+  onManageChannels,
   brand,
   modelDefaults,
   reload,
@@ -18,6 +20,8 @@ export function SettingsPage({
   setThemeChoice,
 }: {
   agentId: string;
+  zernio: boolean;
+  onManageChannels: () => void;
   brand: Brand;
   modelDefaults: Record<string, unknown>;
   reload: () => Promise<void>;
@@ -86,7 +90,7 @@ export function SettingsPage({
       <div className="form-col">
         {check.state === "failed" && (
           <Alert
-            tone="error"
+            tone="danger"
             title="The AI isn't accepting your key"
             text={`Customers get the fallback reply until this is fixed. ${check.detail ?? ""}`.trim()}
             actions={
@@ -96,42 +100,89 @@ export function SettingsPage({
             }
           />
         )}
-        {!hasKey && <Alert tone="info" title="Add your AI key to start" text="Your assistant needs it to answer customers. It takes a minute." />}
-        {error && <Alert tone="error" title={error.title} text={error.text} onClose={() => setError(null)} />}
+        {!hasKey && <Alert tone="info" icon="key" title="Add your AI key to start" text="Your assistant needs it to answer customers. It takes a minute." />}
+        {error && <Alert tone="danger" title={error.title} text={error.text} onClose={() => setError(null)} />}
 
-        <Card title="AI" footer="Your key is encrypted and never shown again. A new key is used by customers after your next publish.">
-          {hasKey && (
-            <div className="row">
-              <span className="tile tile-indigo" aria-hidden="true">
-                <Icon name="sparkles" size={18} />
+        <Group title="Appearance">
+          <div className="card card-pad">
+            <SettingRow title="Theme" sub="System follows your device">
+              <Segmented<ThemeChoice>
+                label="Theme"
+                value={themeChoice}
+                onChange={setThemeChoice}
+                options={[
+                  { value: "system", label: "System" },
+                  { value: "light", label: "Light" },
+                  { value: "dark", label: "Dark" },
+                ]}
+              />
+            </SettingRow>
+          </div>
+        </Group>
+
+        <Group title="Workspace" help="Customers see your brand on the sign-in screen and in the website chat. This admin keeps its own colors so status stays readable.">
+          <div className="card card-pad stack" style={{ gap: 16 }}>
+            <Field label="Name">
+              <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+            </Field>
+            <Field label="Logo" hint="Square image, at least 256 px">
+              <div className="row-flex">
+                <span className="ws-logo" role="img" aria-label="Current logo" style={{ width: 36, height: 36 }}>
+                  {form.logoUrl ? <img src={form.logoUrl} alt="" /> : initialsOf(form.name)}
+                </span>
+                <TextInput type="url" value={form.logoUrl} onChange={(event) => setForm({ ...form, logoUrl: event.target.value })} placeholder="Image address (https://)" />
+              </div>
+            </Field>
+            <SettingRow title="Chat color" sub="Used in the website chat customers see">
+              <span className="row-flex">
+                <span className="xs t3 mono">{form.primaryColor.toUpperCase()}</span>
+                <label className="swatch" style={{ background: form.primaryColor }}>
+                  <span className="sr-only">Chat color {form.primaryColor}, change</span>
+                  <input type="color" value={form.primaryColor} onChange={(event) => setForm({ ...form, primaryColor: event.target.value })} />
+                </label>
               </span>
-              <div className="row-body">
-                <span className="row-title spacer">Connection</span>
+            </SettingRow>
+            <Field label="Help page" hint="Optional">
+              <TextInput type="url" value={form.supportUrl} onChange={(event) => setForm({ ...form, supportUrl: event.target.value })} placeholder="https://" />
+            </Field>
+            {brandChanged && (
+              <div className="row-flex" style={{ justifyContent: "flex-end" }}>
+                <Button variant="outline" size="sm" onClick={() => setForm(brand)}>
+                  Cancel
+                </Button>
+                <Button size="sm" busy={busy === "brand"} onClick={() => void saveBrand()}>
+                  Save
+                </Button>
+              </div>
+            )}
+          </div>
+        </Group>
+
+        <Group title="AI connection" help="Your key is encrypted and never shown again. A new key is used after your next publish.">
+          <div className="card">
+            <div className="row compact">
+              <Tile icon="sparkle" />
+              <span className="row-text">
+                <span className="row-title">Anthropic</span>
                 {check.state === "ok" ? (
-                  <span className="status-line text-green check-line">
-                    <Icon name="check-circle" size={16} />
-                    Connected · {check.detail}
-                  </span>
+                  <span className="row-sub xs text-success">Connected · {check.detail}</span>
                 ) : check.state === "failed" ? (
-                  <span className="status-line text-red check-line">
-                    <Icon name="error" size={16} />
-                    Not working
-                  </span>
-                ) : null}
+                  <span className="row-sub xs text-danger">Not working</span>
+                ) : (
+                  <span className="row-sub xs">{hasKey ? "Key saved · check that it works" : "Not connected"}</span>
+                )}
+              </span>
+              {hasKey && (
                 <Button variant="outline" size="sm" busy={check.state === "checking"} onClick={() => void testConnection()}>
                   {check.state === "idle" ? "Check" : "Check again"}
                 </Button>
-              </div>
+              )}
             </div>
-          )}
-          <div className="row">
-            <span className="tile tile-gray" aria-hidden="true">
-              <Icon name="key" size={18} />
-            </span>
-            <div className="row-body">
+            <div className="row compact">
+              <Tile icon="key" />
               <span className="row-text">
                 <span className="row-title">AI key</span>
-                <span className="row-subtitle">{hasKey ? ["Saved", keyHint && `ends in ${keyHint}`, savedAt && formatDate(savedAt)].filter(Boolean).join(" · ") : "Not added yet"}</span>
+                <span className="row-sub xs">{hasKey ? ["Saved", keyHint && `ends in ${keyHint}`, savedAt && formatDate(savedAt)].filter(Boolean).join(" · ") : "Not added yet"}</span>
               </span>
               {!keyOpen && (
                 <Button variant="outline" size="sm" onClick={() => setKeyOpen(true)}>
@@ -139,132 +190,118 @@ export function SettingsPage({
                 </Button>
               )}
             </div>
-          </div>
-          {keyOpen && (
-            <form
-              className="key-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void saveKey();
-              }}
-            >
-              <label>
-                <span className="sr-only">New AI key</span>
-                <input className="input mono-value" type="password" placeholder="sk-ant-…" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoFocus />
-              </label>
-              {idsMissing && <p className="field-hint">Fill in the Cloudflare details under Advanced first.</p>}
-              <div className="key-actions">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setKeyOpen(false);
-                    setApiKey("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                {apiKey.length >= 10 && !idsMissing && (
-                  <Button type="submit" size="sm" busy={busy === "key"}>
-                    Test and save
+            {keyOpen && (
+              <form
+                className="key-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void saveKey();
+                }}
+              >
+                <label>
+                  <span className="sr-only">New AI key</span>
+                  <input className="input mono" type="password" placeholder="sk-ant-…" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoFocus />
+                </label>
+                {idsMissing && <p className="help">Fill in the Cloudflare details under Advanced first.</p>}
+                <div className="row-flex" style={{ justifyContent: "flex-end" }}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setKeyOpen(false);
+                      setApiKey("");
+                    }}
+                  >
+                    Cancel
                   </Button>
-                )}
+                  {apiKey.length >= 10 && !idsMissing && (
+                    <Button type="submit" size="sm" busy={busy === "key"}>
+                      Test and save
+                    </Button>
+                  )}
+                </div>
+              </form>
+            )}
+            <Disclosure title="Advanced" defaultOpen={idsMissing}>
+              <div className="field-grid">
+                <Field label="Cloudflare account ID">
+                  <TextInput className="mono" value={ids.accountId} onChange={(event) => setIds({ ...ids, accountId: event.target.value })} />
+                </Field>
+                <Field label="AI Gateway ID">
+                  <TextInput className="mono" value={ids.gatewayId} onChange={(event) => setIds({ ...ids, gatewayId: event.target.value })} />
+                </Field>
               </div>
-            </form>
-          )}
-          <Disclosure title="Advanced" defaultOpen={idsMissing}>
-            <Field label="Cloudflare account ID">
-              <TextInput className="mono-value" value={ids.accountId} onChange={(event) => setIds({ ...ids, accountId: event.target.value })} />
-            </Field>
-            <Field label="AI Gateway ID">
-              <TextInput className="mono-value" value={ids.gatewayId} onChange={(event) => setIds({ ...ids, gatewayId: event.target.value })} />
-            </Field>
-          </Disclosure>
-        </Card>
+            </Disclosure>
+          </div>
+        </Group>
 
-        <Card title="Brand" footer="Customers see your brand on the sign-in screen and in the chat. This admin keeps system colors so status stays readable.">
-          <Field label="Name">
-            <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-          </Field>
-          <div className="field">
-            <span className="field-label">Logo</span>
-            <span className="brand-tile" role="img" aria-label="Current logo">
-              {form.logoUrl ? <img src={form.logoUrl} alt="" /> : form.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")}
-            </span>
-            <TextInput type="url" value={form.logoUrl} onChange={(event) => setForm({ ...form, logoUrl: event.target.value })} placeholder="Image address (https://)" aria-label="Logo image address" />
-          </div>
-          <div className="field">
-            <span className="field-label spacer">Accent color</span>
-            <span className="row-detail mono-value">{form.primaryColor.toUpperCase()}</span>
-            <label className="swatch" style={{ background: form.primaryColor }}>
-              <span className="sr-only">Accent color {form.primaryColor}, change</span>
-              <input type="color" value={form.primaryColor} onChange={(event) => setForm({ ...form, primaryColor: event.target.value })} />
-            </label>
-          </div>
-          <Field label="Help page" hint="Optional">
-            <TextInput type="url" value={form.supportUrl} onChange={(event) => setForm({ ...form, supportUrl: event.target.value })} placeholder="https://" />
-          </Field>
-          {brandChanged && (
-            <div className="row row-actions">
-              <Button variant="outline" size="sm" onClick={() => setForm(brand)}>
-                Cancel
-              </Button>
-              <Button size="sm" busy={busy === "brand"} onClick={() => void saveBrand()}>
-                Save
+        <Group title="Messaging platforms">
+          <div className="card">
+            <div className="row compact">
+              <Tile icon="link" />
+              <span className="row-text">
+                <span className="row-title">Zernio</span>
+                <span className="row-sub xs">Connects Messenger, Instagram, WhatsApp, Telegram and TikTok</span>
+              </span>
+              <span className="status xs hide-phone">
+                <span className={`dot ${zernio ? "dot-green" : "dot-gray"}`} aria-hidden="true" />
+                {zernio ? "Connected" : "Not connected"}
+              </span>
+              <Button variant="outline" size="sm" onClick={onManageChannels}>
+                {zernio ? "Manage" : "Connect"}
               </Button>
             </div>
-          )}
-        </Card>
-
-        <Card title="Appearance" footer="System follows your device's light or dark setting.">
-          <div className="field">
-            <span className="field-label spacer">Theme</span>
-            <Segmented<ThemeChoice>
-              label="Theme"
-              value={themeChoice}
-              onChange={setThemeChoice}
-              options={[
-                { value: "system", label: "System" },
-                { value: "light", label: "Light" },
-                { value: "dark", label: "Dark" },
-              ]}
-            />
           </div>
-        </Card>
+        </Group>
 
-        <Card title="Answer checks" footer="Publish already checks the required answers for you. Run every check here after a big change.">
-          <AnswerChecks agentId={agentId} />
-        </Card>
+        <Group title="Answer checks" help="Publish already checks the required answers for you. Run every check here after a big change.">
+          <div className="card">
+            <AnswerChecks agentId={agentId} />
+          </div>
+        </Group>
 
-        <Card title="Backup">
-          <div className="row">
-            <span className="tile tile-gray" aria-hidden="true">
-              <Icon name="archive" size={18} />
-            </span>
-            <div className="row-body">
+        <Group title="Backup">
+          <div className="card">
+            <div className="row compact">
+              <Tile icon="archive" />
               <span className="row-text">
                 <span className="row-title">Download a backup</span>
-                <span className="row-subtitle">Instructions, knowledge, data and versions in one file. Never includes keys or passwords.</span>
+                <span className="row-sub xs">Instructions, knowledge, data and versions in one file. Never includes keys or passwords.</span>
               </span>
               <a className="btn btn-outline btn-sm" href="/api/admin/export" download>
-                <Icon name="download" size={15} />
+                <Icon name="download" size={16} />
                 <span>Download</span>
               </a>
             </div>
           </div>
-        </Card>
+        </Group>
 
-        <section className="section" aria-label="Account">
-          <div className="section-card">
-            <button type="button" className="row signout-row" onClick={logout}>
-              <span className="row-body">
-                <span className="row-title">Sign out</span>
-              </span>
-            </button>
+        <section aria-label="Account" className="card">
+          <div className="row compact">
+            <span className="row-text">
+              <span className="row-title">Signed in as owner</span>
+              <span className="row-sub xs">{brand.name} workspace</span>
+            </span>
+            <Button variant="danger-ghost" size="sm" icon="logout" onClick={logout}>
+              Sign out
+            </Button>
           </div>
         </section>
       </div>
     </div>
+  );
+}
+
+function Group({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section className="stack" style={{ gap: 12 }} aria-labelledby={id}>
+      <h2 id={id} className="section-title">
+        {title}
+      </h2>
+      {children}
+      {help && <p className="help">{help}</p>}
+    </section>
   );
 }

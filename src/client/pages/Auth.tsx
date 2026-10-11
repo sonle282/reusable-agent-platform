@@ -1,32 +1,16 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { post, setCsrf } from "../api";
 import type { Brand } from "../types";
-import { Alert, Button, errorMessage, TextInput } from "../ui";
-
-export function AppIcon({ brand, size = 64 }: { brand: Brand; size?: number }) {
-  return (
-    <span className="app-icon" style={{ width: size, height: size, borderRadius: size * 0.225, background: brand.logoUrl ? "var(--color-surface)" : brand.primaryColor }}>
-      {brand.logoUrl ? <img src={brand.logoUrl} alt="" /> : <b style={{ fontSize: size * 0.42 }}>{brand.name.slice(0, 1)}</b>}
-    </span>
-  );
-}
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "A";
+import { Alert, Button, errorMessage, Field, Icon, initialsOf, LeadStatus, SettingRow, Steps, TextInput, TypingDots } from "../ui";
 
 // Split layout: form on the left, brand panel with an example chat on the right (hidden on narrow screens).
-function AuthLayout({ brand, children }: { brand: Brand; children: ReactNode }) {
+export function AuthLayout({ brand, children }: { brand: Brand; children: ReactNode }) {
   return (
     <div className="auth">
       <main className="auth-main">
         <div className="auth-brand">
           <span className="auth-mark" aria-hidden="true" style={brand.logoUrl ? { background: "var(--color-surface)" } : undefined}>
-            {brand.logoUrl ? <img src={brand.logoUrl} alt="" /> : initials(brand.name)}
+            {brand.logoUrl ? <img src={brand.logoUrl} alt="" /> : initialsOf(brand.name) || "A"}
           </span>
           <span>{brand.name}</span>
         </div>
@@ -36,24 +20,23 @@ function AuthLayout({ brand, children }: { brand: Brand; children: ReactNode }) 
         </div>
       </main>
       <aside className="auth-side" aria-hidden="true">
-        <div className="auth-side-copy">
-          <p className="auth-display">Every message answered. Every lead in one place.</p>
-          <p className="auth-side-sub">Your assistant replies in seconds, checks your real offers and lists the customers who are ready for a quote.</p>
+        <div className="stack" style={{ gap: 16 }}>
+          <p className="display">Every message answered. Every lead in one place.</p>
+          <p className="t2" style={{ margin: 0, font: "var(--text-md)", maxWidth: 440 }}>
+            Your assistant replies in seconds, checks your real offers and lists the customers who are ready for a quote.
+          </p>
         </div>
         <div className="mock-chat">
           <div className="mc-user">Do you deliver to Houston?</div>
-          <div className="typing-dots">
-            <span />
-            <span />
-            <span />
-          </div>
+          <TypingDots />
           <div className="mc-ai">Yes, we deliver across the US. Leave your phone number and a consultant will send you a detailed quote.</div>
           <div className="mc-lead">
-            <span className="lead-status ls-new">New lead</span>
-            <span className="truncate">Example customer · (555) 010-0142 · Quote request</span>
+            <LeadStatus status="new" />
+            <span className="spacer truncate">Example customer · (555) 010-0142 · Quote request</span>
+            <Icon name="phone" size={18} />
           </div>
         </div>
-        <span className="auth-side-note">Example conversation</span>
+        <span className="xs t2">Example conversation</span>
       </aside>
     </div>
   );
@@ -64,13 +47,13 @@ function PasswordField({ id, label, value, onChange, autoComplete, strength }: {
   const score = value.length >= 16 ? 3 : value.length >= 12 ? 2 : value.length > 0 ? 1 : 0;
   const hint = value.length === 0 ? "At least 12 characters. A short sentence works well." : value.length < 12 ? `${12 - value.length} more characters` : "Good password";
   return (
-    <div className="auth-field">
-      <label htmlFor={id} className="auth-label">
+    <div className="field">
+      <label htmlFor={id} className="field-label">
         {label}
       </label>
       <div className="pw-wrap">
         <TextInput id={id} type={shown ? "text" : "password"} autoComplete={autoComplete} value={value} onChange={(event) => onChange(event.target.value)} required />
-        <Button type="button" variant="ghost" size="sm" icon={shown ? "eye-slash" : "eye"} className="pw-toggle" aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown} onClick={() => setShown(!shown)} />
+        <Button type="button" variant="ghost" size="sm" icon={shown ? "eye-off" : "eye"} className="pw-toggle" aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown} onClick={() => setShown(!shown)} />
       </div>
       {strength && (
         <>
@@ -79,22 +62,12 @@ function PasswordField({ id, label, value, onChange, autoComplete, strength }: {
               <span key={bar} className={bar <= score ? "on" : ""} />
             ))}
           </div>
-          <span className={value.length >= 12 ? "auth-help text-green" : "auth-help"} aria-live="polite">
+          <span className={value.length >= 12 ? "help text-success" : "help"} aria-live="polite">
             {hint}
           </span>
         </>
       )}
     </div>
-  );
-}
-
-function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
-  return (
-    <label className="auth-field">
-      <span className="auth-label">{label}</span>
-      {children}
-      {help && <span className="auth-help">{help}</span>}
-    </label>
   );
 }
 
@@ -121,15 +94,15 @@ export function Login({ brand, onDone }: { brand: Brand; onDone: () => void }) {
   return (
     <AuthLayout brand={brand}>
       <form className="auth-form" onSubmit={submit} aria-labelledby="login-title">
-        <div className="auth-head">
+        <div className="stack" style={{ gap: 12 }}>
           <h1 id="login-title" className="auth-title">
             Sign in to {brand.name}
           </h1>
-          <p className="auth-lead">Manage your assistants, data and conversations.</p>
+          <p className="auth-lead">Manage your assistant, data and conversations.</p>
         </div>
         {error && (
           <Alert
-            tone="error"
+            tone="danger"
             title={locked ? "Sign-in is paused" : /invalid email or password/i.test(error) ? "Email or password is wrong" : "Couldn't sign in"}
             text={locked ? "Too many tries. Wait 15 minutes, then try again." : /invalid email or password/i.test(error) ? "Check both and try again. After 5 tries, sign-in pauses for 15 minutes." : error}
           />
@@ -138,10 +111,12 @@ export function Login({ brand, onDone }: { brand: Brand; onDone: () => void }) {
           <TextInput type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@business.com" required />
         </Field>
         <PasswordField id="login-password" label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
-        <Button size="lg" block busy={busy} disabled={!email.trim() || !password}>
+        <Button size="xl" block busy={busy} disabled={!email.trim() || !password}>
           {busy ? "Signing in…" : "Sign in"}
         </Button>
-        <p className="auth-help auth-center">Only the workspace owner can sign in here. Forgot the password? Reset it with the admin reset command.</p>
+        <p className="help" style={{ textAlign: "center" }}>
+          Only the workspace owner can sign in here. Forgot the password? Reset it with the admin reset command.
+        </p>
       </form>
     </AuthLayout>
   );
@@ -181,13 +156,10 @@ export function Setup({ onDone }: { onDone: () => void }) {
   const cant = step === 1 ? !form.bootstrapToken || !form.email.trim() || form.password.length < 12 : !form.name.trim();
   return (
     <AuthLayout brand={brand}>
-      <form className="auth-form wide" onSubmit={submit} aria-labelledby="setup-title">
-        <div className="auth-head">
-          <div className="auth-steps" aria-hidden="true">
-            <span className="on" />
-            <span className={step === 2 ? "on" : ""} />
-          </div>
-          <span className="auth-step">Step {step} of 2</span>
+      <form className="auth-form" style={{ maxWidth: 420 }} onSubmit={submit} aria-labelledby="setup-title">
+        <div className="stack" style={{ gap: 12 }}>
+          <Steps total={2} current={step} />
+          <span className="xs t3">Step {step} of 2</span>
           <h1 id="setup-title" className="auth-title">
             {step === 1 ? "Create the owner account" : "Your business"}
           </h1>
@@ -195,7 +167,7 @@ export function Setup({ onDone }: { onDone: () => void }) {
         </div>
         {step === 1 ? (
           <>
-            <Field label="Setup code" help="One-time code. It stops working after setup.">
+            <Field label="Setup code" hint="One-time code. It stops working after setup.">
               <TextInput className="mono" type="password" autoComplete="off" value={form.bootstrapToken} onChange={(event) => update("bootstrapToken", event.target.value)} placeholder="From your install message" required data-autofocus />
             </Field>
             <Field label="Your email">
@@ -208,27 +180,23 @@ export function Setup({ onDone }: { onDone: () => void }) {
             <Field label="Business name">
               <TextInput value={form.name} onChange={(event) => update("name", event.target.value)} placeholder="Your business" autoComplete="organization" required />
             </Field>
-            <Field label="Logo" help="Square image, at least 256 px · optional">
+            <Field label="Logo" hint="Square image, at least 256 px · optional">
               <TextInput type="url" value={form.logoUrl} onChange={(event) => update("logoUrl", event.target.value)} placeholder="Image address (https://)" />
             </Field>
-            <div className="auth-row">
-              <span className="auth-row-text">
-                <span className="auth-label">Chat color</span>
-                <span className="auth-help">Used in the website chat</span>
-              </span>
+            <SettingRow title="Chat color" sub="Used in the website chat">
               <input className="color-input" type="color" aria-label="Chat color" value={form.primaryColor} onChange={(event) => update("primaryColor", event.target.value)} />
-            </div>
-            <Alert tone="info" title="AI key comes next, inside the app" text="Home shows it as the first step of the checklist. Nothing answers customers until you add it." />
+            </SettingRow>
+            <Alert tone="info" icon="key" title="AI key comes next, inside the app" text="Home shows it as the first step of the checklist. Nothing answers customers until you add it." />
           </>
         )}
-        {error && <Alert tone="error" title="Couldn't finish setup" text={error} />}
-        <div className="auth-actions">
+        {error && <Alert tone="danger" title="Couldn't finish setup" text={error} />}
+        <div className="row-flex">
           {step === 2 && (
-            <Button type="button" variant="outline" size="lg" onClick={() => setStep(1)}>
+            <Button type="button" variant="outline" size="xl" onClick={() => setStep(1)}>
               Back
             </Button>
           )}
-          <Button size="lg" className="grow" busy={busy} disabled={cant}>
+          <Button size="xl" className="grow" busy={busy} disabled={cant}>
             {step === 1 ? "Continue" : "Open the app"}
           </Button>
         </div>

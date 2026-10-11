@@ -4,8 +4,9 @@ import { useFixAnswer } from "../FixSheet";
 import { displayName, formatDate, parseDate, previewSnippet } from "../format";
 import { publishWithChecks } from "../publish";
 import { parseRichMessage } from "../RichMessage";
+import { platformOf } from "../platform";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
-import { Alert, Avatar, Badge, Button, Card, EmptyState, errorMessage, Icon, Menu, PageHeader, SkeletonLine, useToast, type TileTone } from "../ui";
+import { AgentAvatar, Alert, Avatar, Badge, Button, Card, EmptyState, errorMessage, Icon, Menu, PageHeader, Row, SkeletonLine, Tile, useToast, type TileTone } from "../ui";
 
 type Go = (page: "assistant" | "conversations" | "channels" | "settings" | "leads" | "data", ...params: string[]) => void;
 
@@ -27,11 +28,13 @@ export function HomePage({
   connections,
   liveVersion,
   unpublished,
+  tableCount,
   go,
   refresh,
 }: {
   agent: AgentSummary;
   connections: Connection[];
+  tableCount: number;
   liveVersion: number | null;
   unpublished: boolean;
   go: Go;
@@ -144,7 +147,6 @@ export function HomePage({
     : unpublished
       ? `Live · version ${liveVersion ?? "—"} · the draft has unpublished changes`
       : `Live · version ${liveVersion ?? "—"} · answering on ${channelCount} ${channelCount === 1 ? "channel" : "channels"}`;
-  const channelName = (id?: string) => connections.find((connection) => connection.id === id)?.name ?? "";
   const recent = conversations?.slice(0, 5) ?? [];
 
   // What each item says and which single action it offers.
@@ -156,7 +158,7 @@ export function HomePage({
       case "team":
         return { tone: "default", icon: "pause", title: "Your team is replying", sub: `${name} · assistant paused · ${when}`, label: "Open", variant: "outline", act: open };
       case "lead":
-        return { tone: "info", icon: "person-plus", title: "New lead to contact", sub: `${name} left contact details · ${when}`, label: "Open", variant: "outline", act: () => (item.leadId ? go("leads", item.leadId) : open()) };
+        return { tone: "info", icon: "user-add", title: "New lead to contact", sub: `${name} left contact details · ${when}`, label: "Open", variant: "outline", act: () => (item.leadId ? go("leads", item.leadId) : open()) };
       case "contact_again":
         return { tone: "warning", icon: "reply", title: "Contact again", sub: `${name} went quiet after a follow-up · reply by hand from the page · ${when}`, label: "Open", variant: "outline", act: open };
       case "backup":
@@ -176,9 +178,9 @@ export function HomePage({
 
       {error && (
         <Alert
-          tone="error"
+          tone="danger"
           title="Couldn't refresh Home"
-          text={updatedAt ? `Showing what we had at ${formatDate(updatedAt.toISOString())}. Check your connection, then try again.` : "Check your connection, then try again."}
+          text={updatedAt ? `Showing what we had at ${formatDate(updatedAt.toISOString())}. Your assistant keeps answering customers.` : "Check your connection, then try again."}
           actions={
             <Button variant="outline" size="sm" busy={busy === "load"} onClick={() => void load()}>
               Try again
@@ -187,28 +189,21 @@ export function HomePage({
         />
       )}
 
-      <section className="section-card" aria-label="Assistant status">
-        <button type="button" className="status-card" onClick={() => go("assistant")}>
-          <span className={`tile tile-lg tile-${live ? "green" : "gray"}`} aria-hidden="true">
-            <Icon name="sparkles" size={22} />
-          </span>
-          <span className="row-text">
-            <span className="status-card-title">{agent.name}</span>
-            <span className="row-subtitle">{statusText}</span>
-          </span>
-          <Icon name="chevron-right" className="row-chevron" size={14} />
-        </button>
-      </section>
-
       {loading ? (
         <HomeSkeleton />
       ) : (
         <>
-          <Card title="Needs attention" badge={attention?.length ? <Badge count>{attention.length}</Badge> : undefined}>
+          <section className="card" aria-labelledby="attention-title" style={{ overflow: "visible" }}>
+            <div className="card-head">
+              <h2 id="attention-title" className="card-title" style={{ flex: "none" }}>
+                Needs attention
+              </h2>
+              {attention && attention.length > 0 && <Badge count>{attention.length}</Badge>}
+            </div>
             {attentionError ? (
-              <div className="pane-banner pane-banner-top">
+              <div className="card-body">
                 <Alert
-                  tone="error"
+                  tone="danger"
                   title="Couldn't load Needs attention"
                   text="Other parts of the page still work."
                   actions={
@@ -223,102 +218,101 @@ export function HomePage({
                 const view = present(item);
                 return (
                   <div className="row" key={item.key}>
-                    <span className={`tile tile-${view.tone}`} aria-hidden="true">
-                      <Icon name={view.icon} size={18} />
-                    </span>
-                    <div className="row-body">
-                      <div className="row-text">
-                        <span className="row-title strong">{view.title}</span>
-                        <span className="row-subtitle truncate">{view.sub}</span>
-                      </div>
-                      {item.waitingDays !== undefined && (
-                        <Badge tone="orange">
-                          Waiting {item.waitingDays} {item.waitingDays === 1 ? "day" : "days"}
-                        </Badge>
-                      )}
-                      <div className="attn-actions">
-                        <Button variant={view.variant} size="sm" busy={busy === item.key} onClick={view.act}>
-                          {view.label}
-                        </Button>
-                        <Menu
-                          label={`More actions for ${view.title}`}
-                          items={[
-                            ...(item.conversationId && item.type !== "team" && item.type !== "lead" && item.type !== "backup"
-                              ? [{ label: "Open conversation", icon: "bubbles", onSelect: () => go("conversations", item.conversationId!) }, { separator: true as const }]
-                              : []),
-                            { group: "Dismiss because…" },
-                            ...reasons.map((reason) => ({ label: reason.label, onSelect: () => void dismiss(item, reason.value) })),
-                          ]}
-                        />
-                      </div>
+                    <Tile icon={view.icon} tone={view.tone} />
+                    <div className="row-text">
+                      <span className="row-title">{view.title}</span>
+                      <span className="row-sub truncate">{view.sub}</span>
+                    </div>
+                    {item.waitingDays !== undefined && (
+                      <Badge tone="warning">
+                        Waiting {item.waitingDays} {item.waitingDays === 1 ? "day" : "days"}
+                      </Badge>
+                    )}
+                    <div className="row-flex" style={{ flex: "none" }}>
+                      <Button variant={view.variant} size="sm" busy={busy === item.key} onClick={view.act}>
+                        {view.label}
+                      </Button>
+                      <Menu
+                        label={`More actions for ${view.title}`}
+                        items={[
+                          ...(item.conversationId && item.type !== "team" && item.type !== "lead" && item.type !== "backup"
+                            ? [{ label: "Open conversation", icon: "chats", onSelect: () => go("conversations", item.conversationId!) }, { separator: true as const }]
+                            : []),
+                          { group: "Dismiss because…" },
+                          ...reasons.map((reason) => ({ label: reason.label, onSelect: () => void dismiss(item, reason.value) })),
+                        ]}
+                      />
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div className="row">
-                <span className="tile tile-soft-green" aria-hidden="true">
-                  <Icon name="check" size={18} />
-                </span>
-                <div className="row-body">
-                  <div className="row-text">
-                    <span className="row-title strong">Nothing needs you</span>
-                    <span className="row-subtitle">Wrong answers, new leads and missed replies show up here.</span>
-                  </div>
-                </div>
-              </div>
+              <Row icon="check" tone="success" title="Nothing needs you" subtitle="Wrong answers, new leads and missed replies show up here." multiline />
             )}
-          </Card>
+          </section>
 
           {summary && (
-            <Card title="Last 24 hours">
-              <div className="metrics">
-                <Metric value={summary.chats24h} label="Chats" sub={summary.chats7d ? `${summary.chats7d} this week` : "None this week"} />
-                <Metric value={summary.waitingForTeam} label="Waiting for your team" sub={summary.waitingForTeam ? "Reply in Conversations" : "All handled"} />
-                <Metric value={summary.failedDeliveries} label="Replies not delivered" sub={summary.failedDeliveries ? "Retry in Channels" : "All delivered"} />
-              </div>
-            </Card>
+            <section className="card metrics" aria-label="Last 24 hours">
+              <Metric value={summary.chats24h} label="Chats · last 24 hours" sub={summary.chats7d ? `${summary.chats7d} this week` : "None this week"} />
+              <Metric value={summary.waitingForTeam} label="Waiting for your team" sub={summary.waitingForTeam ? "Reply in Conversations" : "All handled"} />
+              <Metric value={summary.failedDeliveries} label="Replies not delivered" sub={summary.failedDeliveries ? "Retry in Channels" : "All delivered"} />
+            </section>
           )}
 
-          <Card
-            title="Recent conversations"
-            action={
-              recent.length > 0 ? (
-                <Button variant="ghost" onClick={() => go("conversations")}>
-                  See all
-                </Button>
-              ) : undefined
-            }
-          >
-            {conversations && recent.length === 0 ? (
-              <EmptyState
-                icon="bubbles"
-                title="No conversations yet"
-                text="When customers message you on a connected channel, their chats show up here."
-                action={<Button onClick={() => go("channels")}>Add a channel</Button>}
-              />
-            ) : (
-              recent.map((conversation) => {
-                const name = displayName(conversation);
-                return (
-                  <button type="button" className="row top" key={conversation.id} onClick={() => go("conversations", conversation.id)}>
-                    <Avatar name={conversation.display_name ? name : undefined} tone={conversation.display_name ? "indigo" : undefined} />
-                    <span className="row-body recent-body">
+          <div className="home-grid">
+            <Card title="Assistant">
+              <button type="button" className="row" onClick={() => go("assistant")}>
+                <AgentAvatar id={agent.id} name={agent.name} />
+                <span className="row-text">
+                  <span className="row-title truncate">{agent.name}</span>
+                  <span className="status xs">
+                    <span className={`dot ${!live ? "dot-gray" : unpublished ? "dot-orange" : "dot-green"}`} aria-hidden="true" />
+                    <span className="truncate">{statusText}</span>
+                  </span>
+                </span>
+                <Icon name="chevron-right" className="chev" size={16} />
+              </button>
+              <Row icon="table" title="Data" subtitle={`${tableCount} ${tableCount === 1 ? "table" : "tables"} · products, offers and prices it looks up`} onClick={() => go("data")} chevron />
+            </Card>
+
+            <Card
+              title="Recent conversations"
+              action={
+                recent.length > 0 ? (
+                  <Button variant="ghost" size="sm" onClick={() => go("conversations")}>
+                    View all
+                  </Button>
+                ) : undefined
+              }
+            >
+              {conversations && recent.length === 0 ? (
+                <EmptyState
+                  icon="chats"
+                  title="No conversations yet"
+                  text="When customers message you on a connected channel, their chats show up here."
+                  action={<Button onClick={() => go("channels")}>Add a channel</Button>}
+                />
+              ) : (
+                recent.map((conversation) => {
+                  const name = displayName(conversation);
+                  const connection = connections.find((item) => item.id === conversation.connection_id);
+                  return (
+                    <button type="button" className="row top" key={conversation.id} onClick={() => go("conversations", conversation.id)}>
+                      <Avatar name={conversation.display_name ? name : undefined} platform={platformOf(connection)} />
                       <span className="row-text">
-                        <span className="recent-line">
-                          <span className="row-title strong truncate">{name}</span>
-                          <span className="row-subtitle nowrap">{channelName(conversation.connection_id)}</span>
+                        <span className="row-flex">
+                          <span className="row-title truncate">{name}</span>
                           <span className="spacer" />
-                          <span className="row-detail">{formatDate(conversation.last_activity_at)}</span>
+                          <span className="row-meta">{formatDate(conversation.last_activity_at)}</span>
                         </span>
-                        <span className="row-subtitle clamp-2 recent-preview">{previewSnippet(conversation.last_message_preview, parseRichMessage)}</span>
+                        <span className="row-sub clamp-2">{previewSnippet(conversation.last_message_preview, parseRichMessage)}</span>
                       </span>
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </Card>
+                    </button>
+                  );
+                })
+              )}
+            </Card>
+          </div>
         </>
       )}
       {fixSheet}
@@ -329,9 +323,9 @@ export function HomePage({
 function Metric({ value, label, sub }: { value: number; label: string; sub: string }) {
   return (
     <div className="metric">
+      <span className="xs t3">{label}</span>
       <span className={`metric-value${value ? "" : " is-zero"}`}>{value}</span>
-      <span className="metric-label">{label}</span>
-      <span className="metric-sub">{sub}</span>
+      <span className="xs t2">{sub}</span>
     </div>
   );
 }
@@ -342,7 +336,7 @@ function HomeSkeleton() {
       <Card title="Needs attention">
         {[0, 1].map((index) => (
           <div className="skel-row" key={index} aria-hidden="true">
-            <span className="skel" style={{ width: 30, height: 30 }} />
+            <span className="skel" style={{ width: 32, height: 32 }} />
             <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
               <SkeletonLine width={index ? "35%" : "50%"} />
               <SkeletonLine width={index ? "65%" : "75%"} />
@@ -350,11 +344,11 @@ function HomeSkeleton() {
           </div>
         ))}
       </Card>
-      <div className="section-card metrics" aria-busy="true" aria-label="Loading">
+      <div className="card metrics" aria-busy="true" aria-label="Loading">
         {[0, 1, 2].map((index) => (
           <div className="metric" key={index}>
-            <span className="skel" style={{ width: 32, height: 28 }} />
-            <span className="skel skel-line" style={{ width: "70%", marginTop: 8 }} />
+            <span className="skel skel-line" style={{ width: "60%" }} />
+            <span className="skel" style={{ width: 32, height: 28, marginTop: 4 }} />
           </div>
         ))}
       </div>

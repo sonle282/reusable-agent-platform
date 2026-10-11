@@ -8,11 +8,19 @@ import { readable, useFixAnswer } from "../FixSheet";
 import { BehaviorTab, FollowUpsTab } from "./AssistantBehavior";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
-import { Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Segmented, Sheet, Skeleton, SkeletonLine, Spinner, StatusLine, Switch, TextArea, TextInput, useToast } from "../ui";
+import { AgentAvatar, Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Row, Segmented, Select, SettingRow, Sheet, Skeleton, SkeletonLine, Spinner, Switch, Tabs, TextArea, TextInput, Tile, TypingDots, useToast } from "../ui";
 
 export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "versions";
 type EditorTab = Exclude<AssistantTab, "test">;
-type Navigate = (page: "data" | "conversations" | "channels" | "settings", ...params: string[]) => void;
+type Navigate = (page: "home" | "data" | "conversations" | "channels" | "settings", ...params: string[]) => void;
+
+const editorTabs: Array<{ value: EditorTab; label: string }> = [
+  { value: "instructions", label: "Instructions" },
+  { value: "sources", label: "Sources" },
+  { value: "followups", label: "Follow-ups" },
+  { value: "behavior", label: "Behavior" },
+  { value: "versions", label: "Versions" },
+];
 type Mutate = (fn: (draft: AgentDraft) => AgentDraft) => void;
 
 export const modelOptions: Array<{ value: AnthropicModel; label: string; note: string }> = [
@@ -152,7 +160,7 @@ export function AssistantPage({
 
   if (!agent)
     return error ? (
-      <div className="page">
+      <div className="page" style={{ padding: "32px 24px" }}>
         <PageHeader title="Assistant" />
         <Alert
           tone="error"
@@ -170,17 +178,12 @@ export function AssistantPage({
     );
 
   const editorTab: EditorTab = tab === "test" ? "instructions" : tab;
-  const saving = saveState === "saving" ? " · saving…" : "";
-  const status = !live ? (
-    <StatusLine tone="gray">Not live yet · test it, then publish{saving}</StatusLine>
-  ) : upToDate ? (
-    <StatusLine tone="green">Live · version {live.version} · draft saved</StatusLine>
-  ) : (
-    <StatusLine tone="orange">
-      Unpublished changes · customers see version {live.version}
-      {saving}
-    </StatusLine>
-  );
+  const status = !live
+    ? { dot: "dot-gray", text: "Not live yet · test it, then publish" }
+    : upToDate
+      ? { dot: "dot-green", text: `Live · version ${live.version}` }
+      : { dot: "dot-orange", text: `Unpublished changes · customers see version ${live.version}` };
+  const saveText = saveFailed ? "Not saved yet" : saveState === "saving" ? "Saving…" : saveState === "dirty" ? "Editing…" : "Draft saved";
   const missing = [
     !agent.draft.modelConfig.credentialId && { text: "Add your Anthropic API key so the assistant can answer.", action: "Open Settings", go: () => navigate("settings") },
     !agent.draft.instructions.trim() && !hasProfile(agent.draft) && { text: "Tell the assistant what its job is.", action: "Write instructions", go: () => onTab("instructions") },
@@ -188,48 +191,122 @@ export function AssistantPage({
   ].filter(Boolean) as Array<{ text: string; action: string; go: () => void }>;
 
   return (
-    <div className="page assistant-page">
-      <PageHeader
-        title={agent.name}
-        status={status}
-        actions={
-          publishing ? (
-            <Button busy>{publishing === "evaluating" ? "Checking answers…" : "Publishing…"}</Button>
-          ) : upToDate ? (
-            <span className="status-line published-line">
-              <Icon name="check-circle" size={18} />
-              Published
-            </span>
-          ) : (
-            <Button onClick={() => void publish()}>Publish</Button>
-          )
-        }
-      />
+    <div className="builder">
+      <header className="builder-bar">
+        <Button variant="ghost" icon="chevron-left" aria-label="Back to Home" onClick={() => navigate("home")} />
+        <AgentAvatar id={agent.id} name={agent.name} size="sm" />
+        <div className="stack spacer" style={{ gap: 0 }}>
+          <h1 className="truncate" style={{ margin: 0, font: "var(--text-heading-xs)" }}>
+            {agent.name}
+          </h1>
+          <span className="status xs">
+            <span className={`dot ${status.dot}`} aria-hidden="true" />
+            <span className="truncate">{status.text}</span>
+          </span>
+        </div>
+        <span className="xs t3 hide-phone" aria-live="polite">
+          {saveText}
+        </span>
+        {publishing ? (
+          <Button busy>{publishing === "evaluating" ? "Checking answers…" : "Publishing…"}</Button>
+        ) : upToDate ? (
+          <span className="status medium text-success">
+            <Icon name="check-circle" size={18} />
+            Published
+          </span>
+        ) : (
+          <Button onClick={() => void publish()}>{live ? "Publish" : "Publish first version"}</Button>
+        )}
+        <div className="only-phone" style={{ width: "100%" }}>
+          <Tabs<AssistantTab> scroll label="Assistant sections" value={tab} onChange={onTab} options={[{ value: "test", label: "Test" }, ...editorTabs]} />
+        </div>
+      </header>
 
-      {publishFailure && (
-        <Alert
-          tone="error"
-          title={publishFailure.fromFix ? "An answer you fixed is wrong again" : "Not published — an answer needs fixing"}
-          text={`“${publishFailure.input}”: ${publishFailure.problem}. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
-          actions={
-            <>
-              {publishFailure.input && (
-                <Button variant="outline" size="sm" onClick={() => startPublishFix({ origin: "test", customerMessage: publishFailure.input, badReply: readable(publishFailure.reply) })}>
-                  Fix this answer
-                </Button>
+      <div className="builder-main">
+        <section className={`editor${tab === "test" ? " is-hidden-phone" : ""}`} aria-label="Configure">
+          <div className="editor-tabs only-desktop">
+            <Tabs<EditorTab> label="Configure" value={editorTab} onChange={onTab} options={editorTabs} />
+          </div>
+          <div className="editor-scroll">
+            <div className="editor-inner">
+              {publishFailure && (
+                <Alert
+                  tone="danger"
+                  title={publishFailure.fromFix ? "An answer you fixed is wrong again" : "Not published — an answer needs fixing"}
+                  text={`“${publishFailure.input}”: ${publishFailure.problem}. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
+                  actions={
+                    <>
+                      {publishFailure.input && (
+                        <Button variant="outline" size="sm" onClick={() => startPublishFix({ origin: "test", customerMessage: publishFailure.input, badReply: readable(publishFailure.reply) })}>
+                          Fix this answer
+                        </Button>
+                      )}
+                      {live && !agent.draftMatchesLive && (
+                        <Button variant="danger-ghost" size="sm" onClick={() => setDiscarding("ask")}>
+                          Discard unpublished changes
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => setPublishFailure(null)}>
+                        Dismiss
+                      </Button>
+                    </>
+                  }
+                />
               )}
-              {live && !agent.draftMatchesLive && (
-                <Button variant="ghost" size="sm" destructive onClick={() => setDiscarding("ask")}>
-                  Discard unpublished changes
-                </Button>
+              {saveFailed && (
+                <Alert
+                  tone="warning"
+                  title="Your last change isn't saved yet"
+                  text="We keep trying. Your edits stay on this page until the connection is back."
+                  actions={
+                    <Button variant="outline" size="sm" onClick={() => void save()}>
+                      Try again
+                    </Button>
+                  }
+                />
               )}
-              <Button variant="ghost" size="sm" onClick={() => setPublishFailure(null)}>
-                Dismiss
-              </Button>
-            </>
-          }
-        />
-      )}
+              {error && <Alert tone="danger" title="Couldn't publish" text={`${error}. Customers still see the current version.`} onClose={() => setError("")} />}
+              {missing.length > 0 && (
+                <Alert
+                  tone="warning"
+                  title={missing.length === 1 ? missing[0].text : "A few things before customers can use it"}
+                  text={missing.length > 1 ? missing.map((item) => item.text).join(" ") : undefined}
+                  actions={missing.map((item) => (
+                    <Button key={item.action} variant="outline" size="sm" onClick={item.go}>
+                      {item.action}
+                    </Button>
+                  ))}
+                />
+              )}
+              {editorTab === "instructions" && <InstructionsTab agent={agent} mutate={mutate} rename={rename} />}
+              {editorTab === "sources" && (
+                <SourcesTab
+                  agent={agent}
+                  collections={collections.filter((collection) => !collection.archived_at || agent.draft.collectionBindings.some((item) => item.collectionId === collection.id))}
+                  mutate={mutate}
+                  reload={load}
+                  onManageData={() => navigate("data")}
+                />
+              )}
+              {editorTab === "followups" && <FollowUpsTab agentId={agent.id} draft={agent.draft} mutate={mutate} onPreview={(text, step) => setInjected({ text, step, at: Date.now() })} />}
+              {editorTab === "behavior" && <BehaviorTab draft={agent.draft} mutate={mutate} hasZernio={hasZernio} />}
+              {editorTab === "versions" && (
+                <VersionsTab
+                  agent={agent}
+                  unpublished={!upToDate}
+                  saving={saveState === "saving"}
+                  reload={async () => {
+                    await load();
+                    await refresh();
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        </section>
+        <PreviewPane agent={agent} collections={collections} flush={flush} reload={load} navigate={navigate} injected={injected} hiddenOnPhone={tab !== "test"} />
+      </div>
+
       {discarding && live && (
         <Dialog
           title="Discard unpublished changes?"
@@ -254,79 +331,6 @@ export function AssistantPage({
         />
       )}
       {publishFixSheet}
-      {saveFailed && (
-        <Alert
-          tone="warning"
-          title="Your last change isn't saved yet"
-          text="We'll keep trying. Your edits stay on this page until the connection is back."
-          actions={
-            <Button variant="outline" size="sm" onClick={() => void save()}>
-              Try again
-            </Button>
-          }
-        />
-      )}
-      {error && <Alert tone="error" title="Couldn't publish" text={`${error}. Customers still see the current version.`} onClose={() => setError("")} />}
-      {missing.length > 0 && (
-        <Alert
-          tone="warning"
-          title={missing.length === 1 ? missing[0].text : "A few things before customers can use it"}
-          text={missing.length > 1 ? missing.map((item) => item.text).join(" ") : undefined}
-          actions={missing.map((item) => (
-            <Button key={item.action} variant="outline" size="sm" onClick={item.go}>
-              {item.action}
-            </Button>
-          ))}
-        />
-      )}
-
-      <Segmented<EditorTab>
-        label="Assistant sections"
-        value={editorTab}
-        onChange={onTab}
-        options={[
-          { value: "instructions", label: "Instructions" },
-          { value: "sources", label: "Sources" },
-          { value: "followups", label: "Follow-ups" },
-          { value: "behavior", label: "Behavior" },
-          { value: "versions", label: "Versions" },
-        ]}
-      />
-
-      <div className="assistant-grid">
-        <div className="editor-pane">
-          {editorTab === "instructions" && <InstructionsTab agent={agent} mutate={mutate} rename={rename} />}
-          {editorTab === "sources" && (
-            <SourcesTab
-              agent={agent}
-              collections={collections.filter((collection) => !collection.archived_at || agent.draft.collectionBindings.some((item) => item.collectionId === collection.id))}
-              mutate={mutate}
-              reload={load}
-            />
-          )}
-          {editorTab === "followups" && <FollowUpsTab agentId={agent.id} draft={agent.draft} mutate={mutate} onPreview={(text, step) => setInjected({ text, step, at: Date.now() })} />}
-          {editorTab === "behavior" && <BehaviorTab draft={agent.draft} mutate={mutate} hasZernio={hasZernio} />}
-          {editorTab === "versions" && (
-            <VersionsTab
-              agent={agent}
-              unpublished={!upToDate}
-              saving={saveState === "saving"}
-              reload={async () => {
-                await load();
-                await refresh();
-              }}
-            />
-          )}
-        </div>
-        <PreviewPane
-          agent={agent}
-          collections={collections}
-          flush={flush}
-          reload={load}
-          navigate={navigate}
-          injected={injected}
-        />
-      </div>
     </div>
   );
 }
@@ -347,21 +351,33 @@ function plainProblem(failures: string[]) {
 
 function AssistantSkeleton() {
   return (
-    <div className="page assistant-page" aria-busy="true">
-      <header className="page-header">
-        <div className="page-heading">
-          <SkeletonLine width={280} height={34} />
-          <SkeletonLine width={220} />
-        </div>
+    <div className="builder" aria-busy="true" aria-label="Loading">
+      <header className="builder-bar">
+        <span className="skel" style={{ width: 28, height: 28, borderRadius: 8 }} />
+        <span className="stack spacer" style={{ gap: 6 }}>
+          <SkeletonLine width={180} height={14} />
+          <SkeletonLine width={240} height={10} />
+        </span>
       </header>
-      <div className="assistant-grid">
-        <div className="editor-pane">
-          <Skeleton rows={4} />
-        </div>
-        <section className="preview-pane">
+      <div className="builder-main">
+        <section className="editor">
+          <div className="editor-scroll">
+            <div className="editor-inner">
+              <div className="stack" style={{ gap: 20 }}>
+                <SkeletonLine width="30%" />
+                <span className="skel" style={{ height: 36 }} />
+                <SkeletonLine width="25%" />
+                <span className="skel" style={{ height: 88 }} />
+                <SkeletonLine width="35%" />
+                <span className="skel" style={{ height: 64 }} />
+              </div>
+            </div>
+          </div>
+        </section>
+        <section className="preview is-hidden-phone">
           <div className="chat">
-            <span className="skel" style={{ alignSelf: "flex-end", width: "55%", height: 36, borderRadius: 18 }} />
-            <span className="skel" style={{ width: "75%", height: 96, borderRadius: 18 }} />
+            <span className="skel" style={{ alignSelf: "flex-end", width: "60%", height: 40, borderRadius: 20 }} />
+            <span className="skel" style={{ height: 96 }} />
           </div>
         </section>
       </div>
@@ -380,19 +396,22 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
   const setPolicy = (value: Partial<AgentDraft["responsePolicy"]>) => mutate((current) => ({ ...current, responsePolicy: { ...current.responsePolicy, ...value } }));
   return (
     <>
-      <Card title="Assistant" footer="Only you see this. Customers see the business name.">
-        <Field label="Name">
-          <TextInput value={agent.name} onChange={(event) => rename("name", event.target.value)} />
+      <section className="stack" style={{ gap: 16 }}>
+        <div className="field-grid">
+          <Field label="Name">
+            <TextInput value={agent.name} onChange={(event) => rename("name", event.target.value)} />
+          </Field>
+          <Field label="Business name">
+            <TextInput value={profile.businessName} onChange={(event) => setProfile({ businessName: event.target.value })} placeholder="Acme Furniture" />
+          </Field>
+        </div>
+        <Field label="Description" hint="Only you see this. Customers see the business name.">
+          <TextInput value={agent.description} onChange={(event) => rename("description", event.target.value)} placeholder="What this assistant is for" />
         </Field>
-        <Field label="Description">
-          <TextArea rows={1} value={agent.description} onChange={(event) => rename("description", event.target.value)} placeholder="What this assistant is for" />
-        </Field>
-      </Card>
+      </section>
 
-      <Card title="Your business" footer="Facts that rarely change. Prices, offers and stock belong in Data so they stay current.">
-        <Field label="Business name">
-          <TextInput value={profile.businessName} onChange={(event) => setProfile({ businessName: event.target.value })} placeholder="Acme Furniture" />
-        </Field>
+      <section className="stack" style={{ gap: 16 }}>
+        <h2 className="section-title">Your business</h2>
         <Field label="What you offer">
           <TextArea rows={2} value={profile.offering} onChange={(event) => setProfile({ offering: event.target.value })} placeholder="Products or services you sell, and who they are for" />
         </Field>
@@ -402,27 +421,24 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
         <Field label="Website">
           <TextInput type="url" value={profile.website} onChange={(event) => setProfile({ website: event.target.value })} placeholder="https://" />
         </Field>
-      </Card>
+        <p className="help">Facts that rarely change. Prices, offers and stock belong in Data so they stay current.</p>
+      </section>
 
-      <Card title="Your assistant's job" footer="What it should do for customers, and what a good conversation ends with.">
-        <label className="field stacked">
-          <span className="sr-only">Your assistant's job</span>
+      <section className="stack" style={{ gap: 16 }}>
+        <h2 className="section-title">How it works</h2>
+        <Field label="Its job" hint="What it should do for customers, and what a good conversation ends with.">
           <TextArea rows={2} value={profile.job} onChange={(event) => setProfile({ job: event.target.value })} placeholder="Answer questions, recommend the right product and collect contact details when the customer is ready to buy." />
-        </label>
-      </Card>
-
-      <Card title="Voice and style" footer="It always replies in the customer's language.">
-        <label className="field stacked">
-          <span className="sr-only">Voice and style</span>
+        </Field>
+        <Field label="Voice and style" hint="It always replies in the customer's language.">
           <TextArea rows={2} value={profile.voice} onChange={(event) => setProfile({ voice: event.target.value })} placeholder="Warm and polite, short messages, one question at a time." />
-        </label>
-      </Card>
+        </Field>
+      </section>
 
-      <RuleSection title="Always" footer="One rule per line." addLabel="Add a rule" placeholder="Check Data before stating a price or offer" value={profile.alwaysDo} onChange={(alwaysDo) => setProfile({ alwaysDo })} />
-      <RuleSection title="Never" footer="One rule per line." addLabel="Add a rule" placeholder="Invent prices, discounts or delivery dates" value={profile.neverDo} onChange={(neverDo) => setProfile({ neverDo })} />
+      <RuleSection title="Always" hint="One rule per line" addLabel="Add a rule" placeholder="Check Data before stating a price or offer" value={profile.alwaysDo} onChange={(alwaysDo) => setProfile({ alwaysDo })} />
+      <RuleSection title="Never" hint="One rule per line" addLabel="Add a rule" placeholder="Invent prices, discounts or delivery dates" value={profile.neverDo} onChange={(neverDo) => setProfile({ neverDo })} />
       <RuleSection
         title="Hand off to a person when"
-        footer="The assistant tells the customer someone from the team will follow up."
+        hint="Someone from the team follows up"
         addLabel="Add a reason"
         placeholder="The customer has a complaint or asks for a person"
         value={profile.handoffWhen}
@@ -430,67 +446,71 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
       />
       <RuleSection
         title="Contact details to collect"
-        footer="Asked politely when the customer wants a quote or a person."
+        hint="Asked when they want a quote or a person"
         addLabel="Add a detail"
         placeholder="Phone number"
         value={profile.collectDetails}
         onChange={(collectDetails) => setProfile({ collectDetails })}
       />
-      <Card footer="Said once, before the first time the assistant asks for contact details. Saved with each contact as proof of what they were told.">
-        <Field label="Privacy notice">
+
+      <section className="stack" style={{ gap: 16 }}>
+        <h2 className="section-title">Privacy notice</h2>
+        <Field label="Said once, before it first asks for contact details" hint="Saved with each contact as proof of what they were told.">
           <TextArea rows={2} value={profile.consentNotice} onChange={(event) => setProfile({ consentNotice: event.target.value })} placeholder="We only use your phone number to send your quote and follow up on this request." />
         </Field>
-      </Card>
+      </section>
 
-      <Card title="When something goes wrong" footer="Sent only if the AI is unavailable or takes too long.">
-        <Field label="Fallback reply">
+      <section className="stack" style={{ gap: 16 }}>
+        <h2 className="section-title">When something goes wrong</h2>
+        <Field label="Fallback reply" hint="Sent only if the AI is unavailable or takes too long.">
           <TextArea rows={1} value={draft.responsePolicy.fallbackMessage} onChange={(event) => setPolicy({ fallbackMessage: event.target.value })} />
         </Field>
-      </Card>
+      </section>
 
-      <Card footer="The playbook is for long, detailed guidance. When it disagrees with the sections above, the sections above win.">
+      <section className="card">
         <Disclosure
           title={
             <>
-              Detailed playbook <span className="muted">(advanced)</span>
+              Detailed playbook <span className="t3" style={{ fontWeight: 400 }}>· advanced</span>
             </>
           }
           detail={plural(draft.instructions.length, "character").replace(/^\d+/, (n) => Number(n).toLocaleString("en-US"))}
         >
-          <label className="playbook">
-            <span className="sr-only">Detailed playbook</span>
+          <Field label="Detailed playbook" hideLabel hint="When it disagrees with the fields above, the fields above win.">
             <TextArea mono spellCheck={false} value={draft.instructions} onChange={(event) => mutate((current) => ({ ...current, instructions: event.target.value }))} placeholder="Optional. Long-form guidance, written in Markdown." />
-          </label>
+          </Field>
         </Disclosure>
         <Disclosure
           title={
             <>
-              Model and reply length <span className="muted">(advanced)</span>
+              Model and reply length <span className="t3" style={{ fontWeight: 400 }}>· advanced</span>
             </>
           }
         >
-          <Field label="Model">
-            <select className="select" value={draft.modelConfig.model} onChange={(event) => setModel({ model: event.target.value as AnthropicModel })}>
-              {modelOptions.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label} — {option.note}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {sampling && (
-            <Field label="Temperature">
-              <TextInput className="tabular" type="number" min={0} max={1} step={0.1} value={draft.modelConfig.temperature} onChange={(event) => setModel({ temperature: Number(event.target.value) })} />
+          <div className="field-grid narrow">
+            <Field label="Model">
+              <Select value={draft.modelConfig.model} onChange={(event) => setModel({ model: event.target.value as AnthropicModel })}>
+                {modelOptions.map((option) => (
+                  <option value={option.value} key={option.value}>
+                    {option.label} — {option.note}
+                  </option>
+                ))}
+              </Select>
             </Field>
-          )}
-          <Field label="Max tokens">
-            <TextInput className="tabular" type="number" min={128} max={8192} step={128} value={draft.modelConfig.maxTokens} onChange={(event) => setModel({ maxTokens: Number(event.target.value) })} />
-          </Field>
-          <Field label="Max reply length" hint="Characters">
-            <TextInput className="tabular" type="number" min={100} max={8000} value={draft.responsePolicy.maxLength} onChange={(event) => setPolicy({ maxLength: Number(event.target.value) })} />
-          </Field>
+            {sampling && (
+              <Field label="Temperature">
+                <TextInput className="tabular" type="number" min={0} max={1} step={0.1} value={draft.modelConfig.temperature} onChange={(event) => setModel({ temperature: Number(event.target.value) })} />
+              </Field>
+            )}
+            <Field label="Max tokens">
+              <TextInput className="tabular" type="number" min={128} max={8192} step={128} value={draft.modelConfig.maxTokens} onChange={(event) => setModel({ maxTokens: Number(event.target.value) })} />
+            </Field>
+            <Field label="Max reply length" hint="Characters">
+              <TextInput className="tabular" type="number" min={100} max={8000} value={draft.responsePolicy.maxLength} onChange={(event) => setPolicy({ maxLength: Number(event.target.value) })} />
+            </Field>
+          </div>
         </Disclosure>
-      </Card>
+      </section>
     </>
   );
 }
@@ -498,14 +518,14 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
 // One field per rule; Enter adds the next one, Backspace on an empty rule removes it.
 function RuleSection({
   title,
-  footer,
+  hint,
   addLabel,
   placeholder,
   value,
   onChange,
 }: {
   title: string;
-  footer: string;
+  hint: string;
   addLabel: string;
   placeholder: string;
   value: string[];
@@ -525,15 +545,18 @@ function RuleSection({
   };
   const remove = (index: number) => onChange(rules.filter((_, i) => i !== index));
   return (
-    <Card title={title} footer={footer}>
+    <section className="stack" style={{ gap: 8 }}>
+      <div className="section-head">
+        <h2 className="section-title spacer">{title}</h2>
+        <span className="xs t3">{hint}</span>
+      </div>
       {rules.map((rule, index) => (
-        <label className="field rule-field" key={index}>
-          <span className="dot dot-gray rule-dot" aria-hidden="true" />
+        <div className="rule-row" key={index}>
           <input
             ref={(node) => {
               inputs.current[index] = node;
             }}
-            className="text-input rule-input"
+            className="input"
             value={rule}
             placeholder={placeholder}
             aria-label={`${title}, ${index + 1} of ${rules.length}`}
@@ -550,24 +573,22 @@ function RuleSection({
             }}
             onBlur={(event) => {
               const next = event.relatedTarget as HTMLElement | null;
-              if (!rule.trim() && !next?.closest?.(".rule-field")) remove(index);
+              if (!rule.trim() && !next?.closest?.(".rule-row")) remove(index);
             }}
           />
-        </label>
+          <Button variant="ghost" size="sm" icon="x" aria-label={`Remove ${title.toLowerCase()} rule ${index + 1}`} onClick={() => remove(index)} />
+        </div>
       ))}
-      <button type="button" className="row add-row" onClick={() => insert(rules.length)}>
-        <Icon name="plus" size={18} />
-        <span className="row-body">
-          <span className="row-title">{addLabel}</span>
-        </span>
-      </button>
-    </Card>
+      <Button variant="ghost" size="sm" icon="plus" style={{ alignSelf: "flex-start", marginLeft: -8 }} onClick={() => insert(rules.length)}>
+        {addLabel}
+      </Button>
+    </section>
   );
 }
 
 // ---------- Sources ----------
 
-function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail; collections: Collection[]; mutate: Mutate; reload: () => Promise<void> }) {
+function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agent: AgentDetail; collections: Collection[]; mutate: Mutate; reload: () => Promise<void>; onManageData: () => void }) {
   const toast = useToast();
   const [adding, setAdding] = useState(false);
   const [addingTool, setAddingTool] = useState(false);
@@ -601,159 +622,124 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
         title="Knowledge"
         action={
           agent.sources.length > 0 || corrected.length > 0 ? (
-            <Button variant="ghost" icon="plus" onClick={() => setAdding(true)}>
+            <Button variant="outline" size="sm" icon="plus" onClick={() => setAdding(true)}>
               Add
             </Button>
           ) : undefined
         }
         footer="For explanations that rarely change: policies, guides, FAQs. Answers you fix land in Corrected answers."
       >
-        {corrected.length > 0 && (
-          <button type="button" className="row" onClick={() => setShowCorrected(true)}>
-            <span className="tile tile-soft-green" aria-hidden="true">
-              <Icon name="check-bubble" size={18} />
-            </span>
-            <span className="row-body">
-              <span className="row-text">
-                <span className="row-title">Corrected answers</span>
-                <span className="row-subtitle">{plural(corrected.length, "answer")} you fixed</span>
-              </span>
-              <Icon name="chevron-right" className="row-chevron" size={14} />
-            </span>
-          </button>
-        )}
+        {corrected.length > 0 && <Row compact icon="chat" tone="success" title="Corrected answers" subtitle={`${plural(corrected.length, "answer")} you fixed`} onClick={() => setShowCorrected(true)} chevron />}
         {agent.sources.length === 0 && corrected.length === 0 ? (
           <EmptyState
-            icon="doc"
+            icon="book"
             title="No knowledge yet"
             text="Add your policies, buying guides or a web page. The assistant reads them before it answers."
-            action={
-              <Button variant="soft" onClick={() => setAdding(true)}>
-                Add knowledge
-              </Button>
-            }
+            action={<Button onClick={() => setAdding(true)}>Add knowledge</Button>}
           />
         ) : (
           agent.sources.map((source) => {
             const failed = source.status === "failed";
             const processing = source.status === "pending" || source.status === "processing";
             return (
-              <div className="row" key={source.id}>
-                <span className="tile tile-soft-indigo" aria-hidden="true">
-                  <Icon name={source.type === "url" ? "globe" : "doc"} size={18} />
-                </span>
-                <div className="row-body">
-                  <button type="button" className="row-text row-open" onClick={() => setEditing(source)}>
-                    <span className="row-title">{source.name}</span>
-                    <span className={`row-subtitle${failed ? " text-red" : ""}`}>
-                      {failed ? source.error || "Couldn't read this source" : processing ? "Reading it now…" : updatedLabel(source.updated_at)}
-                    </span>
-                  </button>
-                  {failed && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        await post(`/api/admin/knowledge/${source.id}/retry`);
-                        toast("Reading the source again");
-                        await reload();
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                  <Switch label={`Use ${source.name}`} checked={agent.draft.knowledgeSourceIds.includes(source.id)} onChange={(on) => toggleSource(source.id, on)} />
-                </div>
+              <div className="row compact" key={source.id}>
+                <Tile icon={source.type === "url" ? "globe" : "document"} tone={failed ? "danger" : "default"} />
+                <button type="button" className="row-text row-open" onClick={() => setEditing(source)}>
+                  <span className="row-title">{source.name}</span>
+                  <span className={`row-sub xs${failed ? " text-danger" : ""}`}>{failed ? source.error || "Couldn't read this source" : processing ? "Reading it now…" : updatedLabel(source.updated_at)}</span>
+                </button>
+                {failed && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await post(`/api/admin/knowledge/${source.id}/retry`);
+                      toast("Reading the source again");
+                      await reload();
+                    }}
+                  >
+                    Retry
+                  </Button>
+                )}
+                <Switch label={`Use ${source.name}`} checked={agent.draft.knowledgeSourceIds.includes(source.id)} onChange={(on) => toggleSource(source.id, on)} />
               </div>
             );
           })
         )}
       </Card>
 
-      <Card title="Data it can look up" footer="It always checks these before talking about prices, offers or stock. Ended or switched-off rows are never used.">
+      <Card
+        title="Data it can look up"
+        action={
+          <Button variant="ghost" size="sm" onClick={onManageData}>
+            Manage in Data
+          </Button>
+        }
+        footer="It always checks these before talking about prices, offers or stock. Ended or switched-off rows are never used."
+      >
         {collections.length === 0 ? (
-          <div className="row">
-            <div className="row-body">
-              <span className="row-text">
-                <span className="row-subtitle">No tables yet. Add one in Data.</span>
-              </span>
-            </div>
-          </div>
+          <Row compact icon="table" title="No tables yet" subtitle="Add one in Data." />
         ) : (
           collections.map((collection) => (
-            <div className="row" key={collection.id}>
-              <span className="tile tile-soft-green" aria-hidden="true">
-                <Icon name="table" size={18} />
+            <div className="row compact" key={collection.id}>
+              <Tile icon="table" />
+              <span className="row-text">
+                <span className="row-title">{collection.name}</span>
+                <span className="row-sub xs truncate">{collection.description || plural(collection.record_count ?? 0, "row")}</span>
               </span>
-              <div className="row-body">
-                <span className="row-text">
-                  <span className="row-title">{collection.name}</span>
-                  {collection.description && <span className="row-subtitle truncate">{collection.description}</span>}
-                </span>
-                <Switch label={`Use ${collection.name}`} checked={agent.draft.collectionBindings.some((item) => item.collectionId === collection.id)} onChange={(on) => bindCollection(collection, on)} />
-              </div>
+              <Switch label={`Look up ${collection.name}`} checked={agent.draft.collectionBindings.some((item) => item.collectionId === collection.id)} onChange={(on) => bindCollection(collection, on)} />
             </div>
           ))
         )}
       </Card>
 
-      <Card footer="Read-only checks against your own systems, such as live stock. The assistant can never change anything outside.">
+      <section className="card">
         <Disclosure
           title={
             <>
-              Live lookups <span className="muted">(advanced)</span>
+              Live lookups <span className="t3" style={{ fontWeight: 400 }}>· advanced</span>
             </>
           }
           detail={agent.tools.length ? String(agent.tools.length) : "None"}
         >
+          <p className="help">Read-only checks against your own systems, such as live stock. The assistant can never change anything outside.</p>
           {agent.tools.map((tool) => (
-            <div className="row" key={tool.id}>
-              <span className="tile tile-soft-orange" aria-hidden="true">
-                <Icon name={tool.kind === "http_get" ? "globe" : "bolt"} size={18} />
+            <div className="row compact flush" key={tool.id}>
+              <Tile icon={tool.kind === "http_get" ? "globe" : "bolt"} />
+              <span className="row-text">
+                <span className="row-title">{tool.name}</span>
+                <span className="row-sub xs truncate">{tool.description}</span>
               </span>
-              <div className="row-body">
-                <span className="row-text">
-                  <span className="row-title">{tool.name}</span>
-                  <span className="row-subtitle truncate">{tool.description}</span>
-                </span>
-                <Switch label={`Use ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />
-              </div>
+              <Switch label={`Use ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />
             </div>
           ))}
-          <button type="button" className="row add-row" onClick={() => setAddingTool(true)}>
-            <Icon name="plus" size={18} />
-            <span className="row-body">
-              <span className="row-title">Add a lookup</span>
-            </span>
-          </button>
+          <Button variant="ghost" size="sm" icon="plus" style={{ alignSelf: "flex-start", marginLeft: -8 }} onClick={() => setAddingTool(true)}>
+            Add a lookup
+          </Button>
         </Disclosure>
-      </Card>
+      </section>
 
       {showCorrected && (
         <Sheet title="Corrected answers" subtitle="Part of the draft · publish to send changes to customers" onClose={() => setShowCorrected(false)} footer={<Button onClick={() => setShowCorrected(false)}>Done</Button>}>
           {corrected.length === 0 ? (
-            <EmptyState icon="check-bubble" title="No corrected answers" text="Answers you fix with Fix this answer show up here." />
+            <EmptyState icon="chat" title="No corrected answers" text="Answers you fix with Fix this answer show up here." />
           ) : (
-            <Card footer="Removing one also removes it from the draft; its test scenario stays until you delete it.">
-              {corrected.map((item, index) => (
-                <div className="row top" key={item.fixId ?? index}>
-                  <div className="row-body">
+            <>
+              <div className="card">
+                {corrected.map((item, index) => (
+                  <div className="row top" key={item.fixId ?? index}>
                     <span className="row-text">
-                      <span className="row-title strong">{item.question}</span>
-                      <span className="row-subtitle">{item.answer}</span>
+                      <span className="row-title">{item.question}</span>
+                      <span className="row-sub">{item.answer}</span>
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      destructive
-                      onClick={() => mutate((current) => ({ ...current, correctedAnswers: (current.correctedAnswers ?? []).filter((_, i) => i !== index) }))}
-                    >
+                    <Button variant="danger-ghost" size="sm" onClick={() => mutate((current) => ({ ...current, correctedAnswers: (current.correctedAnswers ?? []).filter((_, i) => i !== index) }))}>
                       Remove
                     </Button>
                   </div>
-                </div>
-              ))}
-            </Card>
+                ))}
+              </div>
+              <p className="help">Removing one also removes it from the draft; its answer check stays until you delete it.</p>
+            </>
           )}
         </Sheet>
       )}
@@ -830,9 +816,10 @@ function AddKnowledgeSheet({ agentId, onClose, onDone }: { agentId: string; onCl
       }
     >
       <form id="add-knowledge" onSubmit={submit} className="sheet-form">
-        <Segmented label="Source type" value={kind} onChange={setKind} options={[{ value: "text", label: "Text" }, { value: "url", label: "Web page" }]} />
-        <Card footer={kind === "url" ? "One HTTPS page; linked pages are not followed." : "Paste text or Markdown. Changes go into the draft; publish to make them live."}>
-          <Field label="Title">
+        <div style={{ alignSelf: "flex-start" }}>
+          <Segmented label="Source type" value={kind} onChange={setKind} options={[{ value: "text", label: "Text" }, { value: "url", label: "Web page" }]} />
+        </div>
+        <Field label="Title">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Warranty policy" required data-autofocus />
           </Field>
           {kind === "url" ? (
@@ -844,7 +831,7 @@ function AddKnowledgeSheet({ agentId, onClose, onDone }: { agentId: string; onCl
               <TextArea rows={6} value={content} onChange={(event) => setContent(event.target.value)} placeholder="Paste text or Markdown" required />
             </Field>
           )}
-        </Card>
+          <p className="help">{kind === "url" ? "One HTTPS page; linked pages are not followed." : "Paste text or Markdown. Changes go into the draft; publish to make them live."}</p>
         {error && <Alert tone="error" title="Couldn't add it" text={error} />}
       </form>
     </Sheet>
@@ -889,9 +876,10 @@ function AddToolSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
       }
     >
       <form id="add-tool" className="sheet-form" onSubmit={submit}>
-        <Segmented label="Lookup type" value={tool.kind} onChange={(kind) => setTool({ ...tool, kind })} options={[{ value: "http_get", label: "Web address" }, { value: "plugin", label: "Built-in" }]} />
-        <Card footer={tool.kind === "http_get" ? "Use {query} in the address for the search words. Public HTTPS only." : undefined}>
-          <Field label="Name">
+        <div style={{ alignSelf: "flex-start" }}>
+          <Segmented label="Lookup type" value={tool.kind} onChange={(kind) => setTool({ ...tool, kind })} options={[{ value: "http_get", label: "Web address" }, { value: "plugin", label: "Built-in" }]} />
+        </div>
+        <Field label="Name">
             <TextInput value={tool.name} placeholder="check_stock" onChange={(event) => setTool({ ...tool, name: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })} required />
           </Field>
           <Field label="When to use it">
@@ -903,13 +891,13 @@ function AddToolSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
             </Field>
           ) : (
             <Field label="Lookup">
-              <select className="select" value={tool.pluginId} onChange={(event) => setTool({ ...tool, pluginId: event.target.value })}>
+              <Select value={tool.pluginId} onChange={(event) => setTool({ ...tool, pluginId: event.target.value })}>
                 <option value="normalize_contact">Tidy contact details</option>
                 <option value="active_at">Check a date range</option>
-              </select>
+              </Select>
             </Field>
           )}
-        </Card>
+          {tool.kind === "http_get" && <p className="help">Use {"{query}"} in the address for the search words. Public HTTPS only.</p>}
         {error && <Alert tone="error" title="Couldn't add it" text={error} />}
       </form>
     </Sheet>
@@ -926,44 +914,29 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
     <>
       <Card title="Versions" footer="Each version is a frozen copy. Chats in progress keep the version they started with; restoring affects new chats only.">
         {agent.versions.length === 0 ? (
-          <EmptyState icon="clock" title="No versions yet" text="Publish the draft to make it live. Every publish is saved here so you can go back." />
+          <EmptyState icon="history" title="No versions yet" text="Publish the draft to make it live. Every publish is saved here so you can go back." />
         ) : (
           <>
-            {unpublished && (
-              <div className="row">
-                <span className="tile tile-soft-orange" aria-hidden="true">
-                  <Icon name="pencil" size={18} />
-                </span>
-                <div className="row-body">
-                  <span className="row-text">
-                    <span className="row-title">Draft</span>
-                    <span className="row-subtitle">{saving ? "Unpublished changes · saving…" : "Unpublished changes · saved"}</span>
-                  </span>
-                  <Badge tone="orange">Not live</Badge>
-                </div>
-              </div>
-            )}
+            {unpublished && <Row icon="edit" tone="warning" title="Draft" subtitle={saving ? "Unpublished changes · saving…" : "Unpublished changes · saved"} accessory={<Badge tone="warning">Not live</Badge>} />}
             {agent.versions.map((version) => {
               const live = version.id === agent.active_version_id;
               return (
-                <div className="row" key={version.id}>
-                  <span className={`tile tile-${live ? "green" : "gray"}`} aria-hidden="true">
-                    <Icon name="clock" size={18} />
-                  </span>
-                  <div className="row-body">
-                    <span className="row-text">
-                      <span className="row-title">Version {version.version}</span>
-                      <span className="row-subtitle">{formatDate(version.published_at)}</span>
-                    </span>
-                    {live ? (
-                      <Badge tone="green">Live</Badge>
+                <Row
+                  key={version.id}
+                  icon="clock"
+                  tone={live ? "success" : "default"}
+                  title={`Version ${version.version}`}
+                  subtitle={formatDate(version.published_at)}
+                  accessory={
+                    live ? (
+                      <Badge tone="success">Live</Badge>
                     ) : (
                       <Button variant="outline" size="sm" onClick={() => setConfirm(version)}>
                         Restore
                       </Button>
-                    )}
-                  </div>
-                </div>
+                    )
+                  }
+                />
               );
             })}
           </>
@@ -972,7 +945,7 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
       {confirm && (
         <Dialog
           title={`Restore version ${confirm.version}?`}
-          text={`New chats will use version ${confirm.version} right away. Chats already in progress keep their version, and your draft doesn't change.`}
+          text={`New chats use version ${confirm.version} right away. Chats already in progress keep their version, and your draft doesn't change.`}
           confirmLabel="Restore"
           busy={busy}
           onCancel={() => setConfirm(null)}
@@ -1017,8 +990,10 @@ function PreviewPane({
   reload,
   navigate,
   injected,
+  hiddenOnPhone,
 }: {
   injected?: { text: string; step: number; at: number } | null;
+  hiddenOnPhone?: boolean;
   agent: AgentDetail;
   collections: Collection[];
   flush: () => Promise<boolean>;
@@ -1110,20 +1085,25 @@ function PreviewPane({
     }
   }
   const starters = agent.evalCases.length ? agent.evalCases.slice(0, 3).map((item) => item.input) : fallbackStarters;
+  const replyText = (result?: AgentResult) =>
+    turns
+      .filter((turn) => turn.result && turn.result === result)
+      .flatMap((turn) => parseRichMessage(turn.text).map((part) => part.text ?? ""))
+      .filter(Boolean)
+      .join("\n");
 
   return (
-    <section className="preview-pane" aria-labelledby={titleId}>
-      <div className="pane-head">
-        <div className="spacer">
-          <div id={titleId} className="pane-title">
-            Preview
-          </div>
-          <div className="pane-sub">The draft · customers never see this</div>
-        </div>
+    <section className={`preview${hiddenOnPhone ? " is-hidden-phone" : ""}`} aria-labelledby={titleId}>
+      <div className="preview-head">
+        <h2 id={titleId} style={{ margin: 0, font: "var(--text-heading-xs)" }}>
+          Preview
+        </h2>
+        <Badge>Draft</Badge>
+        <span className="spacer" />
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          icon="refresh"
+          icon="compose"
           onClick={() => {
             setTurns([]);
             setOpenId(null);
@@ -1134,15 +1114,15 @@ function PreviewPane({
           New chat
         </Button>
       </div>
-      <div className="pane-scroll" ref={scroller}>
+      <div className="preview-scroll" ref={scroller}>
         {turns.length === 0 && !busy ? (
-          <div className="empty preview-empty">
-            <span className="empty-icon" aria-hidden="true">
-              <Icon name="sparkles" size={28} />
-            </span>
-            <h3 className="empty-title">Chat like a customer</h3>
-            <p className="empty-text">Tap a reply to see what it read and looked up.</p>
-            <div className="starters">
+          <div className="empty" style={{ paddingTop: 56 }}>
+            <AgentAvatar id={agent.id} name={agent.name} size="lg" />
+            <h3 className="empty-title" style={{ marginTop: 8 }}>
+              {agent.name}
+            </h3>
+            <p className="empty-text">Chat like a customer. Tap a reply to see what it read, and fix it if it’s wrong.</p>
+            <div className="stack starters">
               {starters.map((starter) => (
                 <button type="button" key={starter} className="btn btn-outline starter" onClick={() => void ask(starter)}>
                   {starter}
@@ -1158,7 +1138,7 @@ function PreviewPane({
               if (turn.role === "user")
                 return (
                   <ChatGroup key={key} separator={separator}>
-                    <RichBubbles side="out" text={turn.text} />
+                    <RichBubbles side="customer" text={turn.text} />
                     {seenAt === turn.at && <span className="seen">Seen</span>}
                   </ChatGroup>
                 );
@@ -1167,64 +1147,64 @@ function PreviewPane({
               const trace = turn.result?.trace;
               return (
                 <ChatGroup key={key} separator={separator}>
-                  <div className={`reply${trace ? " has-trace" : ""}`} onClick={() => trace && setOpenId(open ? null : requestId)}>
-                    <RichBubbles side="in" text={turn.text} selected={open} />
+                  <div className={`msg-ai${open ? " is-selected" : ""}`}>
+                    <RichBubbles side="assistant" text={turn.text} />
+                    {turn.last && trace && (
+                      <ReplyDetails
+                        trace={trace}
+                        open={open}
+                        copyText={replyText(turn.result)}
+                        toggle={() => setOpenId(open ? null : requestId)}
+                        collectionFor={collectionFor}
+                        titleKeyFor={titleKeyFor}
+                        openSource={(id) => setEditingSource(agent.sources.find((source) => source.id === id) ?? null)}
+                        openRecord={(toolName, recordId) => {
+                          const collection = collectionFor(toolName);
+                          if (collection) navigate("data", collection.id, recordId);
+                        }}
+                        onFix={() => void fixTurn(index)}
+                      />
+                    )}
                   </div>
-                  {turn.last && trace && (
-                    <ReplyDetails
-                      trace={trace}
-                      open={open}
-                      toggle={() => setOpenId(open ? null : requestId)}
-                      collectionFor={collectionFor}
-                      titleKeyFor={titleKeyFor}
-                      openSource={(id) => setEditingSource(agent.sources.find((source) => source.id === id) ?? null)}
-                      openRecord={(toolName, recordId) => {
-                        const collection = collectionFor(toolName);
-                        if (collection) navigate("data", collection.id, recordId);
-                      }}
-                      onFix={() => void fixTurn(index)}
-                    />
-                  )}
                 </ChatGroup>
               );
             })}
             {busy &&
               (typing ? (
-                <div className="typing-dots" role="status" aria-label="Typing">
-                  <span />
-                  <span />
-                  <span />
-                </div>
+                <TypingDots />
               ) : (
                 !agent.draft.behavior.typing && (
-                  <div className="bubble bubble-in typing" aria-label="Writing a reply">
+                  <span className="row-flex xs t3" role="status">
                     <Spinner label="Writing a reply" />
-                  </div>
+                    Writing a reply…
+                  </span>
                 )
               ))}
           </div>
         )}
         {error && (
-          <div className="pane-banner">
-            <Alert tone="error" title="No reply" text={`${error}. Nothing was sent to customers.`} onClose={() => setError("")} />
+          <div style={{ padding: "0 16px 16px" }}>
+            <Alert tone="danger" title="No reply" text={`${error}. Nothing was sent to customers.`} onClose={() => setError("")} />
           </div>
         )}
       </div>
-      <form
-        className="composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void ask(text.trim());
-        }}
-      >
-        <label htmlFor={`${titleId}-msg`} className="sr-only">
-          Message the draft
-        </label>
-        <input id={`${titleId}-msg`} type="text" placeholder="Message the draft" value={text} onChange={(event) => setText(event.target.value)} autoComplete="off" />
-        <button type="submit" className="send" aria-label="Send" disabled={!text.trim() || busy}>
-          <Icon name="arrow-up" size={16} />
-        </button>
-      </form>
+      <div className="composer-wrap">
+        <form
+          className="composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void ask(text.trim());
+          }}
+        >
+          <label htmlFor={`${titleId}-msg`} className="sr-only">
+            Message the draft
+          </label>
+          <input id={`${titleId}-msg`} type="text" placeholder="Message the draft" value={text} onChange={(event) => setText(event.target.value)} autoComplete="off" />
+          <button type="submit" className="send" aria-label="Send" disabled={!text.trim() || busy}>
+            <Icon name="arrow-up" size={18} />
+          </button>
+        </form>
+      </div>
       {editingSource && (
         <EditKnowledgeSheet
           source={editingSource}
@@ -1253,6 +1233,7 @@ function ChatGroup({ separator, children }: { separator: string | null; children
 function ReplyDetails({
   trace,
   open,
+  copyText,
   toggle,
   collectionFor,
   titleKeyFor,
@@ -1262,6 +1243,7 @@ function ReplyDetails({
 }: {
   trace: NonNullable<AgentResult["trace"]>;
   open: boolean;
+  copyText: string;
   toggle: () => void;
   collectionFor: (toolName: string) => Collection | undefined;
   titleKeyFor: (toolName: string) => string | undefined;
@@ -1269,26 +1251,47 @@ function ReplyDetails({
   openRecord: (toolName: string, recordId: string) => void;
   onFix: () => void;
 }) {
+  const toast = useToast();
   const sources = trace.sources.filter((source, index, all) => all.findIndex((item) => item.name === source.name) === index);
   const lookups = trace.toolCalls.map((call) => ({ call, rows: Array.isArray(call.output) ? (call.output as TracedRecord[]) : [] }));
   const rowCount = lookups.reduce((total, item) => total + item.rows.length, 0);
-  const summary = [sources.length && `Read ${plural(sources.length, "source")}`, lookups.length && `looked up ${plural(rowCount, "row")}`].filter(Boolean).join(" · ") || "Answered without sources or data";
+  const summary = [sources.length && plural(sources.length, "source"), lookups.length && plural(rowCount, "row")].filter(Boolean).join(" · ") || "No sources";
   const seconds = Math.max(1, Math.round(trace.latencyMs / 1000));
   return (
     <>
-      <MetaChip expanded={open} onClick={toggle}>
-        {summary.charAt(0).toUpperCase() + summary.slice(1)}
-      </MetaChip>
+      <div className="msg-actions">
+        <button
+          type="button"
+          className="msg-action"
+          aria-label="Copy reply"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(copyText);
+              toast("Copied");
+            } catch {
+              toast("Couldn't copy. Select the text and copy it.", "error");
+            }
+          }}
+        >
+          <Icon name="copy" size={16} />
+        </button>
+        <MetaChip expanded={open} onClick={toggle}>
+          {summary}
+        </MetaChip>
+        <button type="button" className="msg-action" onClick={onFix}>
+          <Icon name="wrench" size={16} />
+          Fix this answer
+        </button>
+      </div>
       {open && (
-        <DetailsCard title="This reply" sub={`Answered in ${plural(seconds, "second")}${sources.length || rowCount ? " · tap a source or row to edit it" : ""}`}>
+        <DetailsCard title="What this reply used" sub={`Answered in ${plural(seconds, "second")}${sources.length || rowCount ? " · select a source or row to edit it" : ""}`}>
           {sources.length > 0 && (
             <MiniList
               label="Knowledge read"
               items={sources.map((source, index) => ({
                 key: `${source.name}-${index}`,
                 label: source.name,
-                icon: "doc",
-                tone: "indigo",
+                icon: "document",
                 onClick: source.id ? () => openSource(String(source.id)) : undefined,
               }))}
             />
@@ -1303,7 +1306,6 @@ function ReplyDetails({
                       key: `${rowIndex}`,
                       label: recordTitle(record, titleKeyFor(call.name)),
                       icon: "table",
-                      tone: "green",
                       wrap: true,
                       onClick: record.record_id ? () => openRecord(call.name, String(record.record_id)) : undefined,
                     }))
@@ -1311,10 +1313,7 @@ function ReplyDetails({
               }
             />
           ))}
-          {trace.error && <p className="details-sub text-red">{trace.error}</p>}
-          <Button variant="soft" icon="wrench" block onClick={onFix}>
-            Fix this answer
-          </Button>
+          {trace.error && <p className="xs text-danger" style={{ margin: 0 }}>{trace.error}</p>}
         </DetailsCard>
       )}
     </>
@@ -1335,7 +1334,7 @@ export function AnswerChecks({ agentId }: { agentId: string }) {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId]);
-  if (!agent) return <span className="muted">Loading…</span>;
+  if (!agent) return <Skeleton rows={2} card={false} />;
   return <ScenarioBar agent={agent} flush={async () => true} reload={load} run={run} setRun={setRun} open={open} setOpen={setOpen} />;
 }
 
@@ -1380,30 +1379,28 @@ function ScenarioBar({
     }
   }
   const summary = busy ? (
-    <span className="muted">Running…</span>
+    <span className="xs t3">Running…</span>
   ) : !cases.length ? (
-    <span className="muted">None yet</span>
-  ) : !ran.length ? (
-    <span className="muted">{plural(cases.length, "check")}</span>
-  ) : failing ? (
-    <Badge tone="red">
+    <span className="xs t3">None yet</span>
+  ) : !ran.length ? null : failing ? (
+    <Badge tone="danger">
       {failing} of {cases.length} failing
     </Badge>
   ) : (
-    <Badge tone="green">
+    <Badge tone="success">
       {ran.length} of {cases.length} passed
     </Badge>
   );
   return (
-    <div className="scen-bar">
-      <div className="scen-head">
+    <div className="scen">
+      <div className="row-flex" style={{ paddingRight: 8 }}>
         <button type="button" className="scen-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
-          <Icon name="chevron-right" className="chev" size={12} />
-          <b>Answer checks</b>
+          <Icon name="chevron-right" className="chev" size={16} />
+          {plural(cases.length, "check")}
           {summary}
         </button>
         {cases.length > 0 && (
-          <Button variant="ghost" size="sm" busy={busy} onClick={() => void evaluate()}>
+          <Button variant="ghost" size="sm" icon="play" busy={busy} onClick={() => void evaluate()}>
             Run all
           </Button>
         )}
@@ -1421,21 +1418,21 @@ function ScenarioBar({
             ].filter(Boolean);
             return (
               <button type="button" className="scen-item" key={testCase.id} onClick={() => setEditing(testCase)}>
-                <span className="spacer" style={{ minWidth: 0 }}>
-                  <span className="scen-name">
-                    <span>{testCase.name}</span>
+                <span className="spacer stack" style={{ gap: 0 }}>
+                  <span className="row-flex">
+                    <span className="medium truncate">{testCase.name}</span>
                     {Boolean(testCase.critical) && <Badge tone="outline">Required</Badge>}
-                    {assertions.fromFix && <Badge tone="neutral">From a fix</Badge>}
+                    {assertions.fromFix && <Badge>From a fix</Badge>}
                   </span>
-                  <span className="truncate muted scen-msg">{[`“${testCase.input}”`, ...rules].join(" · ")}</span>
-                  {result && !result.passed && <span className="scen-msg text-red">{result.failures.join(", ") || "Didn't pass"}</span>}
+                  <span className="xs t3 truncate">{[`“${testCase.input}”`, ...rules].join(" · ")}</span>
+                  {result && !result.passed && <span className="xs text-danger">{result.failures.join(", ") || "Didn't pass"}</span>}
                 </span>
-                {result && (result.passed ? <Badge tone="green">Passed</Badge> : result.failures.some((item) => item.startsWith("Not checked")) && result.failures.every((item) => item.startsWith("Not checked")) ? <Badge tone="neutral">Not checked</Badge> : <Badge tone="red">Failed</Badge>)}
+                {result && (result.passed ? <Badge tone="success">Passed</Badge> : result.failures.length > 0 && result.failures.every((item) => item.startsWith("Not checked")) ? <Badge>Not checked</Badge> : <Badge tone="danger">Failed</Badge>)}
               </button>
             );
           })}
-          <Button variant="ghost" size="sm" icon="plus" className="scen-add" onClick={() => setEditing("new")}>
-            Add scenario
+          <Button variant="ghost" size="sm" icon="plus" style={{ margin: "6px 0 0 -8px" }} onClick={() => setEditing("new")}>
+            Add a check
           </Button>
         </div>
       )}
@@ -1520,18 +1517,18 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
   return (
     <>
       <Sheet
-        title={existing ? existing.name : "Add test scenario"}
-        subtitle="Publish runs these first; required ones must pass"
+        title={existing ? existing.name : "Add an answer check"}
+        subtitle="Publish runs the required ones first; they must pass"
         onClose={onClose}
         footer={
           <>
             {existing && fix?.undoable ? (
-              <Button variant="ghost" destructive onClick={() => setUndo({ reason: "", busy: false })}>
+              <Button variant="danger-ghost" onClick={() => setUndo({ reason: "", busy: false })}>
                 Undo fix
               </Button>
             ) : (
               existing && (
-                <Button variant="ghost" destructive onClick={() => setConfirmDelete(true)}>
+                <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
                   Delete
                 </Button>
               )
@@ -1547,24 +1544,21 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
         }
       >
         <form id="scenario" className="sheet-form" onSubmit={submit}>
-          <Card>
-            <Field label="Name">
-              <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Never invent a price" required data-autofocus={existing ? undefined : true} />
-            </Field>
-            <Field label="Customer message">
-              <TextArea rows={1} value={form.input} onChange={(event) => setForm({ ...form, input: event.target.value })} required />
-            </Field>
-            <Field label="Required to publish">
-              <Switch label="Required to publish" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
-            </Field>
-          </Card>
-          <Card title="Passes when" footer="Write it the way you'd tell a new hire. The AI checks each reply against it, so wording can differ.">
-            <Field label="Passes when">
-              <TextArea rows={2} value={form.criteria} onChange={(event) => setForm({ ...form, criteria: event.target.value })} placeholder="Says returns cost 20% and asks for the order number" />
-            </Field>
-          </Card>
-          <Card footer="Exact checks. Separate several phrases with commas.">
-            <Disclosure title={<>Exact words and lookups <span className="muted">(advanced)</span></>} defaultOpen={Boolean(form.mustInclude || form.mustNotInclude || form.expectedTool || form.maxLength) && !form.criteria}>
+          <Field label="Name">
+            <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Never invent a price" required data-autofocus={existing ? undefined : true} />
+          </Field>
+          <Field label="Customer message">
+            <TextArea rows={1} value={form.input} onChange={(event) => setForm({ ...form, input: event.target.value })} required />
+          </Field>
+          <Field label="Passes when" hint="Write it the way you'd tell a new hire. The AI checks each reply against it, so wording can differ.">
+            <TextArea rows={2} value={form.criteria} onChange={(event) => setForm({ ...form, criteria: event.target.value })} placeholder="Says returns cost 20% and asks for the order number" />
+          </Field>
+          <SettingRow title="Required to publish" sub="Publish checks the required ones first">
+            <Switch label="Required to publish" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
+          </SettingRow>
+          <section className="card">
+            <Disclosure title={<>Exact words and lookups <span className="t3" style={{ fontWeight: 400 }}>· advanced</span></>} defaultOpen={Boolean(form.mustInclude || form.mustNotInclude || form.expectedTool || form.maxLength) && !form.criteria}>
+              <p className="help">Exact checks. Separate several phrases with commas.</p>
               <Field label="Says">
                 <TextInput value={form.mustInclude} onChange={(event) => setForm({ ...form, mustInclude: event.target.value })} />
               </Field>
@@ -1578,7 +1572,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
                 <TextInput className="tabular" type="number" min={1} value={form.maxLength} onChange={(event) => setForm({ ...form, maxLength: event.target.value })} />
               </Field>
             </Disclosure>
-          </Card>
+          </section>
           {error && <Alert tone="error" title="Couldn't save it" text={error} />}
         </form>
       </Sheet>
@@ -1587,7 +1581,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
           title="Undo this fix?"
           text={
             <>
-              {fix?.target_kind === "data" ? "The data row goes back to its old value right away." : "The added answer or rule is removed from your changes."} This scenario is removed too.
+              {fix?.target_kind === "data" ? "The data row goes back to its old value right away." : "The added answer or rule is removed from your changes."} This check is removed too.
               <TextInput aria-label="Why (optional)" placeholder="Why (optional)" value={undo.reason} onChange={(event) => setUndo({ ...undo, reason: event.target.value })} style={{ marginTop: 12 }} />
             </>
           }
@@ -1600,7 +1594,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
       )}
       {confirmDelete && existing && (
         <Dialog
-          title="Delete this scenario?"
+          title="Delete this check?"
           text="Publish will no longer check it."
           confirmLabel="Delete"
           destructive
@@ -1649,8 +1643,9 @@ function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSour
   }
   return (
     <Sheet
+      drawer
       title={source.name}
-      subtitle={isUrl ? "Web page" : updatedLabel(source.updated_at)}
+      subtitle={isUrl ? "Web page · changes go into the draft" : `Knowledge · ${updatedLabel(source.updated_at)}`}
       onClose={onClose}
       footer={
         <>
@@ -1676,24 +1671,23 @@ function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSour
       }
     >
       <form id="edit-knowledge" className="sheet-form" onSubmit={save}>
-        <Card footer={isUrl ? "Web pages update when the page is read again." : "Saving new text re-reads this source; replies use it after a minute."}>
           <Field label="Title">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
           </Field>
           {!isUrl && (
             <Field label="Content">
               {text === null ? (
-                <span className="sheet-loading">
+                <span className="stack" style={{ gap: 8 }}>
                   <SkeletonLine width="90%" />
                   <SkeletonLine width="75%" />
                   <SkeletonLine width="60%" />
                 </span>
               ) : (
-                <TextArea rows={6} value={text} onChange={(event) => setText(event.target.value)} />
+                <TextArea rows={10} value={text} onChange={(event) => setText(event.target.value)} />
               )}
             </Field>
           )}
-        </Card>
+          <p className="help">{isUrl ? "Web pages update when the page is read again." : "Saving new text re-reads this source; replies use it after a minute."}</p>
         {error && <Alert tone="error" title="Couldn't save it" text={error} />}
       </form>
     </Sheet>

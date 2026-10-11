@@ -2,8 +2,8 @@ import Papa from "papaparse";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, del, patch, post } from "../api";
 import { nextKey, titleField } from "../format";
-import type { Collection } from "../types";
-import { Alert, Badge, Button, Card, Dialog, EmptyState, errorMessage, Field, Icon, Menu, PageHeader, SearchField, Sheet, Skeleton, Switch, TextArea, TextInput, useToast } from "../ui";
+import type { AgentDetail, AgentSummary, Collection } from "../types";
+import { AgentAvatar, Alert, Badge, Button, Card, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, formatDate, Icon, Menu, PageHeader, SearchField, Select, SettingRow, Sheet, Skeleton, Switch, Table, TextArea, TextInput, Tile, useToast } from "../ui";
 
 type RecordRow = { id: string; data_json: string; status: string; valid_from?: string | null; valid_until?: string | null; external_key?: string | null };
 type FieldDef = { key: string; label: string; type: string; required?: boolean; unique?: boolean; options?: string[] };
@@ -30,64 +30,197 @@ const scheduleColumns = new Set(["bat_dau", "ket_thuc", "dang_chay", "valid_from
 const hiddenTypes = new Set(["url", "image_url"]);
 
 // Only rows that customers won't get are marked: switched off, not started, ended.
-function rowBadge(record: RecordRow): { tone: "blue" | "neutral"; label: string } | null {
+function rowBadge(record: RecordRow): { tone: "info" | "neutral"; label: string } | null {
   if (record.status !== "active") return { tone: "neutral", label: "Off" };
-  if (record.valid_from && day(record.valid_from) > today()) return { tone: "blue", label: `Starts ${shortDay(record.valid_from)}` };
+  if (record.valid_from && day(record.valid_from) > today()) return { tone: "info", label: `Starts ${shortDay(record.valid_from)}` };
   if (record.valid_until && day(record.valid_until) < today()) return { tone: "neutral", label: `Ended ${shortDay(record.valid_until)}` };
   return null;
 }
-const isUsed = (record: RecordRow) => rowBadge(record) === null;
+type RowFilter = "all" | "active" | "scheduled" | "off";
+const rowFilters: Array<{ value: RowFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "off", label: "Ended or off" },
+];
+const rowState = (record: RecordRow): Exclude<RowFilter, "all"> => {
+  if (record.status !== "active") return "off";
+  if (record.valid_from && day(record.valid_from) > today()) return "scheduled";
+  if (record.valid_until && day(record.valid_until) < today()) return "off";
+  return "active";
+};
+const columnSummary = (collection: Collection) =>
+  fieldsOf(collection)
+    .filter((field) => field.key !== "id")
+    .slice(0, 4)
+    .map((field) => field.label)
+    .join(", ");
 
+// #/data lists the tables; #/data/<table> is one table's rows; #/data/<table>/<row> opens a row in the drawer.
 export function DataPage({
+  agent,
   collections,
   reload,
   openCollectionId,
   openRecordId,
   onSelect,
 }: {
+  agent: AgentSummary;
   collections: Collection[];
   reload: () => Promise<void>;
   openCollectionId?: string;
   openRecordId?: string;
-  onSelect: (id: string) => void;
+  onSelect: (id?: string, recordId?: string) => void;
+}) {
+  const [usedBy, setUsedBy] = useState<Set<string>>(new Set());
+  // The assistant's draft says which tables it looks up ("Used by").
+  useEffect(() => {
+    void api<AgentDetail>(`/api/admin/agents/${agent.id}`).then(
+      (detail) => setUsedBy(new Set(detail.draft.collectionBindings.map((binding) => binding.collectionId))),
+      () => setUsedBy(new Set()),
+    );
+  }, [agent.id]);
+  const selected = collections.find((collection) => collection.id === openCollectionId);
+  if (selected) return <TablePage key={selected.id} agent={agent} collection={selected} used={usedBy.has(selected.id)} reload={reload} openRecordId={openRecordId} onSelect={onSelect} />;
+  return <TablesList agent={agent} collections={collections} usedBy={usedBy} reload={reload} onSelect={onSelect} />;
+}
+
+function TablesList({ agent, collections, usedBy, reload, onSelect }: { agent: AgentSummary; collections: Collection[]; usedBy: Set<string>; reload: () => Promise<void>; onSelect: (id?: string) => void }) {
+  const [creating, setCreating] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const hiddenCount = collections.filter((collection) => collection.archived_at).length;
+  const listed = collections.filter((collection) => showHidden || !collection.archived_at);
+  return (
+    <div className="page">
+      <PageHeader
+        title="Data"
+        subtitle="Prices, offers and stock your assistant looks up. Edits reach customers right away."
+        actions={
+          <Button icon="plus" onClick={() => setCreating(true)}>
+            New table
+          </Button>
+        }
+      />
+      {collections.length === 0 ? (
+        <div className="card">
+          <EmptyState
+            icon="table"
+            title="No tables yet"
+            text="Keep prices, offers and stock here so every answer about money is current. The assistant checks them before it quotes anything."
+            action={<Button onClick={() => setCreating(true)}>New table</Button>}
+          />
+        </div>
+      ) : (
+        <div className="card">
+          <Table label="Tables">
+            <thead>
+              <tr>
+                <th style={{ width: "44%" }}>Table</th>
+                <th style={{ width: "14%" }}>Rows</th>
+                <th className="table-cols-optional" style={{ width: "24%" }}>
+                  Used by
+                </th>
+                <th className="table-cols-optional" style={{ width: "14%" }}>
+                  Updated
+                </th>
+                <th className="cell-actions">
+                  <span className="sr-only">Open</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {listed.map((collection) => (
+                <tr key={collection.id} onClick={() => onSelect(collection.id)}>
+                  <td>
+                    <span className="row-flex" style={{ gap: 12 }}>
+                      <Tile icon="table" />
+                      <span className="stack" style={{ gap: 0 }}>
+                        <button type="button" className="row-open strong truncate" onClick={(event) => (event.stopPropagation(), onSelect(collection.id))}>
+                          {collection.name}
+                        </button>
+                        <span className="xs t3 truncate">{columnSummary(collection)}</span>
+                      </span>
+                      {collection.archived_at && <Badge>Hidden</Badge>}
+                    </span>
+                  </td>
+                  <td className="tabular">{collection.record_count ?? "—"}</td>
+                  <td className="table-cols-optional">
+                    {usedBy.has(collection.id) ? (
+                      <span className="row-flex" style={{ gap: 6 }}>
+                        <AgentAvatar id={agent.id} name={agent.name} size="xs" />
+                        <span className="xs t3 truncate">{agent.name}</span>
+                      </span>
+                    ) : (
+                      <span className="xs t3">Not used</span>
+                    )}
+                  </td>
+                  <td className="table-cols-optional t2">{formatDate(collection.updated_at)}</td>
+                  <td className="cell-actions">
+                    <Icon name="chevron-right" className="chev" size={16} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          {hiddenCount > 0 && (
+            <div className="card-foot row-flex">
+              <Button variant="ghost" size="sm" icon="eye-off" style={{ marginLeft: -8 }} aria-expanded={showHidden} onClick={() => setShowHidden(!showHidden)}>
+                {showHidden ? "Hide hidden tables" : `Show hidden tables (${hiddenCount})`}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {creating && (
+        <CreateCollectionSheet
+          onClose={() => setCreating(false)}
+          onDone={async (id) => {
+            setCreating(false);
+            await reload();
+            onSelect(id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function TablePage({
+  agent,
+  collection,
+  used,
+  reload,
+  openRecordId,
+  onSelect,
+}: {
+  agent: AgentSummary;
+  collection: Collection;
+  used: boolean;
+  reload: () => Promise<void>;
+  openRecordId?: string;
+  onSelect: (id?: string, recordId?: string) => void;
 }) {
   const toast = useToast();
-  const visibleCollections = collections.filter((collection) => !collection.archived_at);
-  const hiddenCollections = collections.filter((collection) => collection.archived_at);
-  const selected = collections.find((collection) => collection.id === openCollectionId) ?? visibleCollections[0] ?? collections[0];
-  const [showHidden, setShowHidden] = useState(Boolean(selected?.archived_at));
   const [records, setRecords] = useState<RecordRow[] | null>(null);
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState<RowFilter>("all");
+  const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const [editing, setEditing] = useState<RecordRow | "new" | null>(null);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<{ title: string; text: string; retry?: () => void } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  async function loadRecords(collection = selected) {
-    if (!collection) return;
+  async function loadRecords() {
     try {
       setRecords(await api<RecordRow[]>(`/api/admin/collections/${collection.id}/records`));
       setError(null);
     } catch (caught) {
-      setError({ title: `Couldn't load ${collection.name}`, text: `${errorMessage(caught)}. The assistant still uses the saved rows.`, retry: () => void loadRecords(collection) });
+      setError({ title: `Couldn't load ${collection.name}`, text: `${errorMessage(caught)}. The assistant still uses the saved rows.`, retry: () => void loadRecords() });
     }
   }
-  useEffect(() => {
-    setRecords(null);
-    setQuery("");
-    void loadRecords();
-  }, [selected?.id]);
-  // Deep link from a Preview reply: open the exact row once it is loaded.
-  useEffect(() => {
-    if (!openRecordId || !records) return;
-    const record = records.find((row) => row.id === openRecordId);
-    if (record) setEditing(record);
-  }, [openRecordId, records]);
+  useEffect(() => void loadRecords(), [collection.id]);
 
   async function importCsv(file: File) {
-    if (!selected) return;
     setError(null);
     const parsed = Papa.parse<Record<string, unknown>>(await file.text(), { header: true, skipEmptyLines: true });
     if (fileInput.current) fileInput.current.value = "";
@@ -97,7 +230,7 @@ export function DataPage({
     }
     setImporting(true);
     try {
-      await post(`/api/admin/collections/${selected.id}/import`, { rows: parsed.data, mapping: {}, uniqueKey: upsertKey(fieldsOf(selected)) });
+      await post(`/api/admin/collections/${collection.id}/import`, { rows: parsed.data, mapping: {}, uniqueKey: upsertKey(fieldsOf(collection)) });
       toast(`Imported ${parsed.data.length} rows`);
       await loadRecords();
       await reload();
@@ -107,7 +240,7 @@ export function DataPage({
       setImporting(false);
     }
   }
-  async function setHidden(collection: Collection, hidden: boolean) {
+  async function setHidden(hidden: boolean) {
     try {
       await patch(`/api/admin/collections/${collection.id}`, { archived: hidden });
       await reload();
@@ -117,20 +250,68 @@ export function DataPage({
     }
   }
 
-  const allFields = selected ? fieldsOf(selected) : [];
+  const allFields = fieldsOf(collection);
   const title = titleField(allFields);
   const shown = allFields.filter((field) => field !== title && field.key !== "id" && !hiddenTypes.has(field.type) && !scheduleColumns.has(field.key) && field.key !== upsertKey(allFields));
   const detailField = shown.find((field) => field.type === "long_text") ?? shown.find((field) => field.type === "text");
-  const footFields = shown.filter((field) => field !== detailField).slice(0, 3);
-  const visible = (records ?? []).filter((record) => !query || record.data_json.toLowerCase().includes(query.toLowerCase()));
-  const usedCount = (records ?? []).filter(isUsed).length;
+  const extraField = shown.find((field) => field !== detailField);
+  const counts = { all: records?.length ?? 0, active: 0, scheduled: 0, off: 0 } as Record<RowFilter, number>;
+  for (const record of records ?? []) counts[rowState(record)] += 1;
+  const visible = (records ?? []).filter((record) => (filter === "all" || rowState(record) === filter) && (!query || record.data_json.toLowerCase().includes(query.toLowerCase())));
+  const opened = openRecordId && records ? records.find((row) => row.id === openRecordId) : undefined;
 
   return (
-    <div className="page data-page">
-      <PageHeader title="Data" subtitle="Prices, offers and stock. Edits reach customers right away." />
+    <div className="page" style={{ gap: 20 }}>
+      <nav className="crumbs" aria-label="Breadcrumb">
+        <button type="button" onClick={() => onSelect(undefined)}>
+          Data
+        </button>
+        <Icon name="chevron-right" size={16} />
+        <span style={{ color: "var(--color-text)" }} aria-current="page">
+          {collection.name}
+        </span>
+      </nav>
+      <header className="page-header">
+        <div style={{ minWidth: 0 }}>
+          <h1 className="page-title truncate">{collection.name}</h1>
+          <p className="page-sub row-flex" style={{ flexWrap: "wrap", gap: "6px 10px" }}>
+            <span>{records ? `${counts.active} in use · ${counts.all} rows` : "Loading…"}</span>
+            <span className="t3">·</span>
+            {collection.archived_at ? (
+              <span>Hidden · the assistant can't look it up</span>
+            ) : used ? (
+              <span className="row-flex" style={{ gap: 4 }}>
+                Used by <AgentAvatar id={agent.id} name={agent.name} size="xs" /> {agent.name}
+              </span>
+            ) : (
+              <span>Not used by the assistant · turn it on in Assistant › Sources</span>
+            )}
+          </p>
+        </div>
+        <div className="row-flex">
+          <Button variant="outline" icon="upload" className="hide-phone" busy={importing} onClick={() => fileInput.current?.click()}>
+            Import CSV
+          </Button>
+          <Button icon="plus" onClick={() => setAdding(true)}>
+            Add row
+          </Button>
+          <Menu
+            label="More table actions"
+            size="md"
+            items={[
+              { label: importing ? "Importing…" : "Import CSV", icon: "upload", onSelect: () => fileInput.current?.click() },
+              { label: "Rename", icon: "edit", onSelect: () => setRenaming(true) },
+              { separator: true },
+              collection.archived_at ? { label: "Show table", icon: "eye", onSelect: () => void setHidden(false) } : { label: "Hide table", icon: "eye-off", onSelect: () => void setHidden(true) },
+            ]}
+          />
+          <input ref={fileInput} hidden type="file" accept=".csv,text/csv" onChange={(event) => event.target.files?.[0] && void importCsv(event.target.files[0])} />
+        </div>
+      </header>
+
       {error && (
         <Alert
-          tone="error"
+          tone="danger"
           title={error.title}
           text={error.text}
           onClose={error.retry ? undefined : () => setError(null)}
@@ -144,144 +325,109 @@ export function DataPage({
         />
       )}
 
-      {collections.length === 0 ? (
-        <div className="section-card">
+      <div className="row-flex" style={{ flexWrap: "wrap", gap: 12 }}>
+        <SearchField className="data-search" value={query} onChange={setQuery} placeholder="Search rows" />
+        <Chips label="Filter rows" value={filter} onChange={setFilter} options={rowFilters.map((item) => ({ ...item, count: records ? counts[item.value] : undefined }))} />
+      </div>
+
+      <div className="card">
+        {!records ? (
+          error ? null : <Skeleton rows={3} card={false} />
+        ) : records.length === 0 ? (
           <EmptyState
             icon="table"
-            title="No tables yet"
-            text="Keep prices, offers and stock here. The assistant checks them before it quotes anything, so answers stay current."
-            action={<Button onClick={() => setCreating(true)}>New table</Button>}
-          />
-        </div>
-      ) : (
-        <div className="split">
-          <div className="master">
-            <Card title="Tables">
-              {visibleCollections.map((collection) => (
-                <TableRow key={collection.id} collection={collection} selected={collection.id === selected?.id} onClick={() => onSelect(collection.id)} />
-              ))}
-              {hiddenCollections.length > 0 && (
-                <button type="button" className="row" aria-expanded={showHidden} onClick={() => setShowHidden(!showHidden)}>
-                  <span className="tile tile-soft-gray" aria-hidden="true">
-                    <Icon name="eye-slash" size={18} />
-                  </span>
-                  <span className="row-body">
-                    <span className="row-text">
-                      <span className="row-title muted">Hidden tables</span>
-                    </span>
-                    <span className="row-detail tabular">{hiddenCollections.length}</span>
-                    <Icon name={showHidden ? "chevron-down" : "chevron-right"} className="row-chevron" size={14} />
-                  </span>
-                </button>
-              )}
-              {showHidden && hiddenCollections.map((collection) => <TableRow key={collection.id} collection={collection} hidden selected={collection.id === selected?.id} onClick={() => onSelect(collection.id)} />)}
-            </Card>
-            <Button variant="ghost" icon="plus" className="new-table" onClick={() => setCreating(true)}>
-              New table
-            </Button>
-          </div>
-
-          {selected && (
-            <div className="detail">
-              <div className="detail-head">
-                <div className="detail-heading">
-                  <h2 className="detail-title truncate">{selected.name}</h2>
-                  <p className="status-line">
-                    {selected.archived_at ? "Hidden · the assistant can't look it up · " : ""}
-                    {records ? `${usedCount} in use · ${records.length} total` : "Loading…"}
-                  </p>
-                </div>
-                <SearchField className="detail-search" value={query} onChange={setQuery} placeholder="Search rows" />
-                <Button size="sm" icon="plus" onClick={() => setEditing("new")}>
-                  Add
+            title="No rows yet"
+            text="Add your first row, or import a spreadsheet with the same column names."
+            action={
+              <div className="row-flex" style={{ justifyContent: "center" }}>
+                <Button onClick={() => setAdding(true)}>Add row</Button>
+                <Button variant="outline" onClick={() => fileInput.current?.click()}>
+                  Import CSV
                 </Button>
-                <Menu
-                  label="More table actions"
-                  items={[
-                    { label: importing ? "Importing…" : "Import CSV", icon: "upload", onSelect: () => fileInput.current?.click() },
-                    { label: "Rename", icon: "pencil", onSelect: () => setRenaming(true) },
-                    { separator: true },
-                    selected.archived_at
-                      ? { label: "Show table", icon: "eye-slash", onSelect: () => void setHidden(selected, false) }
-                      : { label: "Hide table", icon: "eye-slash", onSelect: () => void setHidden(selected, true) },
-                  ]}
-                />
-                <input ref={fileInput} hidden type="file" accept=".csv,text/csv" onChange={(event) => event.target.files?.[0] && void importCsv(event.target.files[0])} />
               </div>
+            }
+          />
+        ) : visible.length === 0 ? (
+          <EmptyState icon="search" title={query ? `No rows match “${query}”` : "No rows here"} text="Try another word or filter, or add a new row." />
+        ) : (
+          <Table label={collection.name}>
+            <thead>
+              <tr>
+                <th style={{ width: "32%" }}>{title?.label ?? "Row"}</th>
+                {detailField && (
+                  <th className="table-cols-optional" style={{ width: "36%" }}>
+                    {detailField.label}
+                  </th>
+                )}
+                {extraField && (
+                  <th className="table-cols-optional" style={{ width: "15%" }}>
+                    {extraField.label}
+                  </th>
+                )}
+                <th style={{ width: "17%" }}>Availability</th>
+                <th className="cell-actions">
+                  <span className="sr-only">Open</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((record) => {
+                const data = JSON.parse(record.data_json || "{}") as Record<string, unknown>;
+                const badge = rowBadge(record);
+                const name = String((title && data[title.key]) || record.external_key || "Untitled row");
+                return (
+                  <tr key={record.id} onClick={() => onSelect(collection.id, record.id)}>
+                    <td>
+                      <button type="button" className="row-open medium truncate" style={{ display: "block", maxWidth: "100%" }} onClick={(event) => (event.stopPropagation(), onSelect(collection.id, record.id))}>
+                        {name}
+                      </button>
+                    </td>
+                    {detailField && (
+                      <td className="table-cols-optional t2">
+                        <span className="clamp-2">{String(data[detailField.key] ?? "")}</span>
+                      </td>
+                    )}
+                    {extraField && (
+                      <td className="table-cols-optional t2">
+                        <span className="truncate" style={{ display: "block" }}>
+                          {String(data[extraField.key] ?? "")}
+                        </span>
+                      </td>
+                    )}
+                    <td>{badge ? <Badge tone={badge.tone}>{badge.label}</Badge> : <span className="t3">Always</span>}</td>
+                    <td className="cell-actions">
+                      <Icon name="chevron-right" className="chev" size={16} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        )}
+        {records && records.length > 0 && <div className="card-foot">Rows that are off, have ended or haven't started are never used by the assistant.</div>}
+      </div>
 
-              {!records ? (
-                error ? null : <Skeleton rows={3} />
-              ) : records.length === 0 ? (
-                <div className="section-card">
-                  <EmptyState icon="table" title="No rows yet" text="Add one row with Add, or many at once with Import CSV in the ••• menu." />
-                </div>
-              ) : (
-                <Card footer="Rows that are off, have ended or haven't started are never used by the assistant.">
-                  {visible.length === 0 ? (
-                    <EmptyState icon="search" title={`No rows match “${query}”`} text="Try another word, or add a new row." />
-                  ) : (
-                    visible.map((record) => {
-                      const data = JSON.parse(record.data_json || "{}") as Record<string, unknown>;
-                      const badge = rowBadge(record);
-                      const name = String((title && data[title.key]) || record.external_key || "Untitled row");
-                      const details = detailField ? String(data[detailField.key] ?? "") : "";
-                      const foot = footFields
-                        .map((field) => (data[field.key] === undefined || data[field.key] === "" ? null : `${field.label} ${String(data[field.key])}`))
-                        .filter(Boolean)
-                        .join(" · ");
-                      return (
-                        <button type="button" className="row top" key={record.id} onClick={() => setEditing(record)}>
-                          <span className="row-body data-row">
-                            <span className="row-text">
-                              <span className="row-title strong truncate">{name}</span>
-                              {details && <span className="row-subtitle clamp-2 data-details">{details}</span>}
-                              {foot && <span className="row-subtitle data-foot truncate">{foot}</span>}
-                            </span>
-                            {badge && <Badge tone={badge.tone}>{badge.label}</Badge>}
-                            <Icon name="chevron-right" className="row-chevron" size={14} />
-                          </span>
-                        </button>
-                      );
-                    })
-                  )}
-                </Card>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {creating && (
-        <CreateCollectionSheet
-          onClose={() => setCreating(false)}
-          onDone={async (id) => {
-            setCreating(false);
-            await reload();
-            onSelect(id);
-          }}
-        />
-      )}
-      {editing && selected && (
-        <RecordSheet
-          collection={selected}
+      {(adding || opened) && (
+        <RecordDrawer
+          collection={collection}
           existingKeys={(records ?? []).map((row) => row.external_key ?? "").filter(Boolean)}
-          record={editing === "new" ? null : editing}
+          record={adding ? null : (opened ?? null)}
           onClose={() => {
-            setEditing(null);
-            if (openRecordId) onSelect(selected.id);
+            setAdding(false);
+            if (openRecordId) onSelect(collection.id);
           }}
           onDone={async (message) => {
-            setEditing(null);
-            if (openRecordId) onSelect(selected.id);
+            setAdding(false);
+            if (openRecordId) onSelect(collection.id);
             toast(message);
             await loadRecords();
             await reload();
           }}
         />
       )}
-      {renaming && selected && (
+      {renaming && (
         <RenameSheet
-          collection={selected}
+          collection={collection}
           onClose={() => setRenaming(false)}
           onDone={async () => {
             setRenaming(false);
@@ -294,24 +440,8 @@ export function DataPage({
   );
 }
 
-function TableRow({ collection, selected, hidden, onClick }: { collection: Collection; selected: boolean; hidden?: boolean; onClick: () => void }) {
-  return (
-    <button type="button" className={`row${selected ? " is-selected" : ""}`} aria-current={selected || undefined} onClick={onClick}>
-      <span className={`tile tile-${hidden ? "gray" : "green"}`} aria-hidden="true">
-        <Icon name="table" size={18} />
-      </span>
-      <span className="row-body">
-        <span className="row-text">
-          <span className="row-title truncate">{collection.name}</span>
-        </span>
-        {collection.record_count !== undefined && <span className="row-detail tabular">{collection.record_count}</span>}
-        <Icon name="chevron-right" className="row-chevron" size={14} />
-      </span>
-    </button>
-  );
-}
+function RecordDrawer({
 
-function RecordSheet({
   collection,
   existingKeys,
   record,
@@ -356,14 +486,14 @@ function RecordSheet({
   }
   return (
     <>
-      <Sheet
+      <Drawer
         title={initialName}
         subtitle={collection.name}
         onClose={onClose}
         footer={
           <>
             {record && (
-              <Button variant="ghost" destructive onClick={() => setConfirmDelete(true)}>
+              <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
                 Delete row
               </Button>
             )}
@@ -378,20 +508,19 @@ function RecordSheet({
         }
       >
         <form id="record-form" className="sheet-form" onSubmit={submit}>
-          {error && <Alert tone="error" title="Couldn't save this row" text={`${error}. Your edit is kept here; customers still see the old row.`} />}
-          <Card title="Availability" footer="Leave Starts and Ends empty for a row that always applies.">
-            <div className="field">
-              <span className="field-label spacer">Active</span>
-              <Switch label="Active" checked={active} onChange={setActive} />
-            </div>
+          {error && <Alert tone="danger" title="Couldn't save this row" text={`${error}. Your edit is kept here; customers still see the old row.`} />}
+          <SettingRow title="Active" sub="Off rows are never used by the assistant">
+            <Switch label="Active" checked={active} onChange={setActive} />
+          </SettingRow>
+          <div className="field-grid narrow">
             <Field label="Starts">
-              <TextInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="Starts" />
+              <TextInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
             </Field>
             <Field label="Ends">
-              <TextInput type="date" value={until} onChange={(event) => setUntil(event.target.value)} aria-label="Ends" />
+              <TextInput type="date" value={until} onChange={(event) => setUntil(event.target.value)} />
             </Field>
-          </Card>
-          <Card title="Details">
+          </div>
+          <p className="help" style={{ marginTop: -8 }}>Leave Starts and Ends empty for a row that always applies.</p>
             {fields.map((field) => {
               const value = data[field.key];
               return (
@@ -401,12 +530,12 @@ function RecordSheet({
                   ) : field.type === "boolean" ? (
                     <Switch label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
                   ) : field.type === "enum" && field.options?.length ? (
-                    <select className="select" value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label}>
+                    <Select value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label}>
                       <option value="">None</option>
                       {field.options.map((option) => (
                         <option key={option}>{option}</option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (
                     <TextInput
                       className={field.type === "number" ? "tabular" : undefined}
@@ -421,9 +550,8 @@ function RecordSheet({
                 </Field>
               );
             })}
-          </Card>
         </form>
-      </Sheet>
+      </Drawer>
       {confirmDelete && record && (
         <Dialog
           title="Delete this row?"
@@ -482,11 +610,9 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
       }
     >
       <form id="rename-form" className="sheet-form" onSubmit={submit}>
-        <Card>
-          <Field label="Table name">
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
-          </Field>
-        </Card>
+        <Field label="Table name">
+          <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
+        </Field>
         <Card title="Column names" footer="Only the names you see change; data and CSV headers stay the same.">
           {fields.map((field) => (
             <Field key={field.key} label={field.label} hint={field.key}>
@@ -494,7 +620,7 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
             </Field>
           ))}
         </Card>
-        {error && <Alert tone="error" title="Couldn't rename" text={error} />}
+        {error && <Alert tone="danger" title="Couldn't rename" text={error} />}
       </form>
     </Sheet>
   );
@@ -564,36 +690,34 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
       }
     >
       <form id="create-collection" className="sheet-form" onSubmit={submit}>
-        <Card>
-          <Field label="Name">
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Offers" required data-autofocus />
-          </Field>
-        </Card>
+        <Field label="Name">
+          <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Offers" required data-autofocus />
+        </Field>
         <Card
           title="Columns"
           action={
-            <Button type="button" variant="ghost" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Column ${current.length + 1}`, type: "text", required: false }])}>
+            <Button type="button" variant="ghost" size="sm" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Column ${current.length + 1}`, type: "text", required: false }])}>
               Add column
             </Button>
           }
           footer="For CSV imports, headers should match the column names in lowercase with underscores, e.g. unit_price."
         >
           {fields.map((field, index) => (
-            <div className="row field-editor" key={index}>
+            <div className="row compact column-editor" key={index}>
               <TextInput aria-label={`Column ${index + 1} name`} value={field.label} placeholder="Column name" onChange={(event) => update(index, { label: event.target.value, key: identifier(event.target.value) })} />
-              <select className="select" aria-label={`Column ${index + 1} type`} value={field.type} onChange={(event) => update(index, { type: event.target.value })}>
+              <Select block={false} aria-label={`Column ${index + 1} type`} value={field.type} onChange={(event) => update(index, { type: event.target.value })}>
                 {fieldTypes.map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <Switch label={`Column ${index + 1} required`} checked={Boolean(field.required)} onChange={(required) => update(index, { required })} />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                icon="xmark"
+                icon="x"
                 aria-label={`Remove column ${index + 1}`}
                 disabled={fields.length === 1}
                 onClick={() => setFields((current) => current.filter((_, i) => i !== index))}
@@ -601,7 +725,7 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
             </div>
           ))}
         </Card>
-        {error && <Alert tone="error" title="Couldn't create the table" text={error} />}
+        {error && <Alert tone="danger" title="Couldn't create the table" text={error} />}
       </form>
     </Sheet>
   );

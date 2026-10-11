@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, patch, post } from "../api";
 import { formatDate, parseDate } from "../format";
+import { platformKey, platformName, platformOf } from "../platform";
 import type { AgentSummary, Connection, Delivery } from "../types";
-import { Alert, Badge, Button, Card, CopyField, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, PageHeader, Segmented, Sheet, TextInput, useToast, type TileTone } from "../ui";
+import { AgentAvatar, Alert, Badge, BrandLogo, Button, CopyField, Dialog, Disclosure, Drawer, errorMessage, Field, Icon, PageHeader, Segmented, SettingRow, Sheet, TextInput, useToast, type TileTone } from "../ui";
 
 type ConnectionType = "generic_api" | "generic_webhook" | "zernio";
 
@@ -43,6 +44,19 @@ const typeInfo: Record<
   },
 };
 const order: ConnectionType[] = ["zernio", "generic_webhook", "generic_api"];
+
+// The platform grid: Zernio platforms open the Zernio flow (it lists the pages of every platform); API and Webhook are built in.
+const platforms: Array<{ platform: string; name: string; sub: string; type: ConnectionType }> = [
+  { platform: "messenger", name: "Messenger", sub: "Through Zernio", type: "zernio" },
+  { platform: "instagram", name: "Instagram", sub: "Through Zernio", type: "zernio" },
+  { platform: "whatsapp", name: "WhatsApp", sub: "Through Zernio", type: "zernio" },
+  { platform: "telegram", name: "Telegram", sub: "Through Zernio", type: "zernio" },
+  { platform: "tiktok", name: "TikTok", sub: "Through Zernio", type: "zernio" },
+  { platform: "api", name: "API", sub: "Your website, app or CRM", type: "generic_api" },
+  { platform: "webhook", name: "Webhook", sub: "Another system sends signed events", type: "generic_webhook" },
+];
+// "Messenger via Zernio", "API", "Webhook".
+const channelKind = (connection: Connection) => (connection.type === "zernio" ? `${platformName[platformOf(connection)] ?? "Messenger"} via Zernio` : infoOf(connection).label);
 const infoOf = (connection: Connection) => typeInfo[connection.type as ConnectionType] ?? typeInfo.generic_api;
 const keyHintOf = (connection: Connection) => {
   try {
@@ -55,7 +69,7 @@ const keyHintOf = (connection: Connection) => {
 const zernioPage = (connection: Connection) => {
   try {
     const config = JSON.parse(connection.config_json || "{}") as { accountName?: string; platform?: string };
-    return [config.accountName, config.platform ? platformLabel(config.platform) : undefined].filter(Boolean).join(" · ") || "Zernio";
+    return [config.accountName, config.platform ? platformName[platformKey(config.platform)] ?? config.platform : undefined].filter(Boolean).join(" · ") || "Zernio";
   } catch {
     return "Zernio";
   }
@@ -101,132 +115,144 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
     <div className="page">
       <PageHeader
         title="Channels"
-        subtitle="Where customers reach your assistant."
+        subtitle="Where customers reach your assistant. Every channel uses its live version."
         actions={
-          <Button icon="plus" onClick={() => setCreating("generic_api")}>
+          <Button icon="plus" onClick={() => setCreating("zernio")}>
             Add channel
           </Button>
         }
       />
-      <div className="form-col">
-        {!agent.active_version_id && connections.length > 0 && (
-          <Alert
-            tone="warning"
-            title="Channels can't reply yet"
-            text="Publish the assistant first; channels always use the live version."
-            actions={
-              <Button variant="outline" size="sm" onClick={onOpenAssistant}>
-                Open Assistant
-              </Button>
-            }
-          />
-        )}
-        {error && (
-          <Alert
-            tone="error"
-            title="Couldn't check deliveries"
-            text={`${error}. Customers are still being answered.`}
-            actions={
-              <Button variant="outline" size="sm" onClick={() => void loadDeliveries()}>
-                Try again
-              </Button>
-            }
-          />
-        )}
+      {!agent.active_version_id && connections.length > 0 && (
+        <Alert
+          tone="warning"
+          title="Channels can't reply yet"
+          text="Publish the assistant first; channels always use the live version."
+          actions={
+            <Button variant="outline" size="sm" onClick={onOpenAssistant}>
+              Open Assistant
+            </Button>
+          }
+        />
+      )}
+      {error && (
+        <Alert
+          tone="danger"
+          title="Couldn't check deliveries"
+          text={`${error}. Customers are still being answered.`}
+          actions={
+            <Button variant="outline" size="sm" onClick={() => void loadDeliveries()}>
+              Try again
+            </Button>
+          }
+        />
+      )}
 
-        {failed.length > 0 && (
-          <Card
-            title="Replies not delivered"
-            badge={<span className="badge badge-count badge-count-red">{failed.length}</span>}
-            action={
-              failed.length > 1 ? (
-                <Button
-                  variant="ghost"
-                  busy={retrying === "all"}
-                  onClick={() =>
-                    void retry(
-                      failed.map((delivery) => delivery.id),
-                      "all",
-                    )
-                  }
-                >
-                  Retry all
-                </Button>
-              ) : undefined
-            }
-            footer="Customers haven't received these replies yet. Retrying never sends a reply twice."
-          >
-            {failed.map((delivery) => (
-              <div className="row" key={delivery.id}>
-                <span className="tile tile-soft-red" aria-hidden="true">
-                  <Icon name="warning" size={18} />
-                </span>
-                <div className="row-body">
-                  <span className="row-text">
-                    <span className="row-title">
-                      Reply on {nameOf(delivery.connection_id)} · {formatDate(delivery.updated_at)}
-                    </span>
-                    <span className="row-subtitle truncate">{plainError(delivery.last_error)}</span>
-                  </span>
-                  <Button variant="outline" size="sm" busy={retrying === delivery.id} onClick={() => void retry([delivery.id], delivery.id)}>
-                    Retry
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </Card>
-        )}
-
-        {connections.length === 0 ? (
-          <div className="section-card">
-            <EmptyState icon="link" title="No channels yet" text="Connect a channel so customers can reach your assistant. Every channel uses the live version." />
+      {failed.length > 0 && (
+        <section className="card card-danger" aria-labelledby="failed-title">
+          <div className="card-head">
+            <Icon name="warning" className="text-danger" />
+            <h2 id="failed-title" className="card-title">
+              {failed.length === 1 ? "1 reply not delivered" : `${failed.length} replies not delivered`}
+            </h2>
+            {failed.length > 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                busy={retrying === "all"}
+                onClick={() =>
+                  void retry(
+                    failed.map((delivery) => delivery.id),
+                    "all",
+                  )
+                }
+              >
+                Retry all
+              </Button>
+            )}
           </div>
-        ) : (
-          <Card title="Connected" footer="Every channel uses the same assistant and its live version.">
-            {connections.map((connection) => {
-              const info = infoOf(connection);
-              const failures = failedFor(connection.id);
-              const off = connection.status !== "active";
-              return (
-                <button type="button" className="row" key={connection.id} onClick={() => setOpened(connection)}>
-                  <span className={`tile tile-${off ? "gray" : info.tone}`} aria-hidden="true">
-                    <Icon name={info.icon} size={18} />
-                  </span>
-                  <span className="row-body">
-                    <span className="row-text">
-                      <span className="row-title">{connection.name}</span>
-                      <span className="row-subtitle">
-                        {info.label}
-                        {connection.created_at ? ` · added ${formatDate(connection.created_at)}` : ""}
-                      </span>
-                    </span>
-                    {failures > 0 && <Badge tone="red">{failures} not delivered</Badge>}
-                    {off && failures === 0 && <Badge tone="neutral">{connection.status === "draft" ? "Not on yet" : "Off"}</Badge>}
-                    <Icon name="chevron-right" className="row-chevron" size={14} />
-                  </span>
-                </button>
-              );
-            })}
-          </Card>
-        )}
-
-        <Card title={connections.length ? "Add another channel" : "Add a channel"}>
-          {order.map((type) => (
-            <button type="button" className="row" key={type} onClick={() => setCreating(type)}>
-              <span className={`tile tile-${typeInfo[type].tone}`} aria-hidden="true">
-                <Icon name={typeInfo[type].icon} size={18} />
-              </span>
-              <span className="row-body">
-                <span className="row-text">
-                  <span className="row-title">{typeInfo[type].name}</span>
-                  <span className="row-subtitle">{typeInfo[type].sub}</span>
+          {failed.map((delivery) => (
+            <div className="row compact" key={delivery.id}>
+              <div className="row-text">
+                <span className="row-title">
+                  Reply on {nameOf(delivery.connection_id)} · {formatDate(delivery.updated_at)}
                 </span>
-                <Icon name="chevron-right" className="row-chevron" size={14} />
+                <span className="row-sub xs truncate">{plainError(delivery.last_error)}</span>
+              </div>
+              <Button variant="ghost" size="sm" busy={retrying === delivery.id} onClick={() => void retry([delivery.id], delivery.id)}>
+                Retry
+              </Button>
+            </div>
+          ))}
+          <div className="card-foot">Customers haven't received these replies yet. Retrying never sends a reply twice.</div>
+        </section>
+      )}
+
+      {connections.length === 0 ? (
+        <div className="hero-block" style={{ padding: 28, display: "flex", flexDirection: "column", gap: 8 }}>
+          <h2 className="display" style={{ fontSize: 28, lineHeight: "34px" }}>
+            Meet customers where they already message you
+          </h2>
+          <p className="t2" style={{ margin: 0, maxWidth: 560 }}>
+            Connect Messenger, Instagram, WhatsApp and more. Your assistant answers within seconds, any time of day.
+          </p>
+        </div>
+      ) : (
+        <section className="card" aria-labelledby="connected-title">
+          <div className="card-head">
+            <h2 id="connected-title" className="card-title">
+              Connected
+            </h2>
+            <span className="xs t3">{connections.length}</span>
+          </div>
+          {connections.map((connection) => {
+            const failures = failedFor(connection.id);
+            const off = connection.status !== "active";
+            const platform = platformOf(connection);
+            return (
+              <div className="row" key={connection.id}>
+                <BrandLogo platform={platform} label={platformName[platform] ?? connection.name} />
+                <button type="button" className="row-text row-open" onClick={() => setOpened(connection)}>
+                  <span className="row-flex">
+                    <span className="row-title truncate">{connection.name}</span>
+                    {failures > 0 && <Badge tone="danger">{failures} not delivered</Badge>}
+                    {off && failures === 0 && <Badge>{connection.status === "draft" ? "Not on yet" : "Off"}</Badge>}
+                  </span>
+                  <span className="row-sub xs">{[channelKind(connection), connection.created_at ? `added ${formatDate(connection.created_at)}` : ""].filter(Boolean).join(" · ")}</span>
+                </button>
+                <span className="row-flex xs t3 hide-phone" style={{ gap: 6 }}>
+                  Answered by <AgentAvatar id={agent.id} name={agent.name} size="xs" />
+                  <span className="t2 truncate" style={{ maxWidth: 180 }}>
+                    {agent.name}
+                  </span>
+                </span>
+                <Button variant="ghost" size="sm" icon="chevron-right" aria-label={`Open ${connection.name}`} onClick={() => setOpened(connection)} />
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      <section className="stack" style={{ gap: 12 }} aria-labelledby="add-title">
+        <h2 id="add-title" className="section-title">
+          {connections.length ? "Add another channel" : "Add a channel"}
+        </h2>
+        <div className="platform-grid">
+          {platforms.map((item) => (
+            <button type="button" key={item.platform} className="agent-card platform-card" onClick={() => setCreating(item.type)}>
+              <span className="row-flex">
+                <BrandLogo platform={item.platform} />
+                <span className="spacer" />
+                <span className={item.type === "zernio" ? "badge" : "badge badge-outline"}>{item.type === "zernio" ? "Zernio" : "Built in"}</span>
+              </span>
+              <span className="stack" style={{ gap: 2 }}>
+                <span className="strong">{item.name}</span>
+                <span className="xs t3">{item.sub}</span>
               </span>
             </button>
           ))}
-        </Card>
-      </div>
+        </div>
+        <p className="help">Messenger, Instagram, WhatsApp, Telegram and TikTok connect through Zernio, which handles the sign-in to each platform. Logos identify the platforms only.</p>
+      </section>
 
       {creating && (
         <CreateConnectionSheet
@@ -244,6 +270,7 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
       {secrets && <SecretsSheet secrets={secrets} onClose={() => setSecrets(null)} />}
       {opened && (
         <ConnectionSheet
+          agent={agent}
           connection={connections.find((item) => item.id === opened.id) ?? opened}
           canTurnOn={Boolean(agent.active_version_id)}
           onClose={() => setOpened(null)}
@@ -268,7 +295,6 @@ function plainError(value?: string | null) {
 }
 
 type ZernioAccount = { id: string; platform: string; name: string; username: string | null; picture: string | null };
-const platformLabel = (value: string) => ({ facebook: "Facebook page", instagram: "Instagram", whatsapp: "WhatsApp", telegram: "Telegram", tiktok: "TikTok" })[value] ?? value;
 
 function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent: AgentSummary; initialType: ConnectionType; onClose: () => void; onDone: (secrets: Secrets | null) => void }) {
   const [type, setType] = useState<ConnectionType>(initialType);
@@ -323,15 +349,17 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
   return (
     <Sheet
       title="Add channel"
+      subtitle={type === "zernio" ? "Messenger, Instagram, WhatsApp and more, through Zernio" : typeInfo[type].sub}
       onClose={onClose}
       footer={
         <>
+          <span className="spacer" />
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           {valid && (
             <Button type="submit" form="create-connection" busy={busy === "add"}>
-              Add
+              Connect
             </Button>
           )}
         </>
@@ -341,37 +369,38 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
         <Segmented<ConnectionType> full label="Channel type" value={type} onChange={setType} options={order.map((value) => ({ value, label: typeInfo[value].label }))} />
         {type === "zernio" ? (
           <>
-            <Card footer="Find it in Zernio › API keys. It's encrypted when saved and never shown again. We set up the Zernio webhook for you.">
-              <Field label="Zernio API key">
+            <Field label="Zernio API key" hint="Find it in Zernio › API keys. It's encrypted when saved and never shown again. We set up the Zernio webhook for you.">
+              <div className="row-flex">
                 <TextInput type="password" autoComplete="off" value={form.apiCredential} placeholder="sk_…" onChange={(event) => setForm({ ...form, apiCredential: event.target.value })} data-autofocus />
-              </Field>
-              <div className="row row-actions">
-                <Button type="button" variant="outline" size="sm" busy={busy === "find"} disabled={form.apiCredential.trim().length < 20} onClick={() => void findAccounts()}>
+                <Button type="button" variant="outline" busy={busy === "find"} disabled={form.apiCredential.trim().length < 20} onClick={() => void findAccounts()}>
                   Find my pages
                 </Button>
               </div>
-            </Card>
+            </Field>
             {accounts && (
-              <Card title="Which page should it answer?" footer={accounts.length ? "The assistant answers new messages on this page with its live version." : "No connected pages. Connect one in Zernio › Connections, then try again."}>
-                {accounts.map((account) => (
-                  <button type="button" key={account.id} className="row" role="radio" aria-checked={account.id === accountId} onClick={() => setAccountId(account.id)}>
-                    <span className="tile tile-soft-blue" aria-hidden="true">
-                      <Icon name={account.platform === "whatsapp" ? "bubbles" : "inbox"} size={18} />
-                    </span>
-                    <span className="row-body">
-                      <span className="row-text">
-                        <span className="row-title">{account.name}</span>
-                        <span className="row-subtitle">{platformLabel(account.platform)}</span>
-                      </span>
-                      {account.id === accountId && <Icon name="check" className="choice-check" size={18} />}
-                    </span>
-                  </button>
-                ))}
-              </Card>
+              <div className="field">
+                <span className="field-label">Which page should it answer?</span>
+                <div className="choice-list" role="radiogroup" aria-label="Page">
+                  {accounts.map((account) => {
+                    const platform = platformKey(account.platform);
+                    return (
+                      <button type="button" key={account.id} className="choice" role="radio" aria-checked={account.id === accountId} onClick={() => setAccountId(account.id)}>
+                        <BrandLogo platform={platform} />
+                        <span className="stack spacer" style={{ gap: 0 }}>
+                          <span className="medium">{account.name}</span>
+                          <span className="xs t3">{platformName[platform] ?? account.platform}</span>
+                        </span>
+                        <span className="radio-dot" aria-hidden="true" />
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="help">{accounts.length ? "The assistant answers new messages on this page with its live version." : "No connected pages. Connect one in Zernio › Connections, then try again."}</span>
+              </div>
             )}
           </>
         ) : (
-          <Card footer={typeInfo[type].help}>
+          <>
             <Field label="Name">
               <TextInput value={form.name} placeholder={typeInfo[type].name} onChange={(event) => setForm({ ...form, name: event.target.value })} data-autofocus />
             </Field>
@@ -383,9 +412,16 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
                 <TextInput type="password" autoComplete="off" value={form.webhookSecret} onChange={(event) => setForm({ ...form, webhookSecret: event.target.value })} />
               </Field>
             )}
-          </Card>
+            <p className="help">{typeInfo[type].help}</p>
+          </>
         )}
-        {error && <Alert tone="error" title="Couldn't add the channel" text={error} />}
+        <SettingRow title="Answered by" sub="Uses the assistant's live version">
+          <span className="row-flex">
+            <AgentAvatar id={agent.id} name={agent.name} size="xs" />
+            <span className="medium truncate">{agent.name}</span>
+          </span>
+        </SettingRow>
+        {error && <Alert tone="danger" title="Couldn't add the channel" text={error} />}
       </form>
     </Sheet>
   );
@@ -394,7 +430,17 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
 function SecretsSheet({ secrets, onClose }: { secrets: Secrets; onClose: () => void }) {
   const origin = window.location.origin;
   return (
-    <Sheet title="Save this now" subtitle="It's shown only once" onClose={onClose} footer={<Button onClick={onClose}>Done</Button>}>
+    <Sheet
+      title="Save this now"
+      subtitle="It's shown only once"
+      onClose={onClose}
+      footer={
+        <>
+          <span className="spacer" />
+          <Button onClick={onClose}>Done</Button>
+        </>
+      }
+    >
       <Alert tone="warning" title="You won't see it again" text="Copy it into your app or password manager before you close this. If you lose it, make a new key." />
       {secrets.apiKey && (
         <>
@@ -408,12 +454,14 @@ function SecretsSheet({ secrets, onClose }: { secrets: Secrets; onClose: () => v
 }
 
 function ConnectionSheet({
+  agent,
   connection,
   canTurnOn,
   onClose,
   onSecrets,
   reload,
 }: {
+  agent: AgentSummary;
   connection: Connection;
   canTurnOn: boolean;
   onClose: () => void;
@@ -426,11 +474,11 @@ function ConnectionSheet({
   const [confirm, setConfirm] = useState<"off" | "rotate" | null>(null);
   const [error, setError] = useState("");
   const type = (connection.type as ConnectionType) in typeInfo ? (connection.type as ConnectionType) : "generic_api";
-  const info = typeInfo[type];
   const origin = window.location.origin;
   const active = connection.status === "active";
   const keyHint = keyHintOf(connection);
   const added = parseDate(connection.created_at) ? `added ${formatDate(connection.created_at)}` : "";
+  const platform = platformOf(connection);
 
   async function run(kind: "save" | "status" | "rotate", fn: () => Promise<void>) {
     setBusy(kind);
@@ -458,14 +506,15 @@ function ConnectionSheet({
 
   return (
     <>
-      <Sheet
+      <Drawer
         title={connection.name}
-        subtitle={[info.label, active ? "on" : connection.status === "draft" ? "not on yet" : "off", added].filter(Boolean).join(" · ")}
+        subtitle={[channelKind(connection), active ? "on" : connection.status === "draft" ? "not on yet" : "off", added].filter(Boolean).join(" · ")}
+        leading={<BrandLogo platform={platform} />}
         onClose={onClose}
         footer={
           <>
             {active ? (
-              <Button variant="ghost" destructive onClick={() => setConfirm("off")}>
+              <Button variant="danger-ghost" onClick={() => setConfirm("off")}>
                 Turn off channel
               </Button>
             ) : (
@@ -493,51 +542,61 @@ function ConnectionSheet({
         }
       >
         {!active && !canTurnOn && <Alert tone="info" title="Publish the assistant to turn this on" text="Channels always use the live version." />}
-        {error && <Alert tone="error" title="That didn't work" text={error} onClose={() => setError("")} />}
-        <Card footer={type === "generic_api" ? "A new key stops the old one right away. Update your app before you make one." : "A new webhook address stops the old one right away."}>
-          <Field label="Name">
-            <TextInput value={name} onChange={(event) => setName(event.target.value)} />
-          </Field>
-          {type === "generic_api" ? (
-            <>
-              <div className="field">
-                <span className="field-label">Address</span>
-                <span className="field-value truncate mono-value">{`${origin}/api/v1/messages`}</span>
+        {error && <Alert tone="danger" title="That didn't work" text={error} onClose={() => setError("")} />}
+        <Field label="Name">
+          <TextInput value={name} onChange={(event) => setName(event.target.value)} />
+        </Field>
+        <SettingRow title="Answered by" sub="Uses the assistant's live version">
+          <span className="row-flex">
+            <AgentAvatar id={agent.id} name={agent.name} size="xs" />
+            <span className="medium truncate">{agent.name}</span>
+          </span>
+        </SettingRow>
+        {type === "generic_api" ? (
+          <>
+            <div className="field">
+              <span className="field-label">Address</span>
+              <div className="row-flex">
+                <input className="input mono" value={`${origin}/api/v1/messages`} readOnly aria-label="Address" onFocus={(event) => event.currentTarget.select()} />
                 <CopyButton value={`${origin}/api/v1/messages`} label="Copy address" />
               </div>
-              <div className="field">
-                <span className="field-label">Key</span>
-                <span className="field-value mono-value">{keyHint ? `•••• ${keyHint}` : "••••"}</span>
-                <Button variant="outline" size="sm" onClick={() => setConfirm("rotate")}>
+            </div>
+            <div className="field">
+              <span className="field-label">Key</span>
+              <div className="row-flex">
+                <input className="input mono" value={keyHint ? `•••• ${keyHint}` : "••••"} readOnly aria-label="Key" />
+                <Button variant="outline" onClick={() => setConfirm("rotate")}>
                   New key
                 </Button>
               </div>
-            </>
-          ) : type === "zernio" ? (
-            <div className="field">
-              <span className="field-label">Page</span>
-              <span className="field-value truncate">{zernioPage(connection)}</span>
+              <span className="help">A new key stops the old one right away. Update your app before you make one.</span>
             </div>
-          ) : (
-            <div className="field">
-              <span className="field-label">Webhook address</span>
-              <span className="field-value muted">Shown once when made</span>
-              <Button variant="outline" size="sm" onClick={() => setConfirm("rotate")}>
+          </>
+        ) : type === "zernio" ? (
+          <Field label="Account" hint="Connected through Zernio. Manage sign-in there.">
+            <TextInput value={zernioPage(connection)} readOnly />
+          </Field>
+        ) : (
+          <div className="field">
+            <span className="field-label">Webhook address</span>
+            <div className="row-flex">
+              <input className="input" value="Shown once when made" readOnly aria-label="Webhook address" />
+              <Button variant="outline" onClick={() => setConfirm("rotate")}>
                 New address
               </Button>
             </div>
-          )}
-          {connection.callback_url && (
-            <div className="field">
-              <span className="field-label">Replies go to</span>
-              <span className="field-value truncate">{connection.callback_url}</span>
-            </div>
-          )}
-        </Card>
+            <span className="help">A new webhook address stops the old one right away.</span>
+          </div>
+        )}
+        {connection.callback_url && (
+          <Field label="Replies go to">
+            <TextInput value={connection.callback_url} readOnly />
+          </Field>
+        )}
         {type === "generic_api" && (
-          <Card>
+          <section className="card">
             <Disclosure title="For your developer">
-              <pre className="code-block flush">{`POST ${origin}/api/v1/messages
+              <pre className="code-block">{`POST ${origin}/api/v1/messages
 Authorization: Bearer <key>
 Idempotency-Key: <unique id per message>
 
@@ -545,9 +604,9 @@ Idempotency-Key: <unique id per message>
   "user_id": "customer-123",
   "message": { "text": "Hello" } }`}</pre>
             </Disclosure>
-          </Card>
+          </section>
         )}
-      </Sheet>
+      </Drawer>
       {confirm === "off" && (
         <Dialog
           title={`Turn off ${connection.name}?`}
