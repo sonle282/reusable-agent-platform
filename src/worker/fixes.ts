@@ -3,6 +3,7 @@ import { z } from "zod";
 import { agentDraftSchema, parseVersionSnapshot, type AgentVersionSnapshot, type NormalizedMessage } from "../shared/contracts";
 import { channelParts, countSentences } from "../shared/channel-parts";
 import { fallbackChecks } from "../shared/checks";
+import { readVerdict } from "../shared/judge";
 import { maskContact } from "../shared/mask";
 import { getAgent, id, parseJson, validateCollectionData, writeAudit } from "./db";
 import { generateWithAnthropic } from "./model/anthropic";
@@ -51,16 +52,19 @@ export async function judge(env: Env, draft: AgentVersionSnapshot, question: str
 Judge only what the requirement asks; ignore style unless it asks about style. Paraphrases and translations count.
 Reply with JSON only: {"pass": true|false, "reason": "one short sentence in the requirement's language"}`;
   const user = `Requirement: ${criteria}\n\nCustomer asked: ${question}\n\nAssistant replied: ${reply}`;
-  try {
-    const result = await generateWithAnthropic(env, { ...draft.modelConfig, maxTokens: 300, temperature: 0, timeoutMs: 30_000 }, system, [{ role: "user", content: user }], [], id("judge"));
-    const json = result.text.match(/\{[\s\S]*\}/)?.[0];
-    const verdict = json ? (JSON.parse(json) as { pass?: unknown; reason?: unknown }) : null;
-    if (!verdict || typeof verdict.pass !== "boolean") return { checked: false, pass: false, reason: "the AI gave no verdict" };
-    return { checked: true, pass: verdict.pass, reason: clip(String(verdict.reason ?? ""), 200) };
-  } catch {
-    return { checked: false, pass: false, reason: "the AI didn't respond" };
+  // Two tries; the verdict is read leniently (code fences, stray text, unescaped quotes in the reason).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await generateWithAnthropic(env, { ...draft.modelConfig, maxTokens: 300, temperature: 0, timeoutMs: 30_000 }, system, [{ role: "user", content: user }], [], id("judge"));
+      const verdict = readVerdict(result.text);
+      if (verdict) return { checked: true, ...verdict };
+    } catch {
+      // try again once
+    }
   }
+  return { checked: false, pass: false, reason: "the AI gave no verdict" };
 }
+
 
 // ---------- Suggestion ----------
 
