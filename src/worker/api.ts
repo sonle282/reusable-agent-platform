@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
-import { agentDraftSchema, anthropicModelSchema, parseVersionSnapshot, collectionSchema, genericMessageSchema, starterDraft, type AgentResult, type NormalizedMessage } from "../shared/contracts";
+import { agentDraftSchema, anthropicModelSchema, collectionFieldSchema, parseVersionSnapshot, collectionSchema, genericMessageSchema, starterDraft, type AgentResult, type NormalizedMessage } from "../shared/contracts";
 import { parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
 import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
 import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
@@ -451,7 +451,8 @@ app.delete("/api/admin/collections/:id/records/:recordId", async (c) => {
 
 // Renames only: field keys and types stay fixed so tools, imports and stored records keep working.
 app.patch("/api/admin/collections/:id", async (c) => {
-  const body = z.object({ name: z.string().min(1).max(120).optional(), labels: z.record(z.string(), z.string().min(1).max(120)).default({}), archived: z.boolean().optional() }).parse(await c.req.json());
+  // addFields appends new optional columns; existing columns and rows are never changed.
+  const body = z.object({ name: z.string().min(1).max(120).optional(), labels: z.record(z.string(), z.string().min(1).max(120)).default({}), archived: z.boolean().optional(), addFields: z.array(collectionFieldSchema).max(20).default([]) }).parse(await c.req.json());
   const collection = await c.env.DB.prepare("SELECT name,schema_json FROM data_collections WHERE id=?").bind(c.req.param("id")).first<{ name: string; schema_json: string }>();
   if (!collection) return c.json({ error: "Collection not found" }, 404);
   if (body.archived) {
@@ -461,6 +462,10 @@ app.patch("/api/admin/collections/:id", async (c) => {
   }
   const schema = collectionSchema.parse(JSON.parse(collection.schema_json));
   schema.fields = schema.fields.map((field) => ({ ...field, label: body.labels[field.key] ?? field.label }));
+  const taken = new Set(schema.fields.map((field) => field.key));
+  const added = body.addFields.filter((field) => !taken.has(field.key)).map((field) => ({ ...field, required: false, unique: false }));
+  if (schema.fields.length + added.length > 80) return c.json({ error: "A table can have at most 80 columns" }, 422);
+  schema.fields.push(...added);
   await c.env.DB.prepare(`UPDATE data_collections SET name=?,schema_json=?,${body.archived === undefined ? "" : body.archived ? "archived_at=datetime('now')," : "archived_at=NULL,"}updated_at=datetime('now') WHERE id=?`).bind(body.name ?? collection.name, JSON.stringify(schema), c.req.param("id")).run();
   return c.json({ id: c.req.param("id"), name: body.name ?? collection.name, schema });
 });
