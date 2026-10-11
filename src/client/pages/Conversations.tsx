@@ -23,6 +23,7 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
   const [openMessage, setOpenMessage] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const [erasing, setErasing] = useState<"ask" | "busy" | null>(null);
+  const [moving, setMoving] = useState<"ask" | "busy" | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const selectedId = openId ?? items?.[0]?.id;
 
@@ -84,6 +85,17 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
       toast("Customer data downloaded");
     } catch (caught) {
       toast(errorMessage(caught, "Couldn't export the customer data"), "error");
+    }
+  }
+  async function useLiveVersion(conversation: Conversation) {
+    setMoving("busy");
+    try {
+      const result = await post<{ from: number | null; version: number | null }>(`/api/admin/conversations/${encodeURIComponent(conversation.id)}/use-live`);
+      toast(result.from === result.version ? `This chat already uses version ${result.version}` : `This chat now uses version ${result.version}`);
+    } catch (caught) {
+      toast(errorMessage(caught, "Couldn't switch the version"), "error");
+    } finally {
+      setMoving(null);
     }
   }
   async function eraseCustomer(conversation: Conversation) {
@@ -180,13 +192,26 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
                     <Toggle label="Your team replies" checked={Boolean(selected.human_takeover)} disabled={switching} onChange={(enabled) => void setTakeover(selected, enabled)} />
                   </label>
                   <Menu
-                    label="Customer data"
+                    label="Conversation actions"
                     items={[
+                      { group: "Assistant" },
+                      { label: "Use the live version…", icon: "refresh", onSelect: () => setMoving("ask") },
+                      { separator: true },
                       { group: "Customer data" },
                       { label: "Export", icon: "download", onSelect: () => void exportCustomer(selected) },
                       { label: "Erase…", icon: "trash", destructive: true, onSelect: () => setErasing("ask") },
                     ]}
                   />
+                  {moving && (
+                    <Alert
+                      title="Use the live version in this chat?"
+                      text="Chats keep the version they started on. This one switches to the version customers see now; the chat history stays. Other chats are not affected."
+                      confirmLabel="Switch"
+                      busy={moving === "busy"}
+                      onCancel={() => setMoving(null)}
+                      onConfirm={() => void useLiveVersion(selected)}
+                    />
+                  )}
                   {erasing && (
                     <Alert
                       title="Erase this customer's data?"

@@ -167,6 +167,12 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     this.saveFollowUpState(await this.scheduleFollowUp(this.followUpState(), snapshot, payload.step + 1));
   }
 
+  // Owner action for one chat (e.g. their own test thread): new turns use this version. Other chats keep theirs.
+  async useVersion(versionId: string) {
+    if (!this.state.initialized) return;
+    this.setState({ ...this.state, agentVersionId: versionId });
+  }
+
   async setHumanTakeover(enabled: boolean) {
     if (!this.state.initialized) return;
     this.setState({ ...this.state, humanTakeover: enabled, stage: enabled ? "human_handoff" : "engaged" });
