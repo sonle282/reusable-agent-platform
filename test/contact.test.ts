@@ -28,3 +28,12 @@ describe("formatPhone", () => {
     expect(formatPhone("0900000000")).toBe("0900000000");
   });
 });
+
+describe("mentionsNotice", () => {
+  const notice = "Số điện thoại của anh/chị chỉ dùng để Mr Spa gửi báo giá và liên hệ tư vấn cho yêu cầu này.";
+  it("spots the notice even when reworded", async () => {
+    const { mentionsNotice } = await import("../src/shared/contact");
+    expect(mentionsNotice("Anh để lại số nhé. Số điện thoại của anh chỉ dùng để Mr Spa gửi báo giá và liên hệ tư vấn cho yêu cầu này.", notice)).toBe(true);
+    expect(mentionsNotice("Dạ ghế MS1 đang giá $1,495, chưa gồm phí giao hàng.", notice)).toBe(false);
+  });
+});

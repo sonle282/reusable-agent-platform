@@ -37,3 +37,14 @@ export function formatPhone(value?: string | null) {
   const us = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
   return us.length === 10 && !value.startsWith("+84") && !value.startsWith("0") ? `(${us.slice(0, 3)}) ${us.slice(3, 6)}-${us.slice(6)}` : value;
 }
+
+// Did this reply already carry the privacy notice? The model rewords it, so compare words, not the exact sentence.
+export function mentionsNotice(reply: string, notice: string) {
+  const words = (text: string) => text.toLowerCase().normalize("NFC").split(/[^\p{L}\p{N}]+/u).filter((word) => word.length >= 2);
+  const wanted = new Set(words(notice));
+  if (wanted.size === 0) return false;
+  const seen = new Set(words(reply));
+  let hits = 0;
+  for (const word of wanted) if (seen.has(word)) hits++;
+  return hits / wanted.size >= 0.7;
+}
