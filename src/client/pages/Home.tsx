@@ -122,14 +122,15 @@ export function HomePage({
       setBusy(null);
     }
   }
-  async function dismiss(item: AttentionItem, reason: (typeof reasons)[number]["value"]) {
+  async function dismiss(group: AttentionItem[], reason: (typeof reasons)[number]["value"]) {
     try {
-      await post("/api/admin/attention/dismiss", { key: item.key, reason });
-      setAttention((current) => current?.filter((entry) => entry.key !== item.key) ?? null);
+      for (const item of group) await post("/api/admin/attention/dismiss", { key: item.key, reason });
+      const keys = new Set(group.map((item) => item.key));
+      setAttention((current) => current?.filter((entry) => !keys.has(entry.key)) ?? null);
       toast("Dismissed", {
         actionLabel: "Undo",
         onAction: async () => {
-          await del(`/api/admin/attention/dismiss/${encodeURIComponent(item.key)}`);
+          for (const item of group) await del(`/api/admin/attention/dismiss/${encodeURIComponent(item.key)}`);
           await loadAttention();
         },
       });
@@ -143,6 +144,8 @@ export function HomePage({
   const live = Boolean(agent.active_version_id);
   const status = agentStatus(live ? liveVersion : null, unpublished);
   const recent = conversations?.slice(0, 5) ?? [];
+  // The same problem in the same chat is one to-do: newest first, with how many times it happened.
+  const groups = groupAttention(attention ?? []);
 
   // What each item says and which single action it offers.
   const present = (item: AttentionItem): { tone: TileTone; icon: string; title: string; sub: string; label: string; variant: "outline" | "soft" | "primary"; act: () => void } => {
@@ -193,7 +196,7 @@ export function HomePage({
               <h2 id="attention-title" className="card-title" style={{ flex: "none" }}>
                 Needs attention
               </h2>
-              {attention && attention.length > 0 && <Badge count>{attention.length}</Badge>}
+              {groups.length > 0 && <Badge count>{groups.length}</Badge>}
             </div>
             {attentionError ? (
               <div className="card-body">
@@ -208,14 +211,18 @@ export function HomePage({
                   }
                 />
               </div>
-            ) : attention && attention.length > 0 ? (
-              attention.map((item) => {
+            ) : groups.length > 0 ? (
+              groups.map((group) => {
+                const item = group[0];
                 const view = present(item);
                 return (
                   <div className="row" key={item.key}>
                     <Tile icon={view.icon} tone={view.tone} />
                     <div className="row-text">
-                      <span className="row-title">{view.title}</span>
+                      <span className="row-title">
+                        {view.title}
+                        {group.length > 1 && <span className="t3"> · {group.length} times</span>}
+                      </span>
                       <span className="row-sub truncate">{view.sub}</span>
                     </div>
                     {item.waitingDays !== undefined && (
@@ -234,7 +241,7 @@ export function HomePage({
                             ? [{ label: "Open conversation", icon: "chats", onSelect: () => go("conversations", item.conversationId!) }, { separator: true as const }]
                             : []),
                           { group: "Dismiss because…" },
-                          ...reasons.map((reason) => ({ label: reason.label, onSelect: () => void dismiss(item, reason.value) })),
+                          ...reasons.map((reason) => ({ label: reason.label, onSelect: () => void dismiss(group, reason.value) })),
                         ]}
                       />
                     </div>
@@ -242,13 +249,13 @@ export function HomePage({
                 );
               })
             ) : (
-              <Row icon="check" tone="success" title="Nothing needs you" subtitle="Wrong answers, new leads and missed replies show up here." multiline />
+              <Row icon="check" tone="success" title="All caught up" subtitle="Wrong answers, new leads and missed replies show up here." multiline />
             )}
           </section>
 
           {summary && (
             <section className="card metrics" aria-label="Last 24 hours">
-              <Metric value={summary.chats24h} label="Chats · last 24 hours" sub={summary.chats7d ? `${summary.chats7d} this week` : "None this week"} />
+              <Metric value={summary.chats24h} label="Chats in 24 hours" sub={summary.chats7d ? `${summary.chats7d} this week` : "None this week"} />
               <Metric value={summary.waitingForTeam} label="Waiting for your team" sub={summary.waitingForTeam ? "Reply in Conversations" : "All handled"} />
               <Metric value={summary.failedDeliveries} label="Replies not delivered" sub={summary.failedDeliveries ? "Retry in Channels" : "All delivered"} />
             </section>
@@ -300,7 +307,7 @@ export function HomePage({
                           <span className="spacer" />
                           <span className="row-meta">{formatDate(conversation.last_activity_at)}</span>
                         </span>
-                        <span className="row-sub clamp-2">{previewSnippet(conversation.last_message_preview, parseRichMessage)}</span>
+                        <span className="row-sub preview-line">{previewSnippet(conversation.last_message_preview, parseRichMessage)}</span>
                       </span>
                     </button>
                   );
@@ -320,7 +327,7 @@ function Metric({ value, label, sub }: { value: number; label: string; sub: stri
     <div className="metric">
       <span className="xs t3">{label}</span>
       <span className={`metric-value${value ? "" : " is-zero"}`}>{value}</span>
-      <span className="xs t2">{sub}</span>
+      <span className="xs t3">{sub}</span>
     </div>
   );
 }
@@ -349,4 +356,14 @@ function HomeSkeleton() {
       </div>
     </>
   );
+}
+
+function groupAttention(items: AttentionItem[]) {
+  const groups = new Map<string, AttentionItem[]>();
+  const time = (item: AttentionItem) => parseDate(item.at)?.getTime() ?? 0;
+  for (const item of [...items].sort((a, b) => time(b) - time(a))) {
+    const key = item.conversationId && ["price", "backup", "team", "contact_again"].includes(item.type) ? `${item.type}:${item.conversationId}` : item.key;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups.values()];
 }

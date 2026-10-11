@@ -623,6 +623,9 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .check-mark .icon { width: 14px; height: 14px; }
 .progress { height: 6px; border-radius: 3px; background: var(--color-fill-active); overflow: hidden; }
 .progress > span { display: block; height: 100%; border-radius: 3px; background: var(--color-text); }
+/* A chat preview: one line on wide screens, two below. */
+.preview-line { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+@container app (max-width: 1079px) { .preview-line { -webkit-line-clamp: 2; } }
 .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 24px; align-items: start; }
 
 /* ---------- 26. Auth (sign in, forgot, reset, setup, sign up) ---------- */

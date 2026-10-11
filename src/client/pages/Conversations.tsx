@@ -184,7 +184,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
                       <span className="spacer" />
                       <span className="row-meta">{formatDate(item.last_activity_at)}</span>
                     </span>
-                    <span className="row-sub clamp-2">{previewText(item.last_message_preview)}</span>
+                    <span className="row-sub preview-line">{previewText(item.last_message_preview)}</span>
                     {(Boolean(item.human_takeover) || item.stage === "lead_captured") && (
                       <span className="row-flex" style={{ gap: 6, marginTop: 2 }}>
                         {Boolean(item.human_takeover) && <Badge tone="warning">Your team is replying</Badge>}
