@@ -749,6 +749,11 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .hero-tile { background: rgba(255, 255, 255, 0.7); color: #0D0D0D; }
 .builder-bar h1 { min-width: 0; }
 .builder > .page { padding: 32px 40px; }
+/* Remove (rule lists) and Restore (versions) show on hover or focus where there is a mouse; always on touch. */
+@media (hover: hover) {
+  .rule-row .btn, .row .hover-reveal { opacity: 0; transition: opacity var(--dur-basic) ease; }
+  .rule-row:hover .btn, .rule-row:focus-within .btn, .row:hover .hover-reveal, .row:focus-within .hover-reveal { opacity: 1; }
+}
 /* Answer checks (Settings): the full list, run on demand. */
 .card .scen { border-top: 0; background: transparent; }
 .card .scen-list { max-height: none; }
