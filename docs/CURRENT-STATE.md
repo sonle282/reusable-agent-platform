@@ -90,7 +90,7 @@ Things to know:
 - **Versions published before v2.1 run with behavior and follow-ups off** (`parseVersionSnapshot`). New drafts get the defaults on, so Mr Spa shows "Unpublished changes" until the owner reviews the Behavior and Follow-ups tabs and publishes.
 - Follow-ups are sent only on Zernio channels. The website chat has no widget in this repo, so typing dots exist in Preview only.
 - Zernio shows typing on Messenger/Instagram; its mark-read does not show "Seen" to Messenger customers (WhatsApp/iMessage only).
-- The v2 look was ported afterwards; see "Admin v2 look" below.
+- The v2 look was ported afterwards; see "Admin v2 look" below. The UI review brief for Claude chat is `docs/product/design-brief-for-claude-chat.md`.
 - Deployed 2026-10-11 (`165539b`, migration 0006 applied). **Production version v6 live** with behavior and follow-ups on (Vietnamese AI notice and follow-up texts set in the draft; owner to review the wording). Conversations started before v6 stay on their version.
 - `165539b` fixed history order: a customer message, the AI notice and the reply share one timestamp; history now breaks ties by insertion order.
 
@@ -105,10 +105,11 @@ Source: `docs/product/design-v2/PORT-MASTER-PROMPT.md`, `design-v2/HANDOFF.md`, 
 | 2 | `cd3552d` | Shell: workspace header, nav with counts, "Assistants" heading with the one assistant (avatar + live/unpublished/draft dot), account row; sidebar ≥1080, icon rail 860–1079, six-item tab bar below 860; `#/connections` → `#/channels` with a redirect |
 | 3 | `0ea282f` | Pages to the references: Sign in/Setup, Home, Leads + drawer, one-screen builder, Data list (`#/data`) and records page (`#/data/<table>`, row drawer at `#/data/<table>/<row>`), full-height Conversations, Channels (logos, Answered by, platform grid), Settings (+ Messaging platforms), Fix this answer |
 | 4 | `6e4c0a3` | Verification at 1440×900, 1080×800, 390×844, light and dark, against the references; contrast fixes |
+| — | `60a1b16` | Assistant › Checks tab replaces Settings › Answer checks |
 
 Things to know:
 
-- **Kept as the owner decided (2026-10-11):** the Preview has no Test scenarios bar; the full list stays in Settings › Answer checks and Publish runs the required checks.
+- **Kept as the owner decided (2026-10-11):** the Preview has no Test scenarios bar. Answer checks live in **Assistant › Checks** (`60a1b16`): each shows its source (Added at setup / Added by you via `assertions.addedBy`, From Fix this answer via `fromFix`), a Required switch, Add check and Test all. Publish still runs the required checks. Settings no longer lists them.
 - One assistant: the sidebar lists it under "Assistants" and its route stays `#/assistant`; there is no Assistants page, sign-up, billing, SMS or onboarding. "Answered by" on channels is read-only for the same reason.
 - Data is reachable from Home (Assistant card › Data) and from the builder (Sources › Manage in Data); the phone tab bar has no Data tab.
 - Not built because there is no data for it yet: conversation starters, the "Needs reply" chip, business-hours row in Behavior, Import CSV on the tables list (it lives on each table). The Conversations chips (All, Leads, Your team) filter the loaded list.

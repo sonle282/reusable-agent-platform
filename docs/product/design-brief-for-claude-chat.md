@@ -1,78 +1,59 @@
-# Design brief — Agent Builder admin UI (dán vào Claude chat)
+# UI review brief — Agent Builder admin (dán vào Claude chat)
 
 **Cách dùng:**
 1. Mở Claude chat, tạo cuộc trò chuyện mới.
 2. Dán nguyên phần **PROMPT** bên dưới.
-3. Đính kèm 4–6 ảnh chụp màn hình app hiện tại: Home, Assistant › Test, Assistant › Instructions, Data, Conversations, Settings. Trên Windows bấm Win+Shift+S để chụp.
-4. Duyệt bản thiết kế Claude đưa ra, bằng mắt và bằng tay.
-5. Khi ưng, tải hoặc copy file HTML cuối cùng vào `docs/product/design/` (hoặc dán link artifact) và báo Claude Code: "follow the design in docs/product/design/". Claude Code sẽ dựng đúng theo đó vào app thật.
+3. Đính kèm ảnh chụp màn hình (Claude Code đã gửi sẵn bộ ảnh: máy tính 1440 px sáng/tối, điện thoại 390 px). Nếu muốn xem dữ liệu thật, tự chụp thêm trên https://agent.mrspainc.com (Win+Shift+S).
+4. Đính kèm `docs/product/design-v2.1/styles.css` để Claude chat dùng đúng tên token và class.
+5. Nhận lại danh sách tinh chỉnh, chọn những mục muốn làm, rồi đưa cho Claude Code: "apply these UI refinements".
 
 ---
 
 ## PROMPT
 
-You are a senior product designer (Apple-calibre: iOS/macOS Human Interface Guidelines, SF Symbols, System Settings–level polish). Redesign the admin UI of my product so it looks and feels like a first-party Apple app — calm, precise, generous whitespace, perfect alignment, consistent rhythm. Today it is functional but does not look like a professional designer made it.
+You are a senior product designer reviewing a live admin web app. Review the screenshots and the feature list below, then give me a prioritised list of **UI refinements** that make it feel finished and professional. Visual and interaction polish only: do not add product features, pages or settings.
 
 ### The product
-- **What it is:** an "AI assistant builder" for small businesses of any industry. The owner sets up one AI assistant that answers their customers on chat channels (website/app via API, a Zernio inbox for Facebook Messenger). It replaces a page-inbox / front-desk / sales staff member.
-- **Who uses the admin:** a non-technical business owner, often busy, on a laptop or a phone. One admin per business, one assistant per business. UI language: English.
-- **Principles:** KISS, fewest steps, plain words (no "tool", "eval", "prompt", "LLM"), one primary action per screen, warnings only when something needs action, always a next step.
+- **What it is:** a single-business "AI assistant builder". The owner sets up **one** assistant that answers customers on chat channels (Facebook Messenger through Zernio today; API and webhook for websites and other systems). It replaces front-desk / page-inbox staff.
+- **First customer:** Mr Spa, a pedicure-chair and salon-furniture seller in Philadelphia. Customers write in Vietnamese; the admin UI is English.
+- **Who uses the admin:** one non-technical owner, on a laptop or a phone.
+- **Principles:** KISS, fewest steps, plain words (never "tool", "eval", "prompt", "LLM"), one primary action per screen, warnings only when something needs action and always with a next step. Drafts autosave.
 
-### Navigation (keep this information architecture)
-Sidebar on desktop, tab bar on phone, 6 items, each with an SF Symbols–style outline icon (keep this icon style):
-1. **Home** (house): today's numbers + assistant status + recent conversations. Metrics live ONLY here, never on the configuration pages.
-2. **Assistant** (sparkles): configuration, with a segmented control:
-   - **Test:** chat with the draft. Tap a reply to see "Details": which knowledge and data rows it used; tap one to edit it.
-   - **Instructions:** short form sections: Your business · Your assistant's job · Voice and style · Always · Never · Hand off to a person when · Contact details to collect. A collapsed "Detailed playbook (advanced)" holds a long expert prompt (up to 33,000 characters). A side column holds name, fallback reply, and a collapsed Advanced section (model, max tokens).
-   - **Sources:** knowledge sources (title, status, Edit, on/off switch) + data tables the assistant may look up (on/off switch) + collapsed "Live lookups (advanced)".
-   - **Versions:** published versions, Live badge, Restore.
-   - Header shows the assistant name, "Live · version 3" and one primary button: **Publish** (disabled as "Published" when nothing changed). Drafts autosave.
-3. **Data** (table): tables like Products and Offers. Master list of tables + detail table of rows. Tap a row opens an edit sheet with Active / Starts / Ends. Actions: Add, Import CSV, Rename, Hide table. Hidden tables collapse at the bottom.
-4. **Conversations** (two speech bubbles): searchable list + transcript with chat bubbles, and a "Your team replies" switch that pauses the assistant.
-5. **Channels** (link): API / Webhook / Zernio connections with status; "Replies not delivered" list with Retry only when something failed.
-6. **Settings** (gear): AI key (+ collapsed Cloudflare IDs), Brand (name, accent color, logo, support page), Backup download, Sign out.
+### Design system (already implemented — refine within it)
+- Look of openai.com/brand with components modelled on OpenAI's open-source Apps SDK UI (MIT): white / near-black grounds, monochrome black pill primary buttons, hairline borders, pastel blocks, soft gradient on the sign-in panel. No OpenAI logo, name or font.
+- Font: Manrope 400–800 (full Vietnamese). UI text 14px, chat text 16px, page titles 28px bold.
+- Tokens in `design-v2.1/styles.css` (colors, type, radii, control sizes 28/32/36/40, motion). Light, dark (ChatGPT dark) and System. Text must pass WCAG AA; we deliberately set `--color-text-3` to #6B6B6B light / #9B9B9B dark and count badges to #C8450C.
+- Icons: Apps SDK UI filled glyphs; platform logos from Simple Icons.
+- Breakpoints: sidebar ≥1080 px, icon rail 860–1079 px, tab bar below 860 px.
 
-### Planned next feature (design it too)
-**Fix this answer**, opened from a reply in Test or Conversations. One sheet, three steps:
-1. The owner types what it should have said.
-2. The AI suggests one place to fix it — update a data row, add to "Corrected answers" knowledge, or add a line to the instructions — showing a before/after diff. A "Choose another place" option is available.
-3. "Fixed and protected": a scenario is saved automatically. If the check fails, the change is not applied and the owner can choose "Try another fix" or "Keep it anyway".
+### Navigation
+Sidebar: workspace name, **Home · Leads · Data · Conversations · Channels · Settings**, then an "Assistants" heading with the one assistant (pastel avatar + status dot: green live, orange unpublished changes, gray not live), and the account row. Phone tab bar (6): Home · Leads · Assistant · Chats · Channels · Settings (Data is reached from Home and from the assistant's Sources).
 
-Plus a **Needs attention** list on Home with these items, each with Fix / Open conversation / Dismiss (reason):
-- Your team is replying.
-- Sent the backup reply.
-- Price question without a lookup.
-- New lead to contact.
-- Data request.
+### Pages and what they do today
+1. **Sign in / first setup** — split screen: form left, gradient panel with an example chat right (hidden on phone). Sign in: email, password with show/hide, lockout message after 5 tries, no "forgot password" (owner resets from the server). Setup: 2 steps — setup code + email + password (strength bar, ≥12 chars), then business name, logo URL, chat color.
+2. **Home** — Needs attention (new lead to contact, your team is replying, price given without checking Data, sent the backup reply, fix not live yet, fix kept but failing, contact again after 24 h; each with one action and a ••• menu to open the chat or dismiss with a reason), Last 24 hours metrics (chats, waiting for your team, replies not delivered), Assistant card (status + link to Data), Recent conversations with the channel logo on the avatar.
+3. **Leads** — people who left a phone or email. Metrics (New · call these, This month, Won this month), status chips (All / New / Called / Won / Not a fit), table (person + channel logo, phone, one-line "what they want" written by the assistant, status pill, received). Row opens a right drawer: Call button, Open conversation, status segmented control, summary, details collected, activity timeline, private notes, Delete lead. Export CSV.
+4. **Assistant (builder, one screen)** — top bar: back, avatar, name, status line, "Draft saved", **Publish** (runs the required checks first). Left: underline tabs, editor scrolls on its own; right: **Preview** always full height.
+   - *Instructions:* name, business name, description; Your business (offer, contact and hours, website); How it works (its job, voice and style); rule lists Always / Never / Hand off when / Contact details to collect (one input per line, Enter adds, ✕ removes); privacy notice said before asking for contact details; fallback reply; advanced: detailed playbook (long Markdown), model and reply length.
+   - *Sources:* Knowledge (text or web page, on/off switch, edit in a drawer, Corrected answers from fixes), Data it can look up (tables on/off, "Manage in Data"), Live lookups (advanced).
+   - *Follow-ups:* up to 2 automatic nudges inside Meta's 24-hour window (wait time, condition, exact text, "Show in Preview"), "Contact again" in Needs attention after 24 h, and the stop rules.
+   - *Behavior:* mark as seen, typing dots, split long replies, reply length (max sentences), reply pace, AI notice on the first reply, what to say outside business hours.
+   - *Checks:* answer checks — a sample customer question plus what a right answer must say or do. Each shows its source (Added at setup / Added by you / From Fix this answer), a Required switch (required checks must pass before Publish), Add check, Test all.
+   - *Versions:* published versions, Live badge, Restore (new chats only).
+   - *Preview:* chat like a customer (starter buttons), shows Seen → typing dots → reply parts at the chosen pace. Each reply has Copy, "N sources · N rows" (what it read and looked up; tap to edit that source or row) and **Fix this answer**.
+5. **Fix this answer** (sheet, 3 steps) — what it should have said → where to fix it (suggested place with a before/after diff: a Data row, Corrected answers or an Instructions line; "Choose another place") → it re-asks the draft: "Fixed and protected" (saved as a required check) or "Not applied — the check still fails" with Try another fix / Keep it anyway. Data fixes go live at once; other fixes need Publish.
+6. **Data** — list of tables (rows, used by, updated, show hidden tables), New table. Table page: breadcrumb, "N in use · N rows · Used by", search, chips (All / Active / Scheduled / Ended or off), rows with availability ("Always" or Starts/Ended badge), Import CSV, Add row, Rename, Hide. Row opens a right drawer: Active switch, Starts/Ends dates, fields, Delete row.
+7. **Conversations** — full-height split: list (search, chips All / Leads / Your team, avatar with channel logo, preview, tags) and thread (customer = gray bubble on the right, assistant = plain text with Copy and Fix this answer), "Your team replies" switch that pauses the assistant, ••• menu: use the live version in this chat, export or erase the customer's data.
+8. **Channels** — Connected list (platform logo, "Messenger via Zernio", Answered by, opens a drawer with name, key/address or account, turn off), "Replies not delivered" with Retry when something failed, platform grid to add Messenger / Instagram / WhatsApp / Telegram / TikTok (through Zernio), API or Webhook.
+9. **Settings** — Appearance (System/Light/Dark), Workspace (name, logo, chat color, help page), AI connection (Anthropic key, check, advanced Cloudflare IDs), Messaging platforms (Zernio status + Manage), Backup download, Sign out.
 
-### Visual system constraints
-- **Typography:** system font stack (-apple-system / SF Pro). Large titles 34pt bold on page headers; section headers 13pt uppercase secondary. Body 15–17pt.
-- **Color:** Apple system colors with automatic dark mode — systemBlue tint, systemGreen / Orange / Red for state. Grouped background #F2F2F7, cells #FFFFFF; dark mode #000 and #1C1C1E. Brand accent only for the app icon.
-- **Components:**
-  - Inset grouped lists: 44pt rows, hairline separators inset 16pt (or 56pt after an icon), icon tiles 28pt rounded 7pt in system colors.
-  - Segmented control, iOS switches, sheets (centered on desktop, bottom sheet on phone), capsule badges, search field.
-  - Buttons: filled, tinted, gray, plain, destructive.
-- **Spacing:** 8pt grid; max content width around 1100px; split views where it helps (master/detail).
-- **Behaviour:** no horizontal scrolling on phone (tables become rows); visible focus; 44pt touch targets; reduced motion respected.
+### Out of scope — do not propose
+Multiple assistants or an Assistants page, sign-up, billing, onboarding wizards, SMS or email alerts, password reset by email, new settings, new data fields, or anything that needs a backend change. Do not invent business facts, prices or customer text.
 
 ### What I want back
-1. **One self-contained HTML file** (inline CSS + vanilla JS, no external libraries) that is a clickable prototype of all 6 pages, plus the Fix sheet and Needs attention.
-   - Use realistic example data, labelled "Example".
-   - Light and dark mode.
-   - It must work when opened directly as a file. Include `<meta charset="utf-8">`, and a `[hidden]{display:none!important}` rule if you use the hidden attribute.
-2. **All design tokens as CSS custom properties** at the top (colors for light and dark, type scale, spacing, radii, shadows). They are used everywhere, with no hard-coded colors in components.
-3. **A short spec section at the end of the HTML** (or a separate Markdown block) listing:
-   - each component with its exact measurements (height, padding, radius, font size and weight);
-   - each screen's layout at desktop (≥1080px), tablet (~860px) and phone (~390px) widths;
-   - empty, loading and error states for each screen.
-4. **Show me 2 visual directions side by side first** (for example "System Settings–style" and "Notes/Reminders–style") before polishing one, so I can choose by looking.
-
-Ask me at most 2 clarifying questions, then start.
-
----
-
-## Ghi chú cho Claude Code khi nhận bản thiết kế
-- Map token của bản thiết kế vào `src/client/styles.css` (`:root` + dark). Không giữ hai bộ token song song.
-- Map thành phần vào `src/client/ui.tsx`: `Button`, `Section`, `Row`, `FieldRow`, `Toggle`, `Segmented`, `Sheet`, `Badge`, `Banner`, `SearchField`, `EmptyState`. Không fork component mới cho cùng một vai.
-- Giữ bộ icon kiểu SF Symbols trong `Icon` (`ui.tsx`). Icon mới vẽ cùng lưới 24px, nét 1.6.
-- Giữ nguyên luồng, API và luật dữ liệu. Thiết kế chỉ đổi lớp giao diện.
+A list grouped by page, highest impact first. For each item:
+- **Where** (page › area) and **what is wrong now** (one line, point at the screenshot);
+- **Change** — concrete: spacing in px, token or class to use (e.g. `--color-text-2`, `.btn-ghost`, `.card-head`), copy text, alignment, state;
+- **Why** — the user problem it solves;
+- **Effort** — S / M.
+Also call out anything inconsistent between pages (same thing styled or named differently), any text that fails AA, touch targets under 44 px on phone, and missing empty / loading / error states. Keep it to the 25 most valuable items.
