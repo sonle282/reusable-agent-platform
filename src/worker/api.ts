@@ -688,10 +688,11 @@ app.post("/api/admin/conversations/:id/use-live", async (c) => {
   if (!agent?.active_version_id) return c.json({ error: "Nothing is live yet" }, 409);
   const versions = await c.env.DB.prepare("SELECT id,version FROM agent_versions WHERE id IN (?,?)").bind(agent.active_version_id, conversation.agent_version_id ?? "").all<{ id: string; version: number }>();
   const number = (versionId: string | null) => versions.results.find((row) => row.id === versionId)?.version ?? null;
-  if (conversation.agent_version_id !== agent.active_version_id) {
+  // The conversation object decides which version answers; update it first so a failure leaves nothing half-done. Safe to repeat.
+  const stub = c.env.ConversationAgent.getByName(`${conversation.agent_id}:${conversation.connection_id}:${conversation.external_conversation_id}`) as unknown as { useVersion(versionId: string): Promise<string | null> };
+  const before = await stub.useVersion(agent.active_version_id);
+  if (before !== agent.active_version_id || conversation.agent_version_id !== agent.active_version_id) {
     await c.env.DB.prepare("UPDATE conversations SET agent_version_id=? WHERE id=?").bind(agent.active_version_id, conversation.id).run();
-    const stub = c.env.ConversationAgent.getByName(`${conversation.agent_id}:${conversation.connection_id}:${conversation.external_conversation_id}`) as unknown as { useVersion(versionId: string): Promise<void> };
-    await stub.useVersion(agent.active_version_id);
     await writeAudit(c.env.DB, "conversation.version_moved", "conversation", conversation.id, c.get("adminId"), { from: number(conversation.agent_version_id), to: number(agent.active_version_id) });
   }
   return c.json({ from: number(conversation.agent_version_id), version: number(agent.active_version_id) });

@@ -168,9 +168,11 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
   }
 
   // Owner action for one chat (e.g. their own test thread): new turns use this version. Other chats keep theirs.
-  async useVersion(versionId: string) {
-    if (!this.state.initialized) return;
-    this.setState({ ...this.state, agentVersionId: versionId });
+  async useVersion(versionId: string): Promise<string | null> {
+    if (!this.state.initialized) return null;
+    const before = this.state.agentVersionId;
+    if (before !== versionId) this.setState({ ...this.state, agentVersionId: versionId });
+    return before;
   }
 
   async setHumanTakeover(enabled: boolean) {
