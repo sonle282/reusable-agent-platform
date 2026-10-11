@@ -798,7 +798,8 @@ app.post("/api/v1/webhooks/:adapter/:token", async (c) => {
   const inserted = await c.env.DB.prepare("INSERT OR IGNORE INTO idempotency_events(event_id,connection_id,status,expires_at) VALUES(?,?,'accepted',datetime('now','+7 day'))").bind(input.eventId, connection.id).run();
   if (inserted.meta.changes) await c.env.JOBS.send({ kind: "message", requestId: input.eventId, input });
   // Seen and typing the moment the message lands, not after the queue: the customer knows it arrived and is being answered.
-  if (inserted.meta.changes && connection.type === "zernio") c.executionCtx.waitUntil(acknowledgeOnChannel(c.env, connection, input).catch(() => undefined));
+  if (inserted.meta.changes && connection.type === "zernio")
+    c.executionCtx.waitUntil(acknowledgeOnChannel(c.env, connection, input).catch((error) => console.log(JSON.stringify({ event: "channel_ack_failed", requestId: input.eventId, error: error instanceof Error ? error.message.slice(0, 200) : "unknown" }))));
   return c.json({ request_id: input.eventId, status: inserted.meta.changes ? "accepted" : "duplicate" }, 202);
 });
 
@@ -814,5 +815,6 @@ async function acknowledgeOnChannel(env: Env, connection: ConnectionRow, input: 
   const actions = await channelActions(env, connection.id, input.conversationId);
   if (!actions) return;
   // Typing is what the customer notices, so it goes first; seen runs alongside.
-  await Promise.all([behavior.typing ? actions.typing() : undefined, behavior.markSeen ? actions.seen() : undefined]);
+  const outcomes = await Promise.all([behavior.typing ? actions.typing() : undefined, behavior.markSeen ? actions.seen() : undefined]);
+  console.log(JSON.stringify({ event: "channel_ack", requestId: input.eventId, outcomes: outcomes.filter(Boolean) }));
 }
