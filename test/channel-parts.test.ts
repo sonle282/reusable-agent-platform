@@ -35,3 +35,13 @@ describe("splitParts and paceDelay", () => {
     expect(paceDelay("natural", { kind: "text", text: "x".repeat(500) })).toBe(3000);
   });
 });
+
+describe("countSentences", () => {
+  it("counts what the customer reads", async () => {
+    const { countSentences } = await import("../src/shared/channel-parts");
+    expect(countSentences("Dạ ghế MS1 đang giá $1,495. Chưa gồm phí giao hàng. Anh/chị call/txt 215-772-1111 nhé.")).toBe(3);
+    expect(countSentences("Yes, Mr Spa ships across the U.S., so New Jersey is covered. Delivery takes about 10 business days.")).toBe(2);
+    expect(countSentences("Xem mẫu: https://mrspainc.com/products/ms1. Anh cần màu gì ạ?")).toBe(2);
+    expect(countSentences("Dạ chào anh/chị!")).toBe(1);
+  });
+});

@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 import { agentDraftSchema, parseVersionSnapshot, type AgentVersionSnapshot, type NormalizedMessage } from "../shared/contracts";
-import { channelParts } from "../shared/channel-parts";
+import { channelParts, countSentences } from "../shared/channel-parts";
 import { fallbackChecks } from "../shared/checks";
 import { maskContact } from "../shared/mask";
 import { getAgent, id, parseJson, validateCollectionData, writeAudit } from "./db";
@@ -27,6 +27,7 @@ export async function runCase(env: Env, agentId: string, draft: AgentVersionSnap
     ...(assertions.mustNotInclude ?? []).filter((needle) => text.toLowerCase().includes(needle.toLowerCase())).map((needle) => `Forbidden: ${needle}`),
     ...(assertions.maxLength && text.length > assertions.maxLength ? [`Longer than ${assertions.maxLength}`] : []),
     ...(assertions.expectedTool && !output.trace?.toolCalls.some((tool) => tool.name === assertions.expectedTool) ? [`Tool not called: ${assertions.expectedTool}`] : []),
+    ...(draft.behavior.maxSentences > 0 && countSentences(text) > draft.behavior.maxSentences ? [`Longer than ${draft.behavior.maxSentences} sentences (${countSentences(text)})`] : []),
   ];
   if (output.status !== "completed") failures.unshift("The assistant couldn't answer");
   else if (assertions.criteria?.trim()) {

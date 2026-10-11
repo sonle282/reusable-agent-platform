@@ -68,6 +68,8 @@ export const behaviorSchema = z.object({
   aiNotice: z.boolean().default(true),
   aiNoticeText: z.string().trim().max(300).default("I'm the business's AI assistant. Ask for a person anytime and the team will reply."),
   outsideHours: z.enum(["callback", "none"]).default("callback"),
+  // Chat replies stay short: at most this many sentences per reply (0 = no limit). Scenarios fail when a reply is longer.
+  maxSentences: z.number().int().min(0).max(10).default(3),
 });
 export type Behavior = z.infer<typeof behaviorSchema>;
 
@@ -90,7 +92,7 @@ export const followUpsSchema = z.object({
 export type FollowUps = z.infer<typeof followUpsSchema>;
 
 // Versions published before v2.1 have neither block: they keep behaving exactly as they did.
-export const LEGACY_BEHAVIOR: Behavior = { markSeen: false, typing: false, splitReplies: false, pace: "instant", aiNotice: false, aiNoticeText: "", outsideHours: "none" };
+export const LEGACY_BEHAVIOR: Behavior = { markSeen: false, typing: false, splitReplies: false, pace: "instant", aiNotice: false, aiNoticeText: "", outsideHours: "none", maxSentences: 0 };
 export const LEGACY_FOLLOW_UPS: FollowUps = { enabled: false, contactAgain: false, steps: [] };
 
 export const agentDraftSchema = z.object({

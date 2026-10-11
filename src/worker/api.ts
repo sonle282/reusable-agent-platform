@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
 import { agentDraftSchema, anthropicModelSchema, collectionFieldSchema, parseVersionSnapshot, collectionSchema, genericMessageSchema, starterDraft, type AgentResult, type NormalizedMessage } from "../shared/contracts";
-import { parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
-import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
+import { channelActions, parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
+import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, getVersionSnapshot, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
 import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
 import { CloudflareAgentRuntime } from "./runtime";
 import { generateWithAnthropic } from "./model/anthropic";
@@ -797,5 +797,22 @@ app.post("/api/v1/webhooks/:adapter/:token", async (c) => {
   } else return c.json({ error: "Adapter does not match connection" }, 404);
   const inserted = await c.env.DB.prepare("INSERT OR IGNORE INTO idempotency_events(event_id,connection_id,status,expires_at) VALUES(?,?,'accepted',datetime('now','+7 day'))").bind(input.eventId, connection.id).run();
   if (inserted.meta.changes) await c.env.JOBS.send({ kind: "message", requestId: input.eventId, input });
+  // Seen and typing the moment the message lands, not after the queue: the customer knows it arrived and is being answered.
+  if (inserted.meta.changes && connection.type === "zernio") c.executionCtx.waitUntil(acknowledgeOnChannel(c.env, connection, input).catch(() => undefined));
   return c.json({ request_id: input.eventId, status: inserted.meta.changes ? "accepted" : "duplicate" }, 202);
 });
+
+// Skipped when the team has taken over (the assistant won't answer, so it must not look like it's typing).
+async function acknowledgeOnChannel(env: Env, connection: ConnectionRow, input: NormalizedMessage) {
+  const row = await env.DB.prepare("SELECT human_takeover, agent_version_id FROM conversations WHERE id = ?")
+    .bind(`${connection.agent_id}:${connection.id}:${input.conversationId}`)
+    .first<{ human_takeover: number; agent_version_id: string | null }>();
+  if (row?.human_takeover === 1) return;
+  const versionId = row?.agent_version_id ?? (await getAgent(env.DB, connection.agent_id))?.active_version_id;
+  const behavior = versionId ? (await getVersionSnapshot(env.DB, versionId))?.behavior : undefined;
+  if (!behavior || (!behavior.markSeen && !behavior.typing)) return;
+  const actions = await channelActions(env, connection.id, input.conversationId);
+  if (!actions) return;
+  if (behavior.markSeen) await actions.seen();
+  if (behavior.typing) await actions.typing();
+}

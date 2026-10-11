@@ -30,6 +30,16 @@ export function BehaviorTab({ draft, mutate, hasZernio }: { draft: AgentDraft; m
             accessory={<Toggle label={item.title} checked={behavior[item.key]} onChange={(on) => set({ [item.key]: on })} />}
           />
         ))}
+        <FieldRow label="Reply length" hint="Test scenarios fail when a reply is longer">
+          <select className="select" value={behavior.maxSentences} onChange={(event) => set({ maxSentences: Number(event.target.value) })}>
+            {[2, 3, 4, 5].map((count) => (
+              <option key={count} value={count}>
+                At most {count} sentences
+              </option>
+            ))}
+            <option value={0}>No limit</option>
+          </select>
+        </FieldRow>
         <FieldRow label="Reply pace" hint="Natural waits 1–3 seconds per message, like typing">
           <Segmented
             label="Reply pace"

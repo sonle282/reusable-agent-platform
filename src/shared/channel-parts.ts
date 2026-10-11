@@ -49,6 +49,20 @@ export function splitParts(parts: ChannelPart[], max = 3): ChannelPart[] {
   });
 }
 
+// Sentences a customer reads in a reply (all parts together). Links and initials like "U.S." don't end a sentence.
+export function countSentences(reply: string) {
+  return channelParts(reply)
+    .filter((part): part is { kind: "text"; text: string } => part.kind === "text")
+    .map((part) =>
+      part.text
+        .replace(/https?:\/\/\S+?(?=[.,!?)]*(?:\s|$))/g, "link")
+        .replace(/\b(?:[A-Za-z]\.){2,}/g, "XX")
+        .split(/[.!?…]+(?=\s|$)|\n+/)
+        .filter((sentence) => /\p{L}/u.test(sentence)).length,
+    )
+    .reduce((sum, count) => sum + count, 0);
+}
+
 // Wait before each message after the first: natural is 1–3 s depending on length, slow 2–5 s.
 export function paceDelay(pace: "instant" | "natural" | "slow", part: ChannelPart) {
   if (pace === "instant") return 0;
