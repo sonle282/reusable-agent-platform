@@ -278,7 +278,7 @@ function TablePage({
           <h1 className="page-title truncate">{collection.name}</h1>
           <p className="page-sub row-flex" style={{ flexWrap: "wrap", gap: "6px 10px" }}>
             <span>
-              {records ? `${plural(counts.all, "row")} · ${counts.active === counts.all ? "all in use" : `${counts.active} in use`}` : "Loading…"}
+              {!records ? "Loading…" : counts.all === 0 ? "No rows yet" : `${plural(counts.all, "row")} · ${counts.active === counts.all ? "all in use" : `${counts.active} in use`}`}
               {" · "}
               {collection.archived_at ? "hidden, the assistant can't look it up" : used ? `used by ${agent.name}` : "not used by the assistant yet (turn it on in Assistant › Sources)"}
             </span>

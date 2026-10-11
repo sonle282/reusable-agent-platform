@@ -340,6 +340,10 @@ a.row, button.row { cursor: pointer; }
 a.row:hover, button.row:hover { background: var(--color-surface-3); }
 .row + .row { border-top: 1px solid var(--color-border); }
 .row.is-selected { background: var(--color-fill-active); }
+/* Dark: a translucent fill would drop meta text and badges under AA; the raised surface keeps them readable. */
+[data-theme="dark"] .row.is-selected { background: var(--color-surface-raised); }
+.row.is-selected .row-meta { color: var(--color-text-2); }
+.row.is-selected .badge { background: var(--color-surface); }
 .row.compact { min-height: 44px; padding-top: 8px; padding-bottom: 8px; }
 .row.top { align-items: flex-start; }
 .row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -895,4 +899,10 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
   input.input, .select, .search { min-height: 44px; }
   .btn.starter { min-height: 44px; }
   .msg-action { min-height: 36px; }
+  .tabs > button { min-width: 44px; }
+  .composer input { height: 44px; }
+  .send { width: 44px; height: 44px; border-radius: 22px; }
+  .lead-who, button.row-text { min-height: 44px; }
+  .row-open { position: relative; }
+  td .row-open::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 }
