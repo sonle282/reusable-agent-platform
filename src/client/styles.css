@@ -553,9 +553,6 @@ button.mini-item { width: calc(100% + 12px); border: 0; background: transparent;
 .field-editor .text-input { flex: 1; height: 32px; padding: 0 10px; border: 0; border-radius: var(--radius-md); background: var(--color-fill); outline: none; color: var(--color-label); }
 .field-editor .select { width: 150px; flex: none; text-align: left; color: var(--color-label); }
 .sheet-form { display: flex; flex-direction: column; gap: 16px; }
-.auth-panel > .section + .section { margin-top: 28px; }
-.auth-panel > .banner:not(:last-child) { margin-bottom: 16px; }
-.auth-panel > .section + .auth-actions, .auth-panel > .banner + .auth-actions { margin-top: 24px; }
 
 /* ---------- App shell (design §4) ---------- */
 .app-shell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100vh; }
@@ -608,72 +605,85 @@ button.mini-item { width: calc(100% + 12px); border: 0; background: transparent;
 .recent-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .recent-preview { font: var(--text-callout); margin-top: 2px; }
 
-/* ---------- Auth ---------- */
-
-.auth-screen {
-  display: grid;
-  place-items: center;
-  min-height: 100vh;
-  padding: 32px 16px;
+/* ---------- Auth (v2.1 §26): form left, brand panel right ---------- */
+.auth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 100vh; background: var(--color-bg); }
+.auth-main { display: flex; flex-direction: column; padding: 24px 32px; min-width: 0; }
+.auth-brand { display: flex; align-items: center; gap: 10px; height: 40px; font: 700 18px/24px var(--font-sans); letter-spacing: -0.01em; }
+.auth-mark { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--color-label); color: var(--color-bg); font: 800 13px/1 var(--font-sans); }
+.auth-mark img { width: 100%; height: 100%; object-fit: contain; }
+.auth-form { width: 100%; max-width: 380px; margin: auto; padding: 40px 0; display: flex; flex-direction: column; gap: 20px; }
+.auth-form.wide { max-width: 420px; }
+.auth-head { display: flex; flex-direction: column; gap: 10px; }
+.auth-title { margin: 0; font: 700 32px/38px var(--font-sans); letter-spacing: -0.02em; text-wrap: balance; }
+.auth-lead { margin: 0; color: var(--color-label-2); font: var(--text-body); }
+.auth-field { display: flex; flex-direction: column; gap: 6px; }
+.auth-label { font: 600 14px/20px var(--font-sans); }
+.auth-field .text-input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--color-separator); border-radius: 12px; background: var(--color-surface); }
+.auth-field .text-input:focus { border-color: var(--color-tint); outline: none; box-shadow: 0 0 0 3px var(--color-focus); }
+.auth-field .text-input.mono { font: var(--text-mono); }
+.auth-help { color: var(--color-label-2); font: var(--text-footnote); }
+.auth-center { margin: 0; text-align: center; }
+.auth-foot { display: flex; gap: 16px; color: var(--color-label-2); font: var(--text-caption); }
+.auth-row { display: flex; align-items: center; gap: 12px; }
+.auth-row-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.auth-steps { display: flex; gap: 6px; } .auth-steps span { flex: 1; height: 4px; border-radius: 2px; background: var(--color-fill-2); } .auth-steps span.on { background: var(--color-label); }
+.auth-step { color: var(--color-label-2); font: var(--text-caption); }
+.auth-actions { display: flex; gap: 10px; }
+.auth-actions .grow, .btn.grow { flex: 1 1 auto; }
+.pw-wrap { position: relative; display: flex; }
+.pw-wrap .text-input { padding-right: 48px; }
+.pw-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.pw-toggle:active:not(:disabled) { transform: translateY(-50%) scale(0.97); }
+.strength { display: flex; gap: 4px; } .strength span { flex: 1; height: 4px; border-radius: 2px; background: var(--color-fill-2); } .strength span.on { background: var(--color-switch-on); }
+.color-input { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 16px; background: transparent; cursor: pointer; }
+/* The brand panel stays light in both themes, like printed material. */
+.auth-side { margin: 12px; border-radius: 24px; background: linear-gradient(140deg, #E7EEFF 0%, #F1E8FF 48%, #FFEDE3 100%); color: #1D1D1F; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding: 40px; overflow: hidden; min-width: 0; }
+.auth-side-copy { display: flex; flex-direction: column; gap: 16px; }
+.auth-display { margin: 0; max-width: 460px; font: 700 40px/46px var(--font-sans); letter-spacing: -0.025em; text-wrap: balance; }
+.auth-side-sub { margin: 0; max-width: 440px; color: rgba(29, 29, 31, 0.72); font: var(--text-body); }
+.auth-side-note { color: rgba(29, 29, 31, 0.6); font: var(--text-caption); }
+.mock-chat { align-self: stretch; max-width: 420px; display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 20px; background: rgba(255, 255, 255, 0.72); box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.12); }
+.mock-chat .mc-user { align-self: flex-end; max-width: 80%; padding: 8px 14px; border-radius: 18px; background: #F2F2F7; font: var(--text-subhead); }
+.mock-chat .mc-ai { max-width: 90%; font: var(--text-subhead); }
+.mock-chat .mc-lead { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); font: var(--text-footnote); }
+.mock-chat .typing-dots { background: #F2F2F7; }
+.mock-chat .lead-status.ls-new { background: rgba(0, 113, 227, 0.1); color: #0066CC; }
+@container app (max-width: 859px) {
+  .auth { grid-template-columns: minmax(0, 1fr); }
+  .auth-side { display: none; }
+  .auth-main { padding: 16px; }
+  .auth-form { padding: 24px 0; }
+  .auth-title { font-size: 26px; line-height: 32px; }
 }
 
-.auth-panel {
-  display: grid;
-  justify-items: center;
-  width: min(420px, 100%);
-  text-align: center;
-}
+/* ---------- First-run "Create your assistant" (centered panel) ---------- */
+.auth-screen { display: grid; place-items: center; min-height: 100vh; padding: 32px 16px; }
+.auth-panel { display: grid; justify-items: center; width: min(420px, 100%); text-align: center; }
+.auth-panel > .section, .auth-panel > .banner, .auth-panel > .segmented { width: 100%; text-align: left; }
+.auth-panel > .segmented { margin-bottom: 20px; display: flex; }
+.auth-panel > .segmented button { flex: 1; }
+.auth-panel > .section + .section { margin-top: 28px; }
+.auth-panel > .banner:not(:last-child) { margin-bottom: 16px; }
+.auth-panel > .section + .auth-actions, .auth-panel > .banner + .auth-actions { margin-top: 24px; }
+.auth-panel h1 { margin: 18px 0 6px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.auth-panel .auth-lead { margin: 0 0 24px; max-width: 40ch; }
+.auth-panel .auth-actions { justify-content: center; width: 100%; }
+.auth-panel .auth-actions .btn { flex: 1; max-width: 240px; }
 
-.auth-panel.wide {
-  width: min(520px, 100%);
-}
+/* ---------- Typing indicator (v2.1 §25): Preview and website chat ---------- */
+.typing-dots { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 14px; border-radius: var(--radius-bubble); background: var(--color-bubble-in); }
+.typing-dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--color-label-2); animation: typing-bounce 1.2s infinite ease-in-out; }
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; } .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing-bounce { 0%, 60%, 100% { transform: none; opacity: 0.5; } 30% { transform: translateY(-3px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .typing-dots span { animation: none; } }
+.seen { align-self: flex-end; margin-top: -4px; color: var(--color-label-2); font: var(--text-caption); }
 
-.auth-panel > .section,
-.auth-panel > .banner,
-.auth-panel > .segmented {
-  width: 100%;
-  text-align: left;
-}
-
-.auth-panel > .segmented {
-  margin-bottom: 20px;
-  display: flex;
-}
-
-.auth-panel > .segmented button {
-  flex: 1;
-}
-
-.auth-panel h1 {
-  margin: 18px 0 6px;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.auth-lead {
-  margin: 0 0 24px;
-  max-width: 40ch;
-  color: var(--color-label-2);
-}
-
-.step-label {
-  margin: 16px 0 -10px;
-  color: var(--color-label-2);
-  font-size: 13px;
-}
-
-.auth-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.auth-actions .btn {
-  flex: 1;
-  max-width: 240px;
-}
+/* ---------- Lead status pill (v2.1 §28) ---------- */
+.lead-status { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: var(--radius-full); font: 500 12px/18px var(--font-sans); white-space: nowrap; }
+.ls-new { background: var(--color-tint-soft); color: var(--color-link); }
+.ls-called { background: var(--color-orange-soft); color: var(--color-orange); }
+.ls-won { background: var(--color-green-soft); color: var(--color-green); }
+.ls-not_fit { background: var(--color-fill); color: var(--color-label-2); }
 
 .app-icon {
   display: inline-grid;
