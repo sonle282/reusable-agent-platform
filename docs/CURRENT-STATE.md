@@ -90,9 +90,30 @@ Things to know:
 - **Versions published before v2.1 run with behavior and follow-ups off** (`parseVersionSnapshot`). New drafts get the defaults on, so Mr Spa shows "Unpublished changes" until the owner reviews the Behavior and Follow-ups tabs and publishes.
 - Follow-ups are sent only on Zernio channels. The website chat has no widget in this repo, so typing dots exist in Preview only.
 - Zernio shows typing on Messenger/Instagram; its mark-read does not show "Seen" to Messenger customers (WhatsApp/iMessage only).
-- The v2 visual redesign (`docs/product/design-v2/`) is **not** ported; v2.1 screens were built on the current tokens.
+- The v2 look was ported afterwards; see "Admin v2 look" below.
 - Deployed 2026-10-11 (`165539b`, migration 0006 applied). **Production version v6 live** with behavior and follow-ups on (Vietnamese AI notice and follow-up texts set in the draft; owner to review the wording). Conversations started before v6 stay on their version.
 - `165539b` fixed history order: a customer message, the AI notice and the reply share one timestamp; history now breaks ties by insertion order.
+
+## Admin v2 look (2026-10-11)
+
+Source: `docs/product/design-v2/PORT-MASTER-PROMPT.md`, `design-v2/HANDOFF.md`, and `design-v2.1/styles.css` as the single token and component file. UI only: no API, data, migration, prompt, runtime or published-version changes.
+
+| Phase | Commit | What |
+| --- | --- | --- |
+| 0 | `92c2731` | v2.1 tokens §1–1c (light, dark, `prefers-color-scheme` mirror for System); Manrope 400–800 replaces Inter/SF |
+| 1 | `419ecfd` | Primitives in `ui.tsx`: Button primary/outline/soft/ghost/danger/danger-ghost/link (sm–xl), Card, Row, Field (label above), Switch, Segmented, Tabs, Chips, Select, Table, Sheet, Drawer, Dialog, Menu, AgentAvatar, BrandLogo, TypingDots, LeadStatus; Apps SDK UI icons (`src/client/icons.ts`, MIT notice in `src/client/LICENSE-apps-sdk-ui.txt`) and Simple Icons platform marks (CC0) |
+| 2 | `cd3552d` | Shell: workspace header, nav with counts, "Assistants" heading with the one assistant (avatar + live/unpublished/draft dot), account row; sidebar ≥1080, icon rail 860–1079, six-item tab bar below 860; `#/connections` → `#/channels` with a redirect |
+| 3 | `0ea282f` | Pages to the references: Sign in/Setup, Home, Leads + drawer, one-screen builder, Data list (`#/data`) and records page (`#/data/<table>`, row drawer at `#/data/<table>/<row>`), full-height Conversations, Channels (logos, Answered by, platform grid), Settings (+ Messaging platforms), Fix this answer |
+| 4 | `6e4c0a3` | Verification at 1440×900, 1080×800, 390×844, light and dark, against the references; contrast fixes |
+
+Things to know:
+
+- **Kept as the owner decided (2026-10-11):** the Preview has no Test scenarios bar; the full list stays in Settings › Answer checks and Publish runs the required checks.
+- One assistant: the sidebar lists it under "Assistants" and its route stays `#/assistant`; there is no Assistants page, sign-up, billing, SMS or onboarding. "Answered by" on channels is read-only for the same reason.
+- Data is reachable from Home (Assistant card › Data) and from the builder (Sources › Manage in Data); the phone tab bar has no Data tab.
+- Not built because there is no data for it yet: conversation starters, the "Needs reply" chip, business-hours row in Behavior, Import CSV on the tables list (it lives on each table). The Conversations chips (All, Leads, Your team) filter the loaded list.
+- Contrast deviations from the design file: `--color-text-3` is `#6B6B6B` light / `#9B9B9B` dark, and count badges use `--color-count` `#C8450C`, so small text passes AA on every surface.
+- The platform grid offers Messenger, Instagram, WhatsApp, Telegram and TikTok through Zernio (the existing Zernio flow lists the pages of every platform) plus API and Webhook.
 
 ## Production data and AI state (2026-10-10)
 
