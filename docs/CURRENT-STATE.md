@@ -81,6 +81,8 @@ Things to know:
 - Follow-ups are sent only on Zernio channels. The website chat has no widget in this repo, so typing dots exist in Preview only.
 - Zernio shows typing on Messenger/Instagram; its mark-read does not show "Seen" to Messenger customers (WhatsApp/iMessage only).
 - The v2 visual redesign (`docs/product/design-v2/`) is **not** ported; v2.1 screens were built on the current tokens.
+- Deployed 2026-10-11 (`165539b`, migration 0006 applied). **Production version v6 live** with behavior and follow-ups on (Vietnamese AI notice and follow-up texts set in the draft; owner to review the wording). Conversations started before v6 stay on their version.
+- `165539b` fixed history order: a customer message, the AI notice and the reply share one timestamp; history now breaks ties by insertion order.
 
 ## Production data and AI state (2026-10-10)
 
