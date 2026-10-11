@@ -116,6 +116,31 @@ Things to know:
 - Contrast deviations from the design file: `--color-text-3` is `#6B6B6B` light / `#9B9B9B` dark, and count badges use `--color-count` `#C8450C`, so small text passes AA on every surface.
 - The platform grid offers Messenger, Instagram, WhatsApp, Telegram and TikTok through Zernio (the existing Zernio flow lists the pages of every platform) plus API and Webhook.
 
+## UI refinements from the live review (2026-10-11)
+
+Source: `docs/product/design-v2.1/UI-REFINEMENTS.md` (25 items). UI only except the blocker; no new features, settings, data fields, migrations or published versions.
+
+**Blocker — every conversation returned 500 (`01133c0`).** Not route decoding: ids like `agent:conn:external` decode correctly (new test `test/conversation-route.test.ts` opens them, including sub-paths). The Worker log says `Exceeded allowed duration in Durable Objects free tier`: the account is still on **Workers Free** and today's DO quota has been used up since the morning outage. It comes back at 00:00 UTC (07:00 Vietnam) or at once after upgrading to **Workers Paid**. Until then the API answers 503 with a plain message (`code: chat_store_limit`) and the thread shows it with Try again. Opening the 3 threads on production still has to be confirmed after the reset or the upgrade.
+
+| Section | Commit | Items |
+| --- | --- | --- |
+| Global | `c805ba4` | 1–7: coarse-pointer 44 px hit areas, `agentStatus()` one status line, 36 px fields, display-only phone format, `AvatarWithChannel`, `formatWhen()`/`When`, one name per thing (Checks, Fix answer) |
+| Home | `39211d0` | 8–10: Needs attention grouped by type + chat ("· 3 times"), metric label/value/sub, one-line previews at ≥1080 |
+| Leads | `852c883` | 11–14: "—" for no summary, zero chip counts hidden, Call is the only primary (Delete lead / Close), activity newest first with quick status clicks merged |
+| Builder | `95f1d3e` | 15–19: "Checking N…" and "N checks failed — Publish stopped" + See failed checks, hover-only ✕ and Restore, fallback placeholder, Checks chips All/Required/Failed and result dots, ghost Restore |
+| Data | `9387adb` | 20–22: "34 rows · all in use · used by …", key cells as tags and "first question +2", drawer fields sized 1/2 rows growing to 10 |
+| Conversations, Channels, Settings | `d3461f7` | 23–25: `LoadError` (EmptyState + Try again) for every failed load, platform cards and one-button channel rows, one AI key status badge |
+| Verification | `04f0e8a` | 44 px targets left over at 390 (tabs, composer, row links), AA on selected rows in dark |
+
+Skipped or changed, and why:
+
+- **10, "AI:" prefix:** the conversation list stores only a preview, not who wrote it. Guessing from "your team replies" would mislabel some chats, so only the 1-line/2-line clamp shipped.
+- **19, restore dialog wording:** the review's text said new chats switch "after you publish"; restore actually switches new chats right away, so the dialog keeps the true behaviour.
+- **22, grouping drawer fields** ("What customers ask / Answer / Source"): column names differ per business; the generic table can't group them without new settings. Sizing shipped.
+- **4, phone format:** the formatter already formats US numbers and keeps others as entered; "0900000000" (a Vietnamese number) stays as entered by design. Added tabular figures and "Call (215) 772-1111".
+
+Verified locally (Playwright, mocked API) at 1440×900, 1080×800 and 390×844, light and dark: no target under 44 px with a coarse pointer, no horizontal scroll at 390, AA contrast in both themes (the Follow-ups gradient block is light in both themes; the scanner reads its dark page behind it), and the empty, loading and error states (Leads 0 / filtered 0 / skeleton / error, Conversations 0 / skeleton / error / thread error, Checks 0 / running / after a run, Data table 0 rows / no match / error, Home all caught up / skeleton / error, Channels deliveries error).
+
 ## Production data and AI state (2026-10-10)
 
 Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
