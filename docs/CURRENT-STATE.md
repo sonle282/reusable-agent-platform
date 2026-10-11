@@ -130,7 +130,7 @@ Source: `docs/product/design-v2.1/UI-REFINEMENTS.md` (25 items). UI only except 
 | Builder | `95f1d3e` | 15–19: "Checking N…" and "N checks failed — Publish stopped" + See failed checks, hover-only ✕ and Restore, fallback placeholder, Checks chips All/Required/Failed and result dots, ghost Restore |
 | Data | `9387adb` | 20–22: "34 rows · all in use · used by …", key cells as tags and "first question +2", drawer fields sized 1/2 rows growing to 10 |
 | Conversations, Channels, Settings | `d3461f7` | 23–25: `LoadError` (EmptyState + Try again) for every failed load, platform cards and one-button channel rows, one AI key status badge |
-| Verification | `04f0e8a` | 44 px targets left over at 390 (tabs, composer, row links), AA on selected rows in dark |
+| Verification | `04f0e8a` + next | 44 px targets left over at 390 (tabs, composer, row links), AA on selected rows in dark; the password show/hide button stays inside the field on touch screens |
 
 Skipped or changed, and why:
 

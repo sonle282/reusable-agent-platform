@@ -890,6 +890,7 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
   .btn-sm, .chip, .segmented > button { min-height: 36px; }
   .btn-icon.btn-sm { width: 36px; height: 36px; }
   .btn, .chip, .segmented > button, .msg-action, .crumbs button, .tab { position: relative; }
+  .btn.pw-toggle { position: absolute; }
   .btn::after, .chip::after, .segmented > button::after, .msg-action::after, .crumbs button::after {
     content: ""; position: absolute; inset: auto; left: 50%; top: 50%;
     width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
