@@ -3,6 +3,7 @@ import { getCookie } from "hono/cookie";
 import { z } from "zod";
 import { agentDraftSchema, anthropicModelSchema, collectionFieldSchema, parseVersionSnapshot, collectionSchema, genericMessageSchema, starterDraft, type AgentResult, type NormalizedMessage } from "../shared/contracts";
 import { channelActions, parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
+import { knownFailure } from "./errors";
 import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, getVersionSnapshot, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
 import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
 import { CloudflareAgentRuntime, conversationName, withConversation } from "./runtime";
@@ -24,6 +25,8 @@ app.onError((error, c) => {
   if (error instanceof z.ZodError) return c.json({ error: "Invalid request", issues: error.issues.slice(0, 20).map((issue) => ({ path: issue.path.join("."), message: issue.message })), request_id: c.get("requestId") }, 400);
   if (/UNIQUE constraint failed/i.test(error.message)) return c.json({ error: "An item with the same identifier already exists", request_id: c.get("requestId") }, 409);
   console.error(JSON.stringify({ level: "error", event: "request_failed", path: c.req.path, message: error.message }));
+  const known = knownFailure(error.message);
+  if (known) return c.json({ error: known.error, code: known.code, request_id: c.get("requestId") }, known.status);
   return c.json({ error: "Request failed", request_id: c.get("requestId") }, 500);
 });
 
