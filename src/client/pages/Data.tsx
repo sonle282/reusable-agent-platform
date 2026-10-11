@@ -277,17 +277,11 @@ function TablePage({
         <div style={{ minWidth: 0 }}>
           <h1 className="page-title truncate">{collection.name}</h1>
           <p className="page-sub row-flex" style={{ flexWrap: "wrap", gap: "6px 10px" }}>
-            <span>{records ? `${counts.active} in use · ${counts.all} rows` : "Loading…"}</span>
-            <span className="t3">·</span>
-            {collection.archived_at ? (
-              <span>Hidden · the assistant can't look it up</span>
-            ) : used ? (
-              <span className="row-flex" style={{ gap: 4 }}>
-                Used by <AgentAvatar id={agent.id} name={agent.name} size="xs" /> {agent.name}
-              </span>
-            ) : (
-              <span>Not used by the assistant · turn it on in Assistant › Sources</span>
-            )}
+            <span>
+              {records ? `${plural(counts.all, "row")} · ${counts.active === counts.all ? "all in use" : `${counts.active} in use`}` : "Loading…"}
+              {" · "}
+              {collection.archived_at ? "hidden, the assistant can't look it up" : used ? `used by ${agent.name}` : "not used by the assistant yet (turn it on in Assistant › Sources)"}
+            </span>
           </p>
         </div>
         <div className="row-flex">
@@ -381,18 +375,20 @@ function TablePage({
                   <tr key={record.id} onClick={() => onSelect(collection.id, record.id)}>
                     <td>
                       <button type="button" className="row-open medium truncate" style={{ display: "block", maxWidth: "100%" }} onClick={(event) => (event.stopPropagation(), onSelect(collection.id, record.id))}>
-                        {name}
+                        <CellText value={name} />
                       </button>
                     </td>
                     {detailField && (
                       <td className="table-cols-optional t2">
-                        <span className="clamp-2">{String(data[detailField.key] ?? "")}</span>
+                        <span className="clamp-2">
+                          <CellText value={String(data[detailField.key] ?? "")} />
+                        </span>
                       </td>
                     )}
                     {extraField && (
                       <td className="table-cols-optional t2">
                         <span className="truncate" style={{ display: "block" }}>
-                          {String(data[extraField.key] ?? "")}
+                          <CellText value={String(data[extraField.key] ?? "")} />
                         </span>
                       </td>
                     )}
@@ -489,7 +485,7 @@ function RecordDrawer({
   return (
     <>
       <Drawer
-        title={initialName}
+        title={/^[a-z][a-z0-9_]{0,23}$/.test(initialName) ? (initialName.charAt(0).toUpperCase() + initialName.slice(1)).replaceAll("_", " ") : initialName}
         subtitle={collection.name}
         onClose={onClose}
         footer={
@@ -528,7 +524,7 @@ function RecordDrawer({
               return (
                 <Field key={field.key} label={field.label}>
                   {field.type === "long_text" || field.type === "text" ? (
-                    <TextArea rows={1} value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label} />
+                    <TextArea rows={field.type === "long_text" ? 2 : 1} value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label} />
                   ) : field.type === "boolean" ? (
                     <Switch label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
                   ) : field.type === "enum" && field.options?.length ? (
@@ -731,4 +727,20 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
       </form>
     </Sheet>
   );
+}
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+// Table cells stay scannable: a lowercase key ("shipping") reads as a tag, and several questions show the first one and "+N".
+function CellText({ value }: { value: string }) {
+  const text = value.trim();
+  if (/^[a-z][a-z0-9_]{0,23}$/.test(text)) return <Badge>{(text.charAt(0).toUpperCase() + text.slice(1)).replaceAll("_", " ")}</Badge>;
+  const questions = text.split("?").map((part) => part.trim()).filter(Boolean);
+  if (text.split("?").length > 2 && questions.length > 1)
+    return (
+      <span title={text}>
+        {questions[0]}? <span className="t3">+{questions.length - 1}</span>
+      </span>
+    );
+  return <>{text}</>;
 }

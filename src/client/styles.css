@@ -776,6 +776,10 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 /* Data */
 .search.data-search { flex: 1 1 240px; max-width: 360px; }
 .column-editor .input { flex: 1; min-width: 0; }
+/* Row drawer: short fields start at one line, long ones at two, and grow up to ten lines. */
+.drawer .textarea[rows="1"] { min-height: var(--control-lg); }
+.drawer .textarea[rows="2"] { min-height: 64px; }
+.drawer .textarea { max-height: 216px; overflow-y: auto; }
 
 /* Channels */
 .agent-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); color: inherit; text-align: left; cursor: pointer; min-height: 188px; transition: border-color var(--dur-basic) ease, box-shadow var(--dur-basic) ease; }
