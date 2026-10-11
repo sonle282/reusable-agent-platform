@@ -5,7 +5,7 @@ import { agentDraftSchema, anthropicModelSchema, collectionFieldSchema, parseVer
 import { channelActions, parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
 import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, getVersionSnapshot, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
 import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
-import { CloudflareAgentRuntime } from "./runtime";
+import { CloudflareAgentRuntime, conversationName, withConversation } from "./runtime";
 import { generateWithAnthropic } from "./model/anthropic";
 import { hasProfile } from "../shared/prompt";
 import { executeTool } from "./tools";
@@ -632,8 +632,7 @@ app.get("/api/admin/conversations/:id", async (c) => {
   const conversation = await c.env.DB.prepare("SELECT c.*,ct.display_name,ct.phone,ct.email,ct.custom_json,ct.erased_at FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE c.id=?").bind(c.req.param("id")).first<{ id: string; agent_id: string; connection_id: string; external_conversation_id: string } & Record<string, unknown>>();
   if (!conversation) return c.json({ error: "Conversation not found" }, 404);
   const events = await c.env.DB.prepare("SELECT * FROM runtime_events WHERE conversation_id=? ORDER BY created_at DESC LIMIT 100").bind(c.req.param("id")).all();
-  const stub = c.env.ConversationAgent.getByName(`${conversation.agent_id}:${conversation.connection_id}:${conversation.external_conversation_id}`) as unknown as { getTranscript(): Promise<Array<{ id: string; role: string; content: string; created_at: string }>> };
-  const messages = await stub.getTranscript();
+  const messages = await withConversation(c.env, conversationName(conversation.agent_id, conversation.connection_id, conversation.external_conversation_id), (stub) => stub.getTranscript());
   return c.json({ conversation, messages, events: events.results });
 });
 
@@ -645,14 +644,13 @@ async function customerChats(db: D1Database, conversationId: string) {
   const chats = chat.contact_id ? (await db.prepare("SELECT id,agent_id,connection_id,external_conversation_id,contact_id FROM conversations WHERE contact_id=?").bind(chat.contact_id).all<ChatRow>()).results : [chat];
   return { chat, chats };
 }
-type TranscriptStub = { getTranscript(): Promise<Array<{ role: string; content: string; created_at: string }>>; eraseCustomerData(): Promise<void> };
-const chatStub = (env: Env, chat: ChatRow) => env.ConversationAgent.getByName(`${chat.agent_id}:${chat.connection_id}:${chat.external_conversation_id}`) as unknown as TranscriptStub;
+const chatName = (chat: ChatRow) => conversationName(chat.agent_id, chat.connection_id, chat.external_conversation_id);
 
 app.get("/api/admin/conversations/:id/customer-data", async (c) => {
   const found = await customerChats(c.env.DB, c.req.param("id"));
   if (!found) return c.json({ error: "Conversation not found" }, 404);
   const contact = found.chat.contact_id ? await c.env.DB.prepare("SELECT display_name AS name,phone,email,locale,stage,consent_json,created_at,erased_at FROM contacts WHERE id=?").bind(found.chat.contact_id).first<Record<string, unknown>>() : null;
-  const chats = await Promise.all(found.chats.map(async (chat) => ({ channel: chat.connection_id, messages: (await chatStub(c.env, chat).getTranscript()).map(({ role, content, created_at }) => ({ from: role === "user" ? "customer" : role, text: content, at: created_at })) })));
+  const chats = await Promise.all(found.chats.map(async (chat) => ({ channel: chat.connection_id, messages: (await withConversation(c.env, chatName(chat), (stub) => stub.getTranscript())).map(({ role, content, created_at }) => ({ from: role === "user" ? "customer" : role, text: content, at: created_at })) })));
   await writeAudit(c.env.DB, "contact.exported", "contact", found.chat.contact_id ?? found.chat.id, c.get("adminId"), { chats: chats.length });
   return c.json({ exportedAt: now(), contact: contact && { ...contact, consent: JSON.parse(String(contact.consent_json ?? "{}")), consent_json: undefined }, chats });
 });
@@ -661,7 +659,7 @@ app.post("/api/admin/conversations/:id/erase", async (c) => {
   z.object({ confirm: z.literal(true) }).parse(await c.req.json());
   const found = await customerChats(c.env.DB, c.req.param("id"));
   if (!found) return c.json({ error: "Conversation not found" }, 404);
-  for (const chat of found.chats) await chatStub(c.env, chat).eraseCustomerData();
+  for (const chat of found.chats) await withConversation(c.env, chatName(chat), (stub) => stub.eraseCustomerData());
   const ids = found.chats.map((chat) => chat.id);
   const marks = ids.map(() => "?").join(",");
   await c.env.DB.batch([
@@ -699,8 +697,7 @@ app.post("/api/admin/conversations/:id/takeover", async (c) => {
   const conversation = await c.env.DB.prepare("SELECT * FROM conversations WHERE id=?").bind(c.req.param("id")).first<{ id: string; agent_id: string; connection_id: string; external_conversation_id: string }>();
   if (!conversation) return c.json({ error: "Conversation not found" }, 404);
   await c.env.DB.prepare("UPDATE conversations SET human_takeover=?,stage=?,last_activity_at=datetime('now') WHERE id=?").bind(body.enabled ? 1 : 0, body.enabled ? "human_handoff" : "engaged", conversation.id).run();
-  const stub = c.env.ConversationAgent.getByName(`${conversation.agent_id}:${conversation.connection_id}:${conversation.external_conversation_id}`) as unknown as { setHumanTakeover(enabled: boolean): Promise<void> };
-  await stub.setHumanTakeover(body.enabled);
+  await withConversation(c.env, conversationName(conversation.agent_id, conversation.connection_id, conversation.external_conversation_id), (stub) => stub.setHumanTakeover(body.enabled));
   return c.json({ enabled: body.enabled });
 });
 
