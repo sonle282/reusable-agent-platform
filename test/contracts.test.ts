@@ -25,3 +25,17 @@ describe("model sampling compatibility", () => {
     expect(anthropicModelSchema.parse("claude-opus-5-5")).toBe("claude-opus-5-5");
   });
 });
+
+describe("version snapshots before v2.1", () => {
+  it("keep behavior and follow-ups off; new drafts get them on", async () => {
+    const { agentDraftSchema, parseVersionSnapshot } = await import("../src/shared/contracts");
+    const old = parseVersionSnapshot({ instructions: "x" });
+    expect(old.behavior.typing).toBe(false);
+    expect(old.behavior.aiNotice).toBe(false);
+    expect(old.followUps.enabled).toBe(false);
+    const draft = agentDraftSchema.parse({ instructions: "x" });
+    expect(draft.behavior.typing).toBe(true);
+    expect(draft.followUps.steps).toHaveLength(2);
+    expect(parseVersionSnapshot(draft)).toEqual(draft);
+  });
+});

@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { z } from "zod";
-import { agentDraftSchema, type AgentVersionSnapshot, type NormalizedMessage } from "../shared/contracts";
+import { agentDraftSchema, parseVersionSnapshot, type AgentVersionSnapshot, type NormalizedMessage } from "../shared/contracts";
 import { channelParts } from "../shared/channel-parts";
 import { fallbackChecks } from "../shared/checks";
 import { maskContact } from "../shared/mask";
@@ -328,7 +328,7 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
       .map((item) => ({ ...item, waitingDays: ageDays(item.at) >= (item.type === "lead" ? 1 : 2) ? ageDays(item.at) : undefined }));
     // Unpublished fixes only matter while the draft differs from the live version.
     const live = agent.active_version_id ? await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>() : null;
-    const unpublished = !live || JSON.stringify(agentDraftSchema.parse(JSON.parse(live.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(agent.draft_json)));
+    const unpublished = !live || JSON.stringify(parseVersionSnapshot(JSON.parse(live.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(agent.draft_json)));
     const visible = items.filter((item) => item.type !== "fix_pending" || unpublished);
     visible.sort((a, b) => Number(Boolean(b.waitingDays)) - Number(Boolean(a.waitingDays)) || (b.at > a.at ? 1 : -1));
     return c.json(visible.slice(0, 30));

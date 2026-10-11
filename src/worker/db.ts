@@ -1,4 +1,4 @@
-import { agentDraftSchema, collectionSchema, type AgentVersionSnapshot } from "../shared/contracts";
+import { collectionSchema, parseVersionSnapshot, type AgentVersionSnapshot } from "../shared/contracts";
 
 export type AgentRow = {
   id: string; name: string; description: string; primary_language: string; status: string;
@@ -26,7 +26,7 @@ export async function getAgent(db: D1Database, agentId: string) {
 
 export async function getVersionSnapshot(db: D1Database, versionId: string): Promise<AgentVersionSnapshot | null> {
   const row = await db.prepare("SELECT snapshot_json FROM agent_versions WHERE id = ?").bind(versionId).first<{ snapshot_json: string }>();
-  return row ? agentDraftSchema.parse(JSON.parse(row.snapshot_json)) : null;
+  return row ? parseVersionSnapshot(JSON.parse(row.snapshot_json)) : null;
 }
 
 export async function getRuntimeSnapshot(db: D1Database, agentId: string, versionId?: string) {

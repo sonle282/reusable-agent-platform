@@ -21,3 +21,17 @@ describe("channelParts", () => {
     expect(channelParts(reply)).toEqual([{ kind: "text", text: "Hi" }]);
   });
 });
+
+describe("splitParts and paceDelay", () => {
+  it("splits paragraphs into at most three messages and paces them", async () => {
+    const { splitParts, paceDelay } = await import("../src/shared/channel-parts");
+    const text = ["One.", "Two.", "Three.", "Four."].join("\n\n");
+    const parts = splitParts([{ kind: "text", text }]);
+    expect(parts).toHaveLength(2);
+    expect(splitParts([{ kind: "text", text: "Only one" }])).toHaveLength(1);
+    expect(splitParts([{ kind: "text", text: "a\n\nb\n\nc" }]).map((part) => (part.kind === "text" ? part.text : ""))).toEqual(["a", "b", "c"]);
+    expect(paceDelay("instant", parts[0])).toBe(0);
+    expect(paceDelay("natural", { kind: "text", text: "x" })).toBe(1000);
+    expect(paceDelay("natural", { kind: "text", text: "x".repeat(500) })).toBe(3000);
+  });
+});

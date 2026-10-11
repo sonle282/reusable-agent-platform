@@ -59,6 +59,40 @@ export const assistantProfileSchema = z.object({
 
 const fallbackMessage = "Sorry, I can't answer right now. A team member will get back to you shortly.";
 
+// How replies feel on chat channels (v2.1 Behavior tab). Part of the draft, published with the version.
+export const behaviorSchema = z.object({
+  markSeen: z.boolean().default(true),
+  typing: z.boolean().default(true),
+  splitReplies: z.boolean().default(true),
+  pace: z.enum(["instant", "natural", "slow"]).default("natural"),
+  aiNotice: z.boolean().default(true),
+  aiNoticeText: z.string().trim().max(300).default("I'm the business's AI assistant. Ask for a person anytime and the team will reply."),
+  outsideHours: z.enum(["callback", "none"]).default("callback"),
+});
+export type Behavior = z.infer<typeof behaviorSchema>;
+
+export const FOLLOW_UP_DELAYS = ["30m", "1h", "2h", "4h", "12h", "20h", "23h"] as const;
+export const followUpStepSchema = z.object({
+  delay: z.enum(FOLLOW_UP_DELAYS),
+  condition: z.enum(["price_no_contact", "any_no_contact"]).default("price_no_contact"),
+  // Sent exactly as written; no model call.
+  text: z.string().trim().min(1).max(1000),
+});
+// Nudges inside Meta's 24-hour window (v2.1 Follow-ups tab).
+export const followUpsSchema = z.object({
+  enabled: z.boolean().default(true),
+  contactAgain: z.boolean().default(true),
+  steps: z.array(followUpStepSchema).max(2).default([
+    { delay: "2h", condition: "price_no_contact", text: "Just following up: if you'd like an exact quote, leave your phone number and our team will send it to you." },
+    { delay: "20h", condition: "price_no_contact", text: "If you have more questions or want to see other options, message us here anytime." },
+  ]),
+});
+export type FollowUps = z.infer<typeof followUpsSchema>;
+
+// Versions published before v2.1 have neither block: they keep behaving exactly as they did.
+export const LEGACY_BEHAVIOR: Behavior = { markSeen: false, typing: false, splitReplies: false, pace: "instant", aiNotice: false, aiNoticeText: "", outsideHours: "none" };
+export const LEGACY_FOLLOW_UPS: FollowUps = { enabled: false, contactAgain: false, steps: [] };
+
 export const agentDraftSchema = z.object({
   profile: assistantProfileSchema.default(emptyProfile),
   // Detailed playbook (advanced). Optional once the profile is filled in.
@@ -79,9 +113,17 @@ export const agentDraftSchema = z.object({
   handoffRules: z.array(z.object({
     when: z.string(), message: z.string(),
   })).default([]),
+  behavior: behaviorSchema.default(() => behaviorSchema.parse({})),
+  followUps: followUpsSchema.default(() => followUpsSchema.parse({})),
 });
 
 export type AgentVersionSnapshot = z.infer<typeof agentDraftSchema>;
+
+// Parse a stored version: a snapshot without behavior/followUps predates them and gets them off.
+export function parseVersionSnapshot(raw: unknown): AgentVersionSnapshot {
+  const value = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return agentDraftSchema.parse({ ...value, behavior: value.behavior ?? LEGACY_BEHAVIOR, followUps: value.followUps ?? LEGACY_FOLLOW_UPS });
+}
 
 export const attachmentSchema = z.object({
   id: z.string().optional(),
@@ -128,6 +170,8 @@ export type AgentResult = {
   status: "completed" | "duplicate" | "human_handoff" | "failed";
   messages: AgentOutput[];
   versionId?: string;
+  // How the channel adapter sends the parts (internal; never returned to API clients).
+  delivery?: { split: boolean; pace: Behavior["pace"]; typing: boolean };
   trace?: {
     model?: string;
     sources: Array<{ id: string; name: string; score?: number }>;

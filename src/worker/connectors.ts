@@ -1,4 +1,4 @@
-import { channelParts } from "../shared/channel-parts";
+import { channelParts, paceDelay, splitParts } from "../shared/channel-parts";
 import type { AgentResult, NormalizedMessage } from "../shared/contracts";
 import type { ConnectionRow } from "./db";
 import { assertSafeHttpsUrl } from "./knowledge";
@@ -80,6 +80,32 @@ export async function zernioRequest<T>(apiKey: string, path: string, init: Reque
   return body;
 }
 
+// Best-effort sender actions ("typing", "read"): never block or fail a reply. See repnow-plan/04-zernio-capabilities.md.
+async function zernioAction(token: string, conversation: string, accountId: string, action: "typing" | "read") {
+  try {
+    await fetch(`${ZERNIO_API}/inbox/conversations/${conversation}/${action}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ accountId }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // The reply matters more than the dots.
+  }
+}
+
+// For a Zernio channel: mark the customer's message seen and show typing. Other channels get null (no sender actions).
+export async function channelActions(env: Env, connectionId: string, conversationId: string) {
+  const connection = await env.DB.prepare("SELECT type, config_json, credential_id FROM connections WHERE id = ?").bind(connectionId).first<{ type: string; config_json: string; credential_id: string | null }>();
+  if (connection?.type !== "zernio" || !connection.credential_id) return null;
+  const accountId = String((JSON.parse(connection.config_json) as Record<string, unknown>).accountId ?? "");
+  const credential = await env.DB.prepare("SELECT ciphertext, iv FROM credentials WHERE id = ?").bind(connection.credential_id).first<{ ciphertext: string; iv: string }>();
+  if (!accountId || !credential) return null;
+  const token = await decryptCredential(credential.ciphertext, credential.iv, env.CREDENTIAL_ENCRYPTION_KEY);
+  const conversation = encodeURIComponent(conversationId);
+  return { seen: () => zernioAction(token, conversation, accountId, "read"), typing: () => zernioAction(token, conversation, accountId, "typing") };
+}
+
 export async function sendOutbound(env: Env, connection: ConnectionRow, result: AgentResult) {
   if (result.status === "human_handoff" || result.messages.length === 0) return { skipped: true };
   const config = JSON.parse(connection.config_json) as Record<string, unknown>;
@@ -102,11 +128,19 @@ export async function sendOutbound(env: Env, connection: ConnectionRow, result: 
     const accountId = String(config.accountId ?? "");
     if (!accountId) throw new Error("Zernio account is not set on this channel");
     const statuses: number[] = [];
-    const parts = result.messages.flatMap((message) => channelParts(message.text));
+    const delivery = result.delivery;
+    const parts = result.messages.flatMap((message) => (delivery?.split ? splitParts(channelParts(message.text)) : channelParts(message.text)));
+    const conversation = encodeURIComponent(result.conversationId ?? "");
     for (let index = 0; index < parts.length; index++) {
       const part = parts[index];
+      // Messages after the first arrive one by one at the chosen pace, with typing dots in between.
+      const wait = index > 0 && delivery ? paceDelay(delivery.pace, part) : 0;
+      if (wait) {
+        if (delivery?.typing) await zernioAction(token, conversation, accountId, "typing");
+        await new Promise((resolve) => setTimeout(resolve, wait));
+      }
       const body = part.kind === "image" ? { accountId, attachmentUrl: part.url, attachmentType: "image", messagingType: "RESPONSE" } : { accountId, message: part.text.slice(0, 9999), messagingType: "RESPONSE" };
-      const response = await fetch(`${ZERNIO_API}/inbox/conversations/${encodeURIComponent(result.conversationId ?? "")}/messages`, {
+      const response = await fetch(`${ZERNIO_API}/inbox/conversations/${conversation}/messages`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "idempotency-key": `${result.requestId}:${index}` },
         body: JSON.stringify(body),

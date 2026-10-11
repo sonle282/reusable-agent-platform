@@ -3,7 +3,9 @@ import { api, del, patch, post } from "../api";
 import { modelSupportsTemperature, type AnthropicModel } from "../../shared/models";
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
 import { formatDate, timeSeparator, titleField } from "../format";
+import { paceDelay, splitParts } from "../../shared/channel-parts";
 import { readable, useFixAnswer } from "../FixSheet";
+import { BehaviorTab } from "./AssistantBehavior";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import {
@@ -33,7 +35,7 @@ import {
   useToast,
 } from "../ui";
 
-export type AssistantTab = "test" | "instructions" | "sources" | "versions";
+export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "versions";
 type EditorTab = Exclude<AssistantTab, "test">;
 type Navigate = (page: "data" | "conversations" | "connections" | "settings", ...params: string[]) => void;
 type Mutate = (fn: (draft: AgentDraft) => AgentDraft) => void;
@@ -69,9 +71,11 @@ export function AssistantPage({
   refresh,
   navigate,
   onUnpublished,
+  hasZernio = false,
 }: {
   agentId: string;
   collections: Collection[];
+  hasZernio?: boolean;
   tab: AssistantTab;
   onTab: (tab: AssistantTab) => void;
   refresh: () => Promise<void>;
@@ -314,6 +318,7 @@ export function AssistantPage({
         options={[
           { value: "instructions", label: "Instructions" },
           { value: "sources", label: "Sources" },
+          { value: "behavior", label: "Behavior" },
           { value: "versions", label: "Versions" },
         ]}
       />
@@ -329,6 +334,7 @@ export function AssistantPage({
               reload={load}
             />
           )}
+          {editorTab === "behavior" && <BehaviorTab draft={agent.draft} mutate={mutate} hasZernio={hasZernio} />}
           {editorTab === "versions" && (
             <VersionsTab
               agent={agent}
@@ -1051,6 +1057,9 @@ function PreviewPane({
   const [error, setError] = useState("");
   const [conversationId, setConversationId] = useState(() => crypto.randomUUID());
   const [editingSource, setEditingSource] = useState<KnowledgeSource | null>(null);
+  // Mirrors the channel: Seen under the customer's message, typing dots, then the reply part by part.
+  const [seenAt, setSeenAt] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
   const toast = useToast();
   const scroller = useRef<HTMLDivElement>(null);
   const { startFix, fixSheet } = useFixAnswer({ agentId: agent.id, onChanged: reload, onOpenSettings: () => navigate("settings") });
@@ -1086,15 +1095,35 @@ function PreviewPane({
     if (!(await flush())) return;
     setText("");
     setError("");
-    setTurns((current) => [...current, { role: "user", text: message, at: new Date().toISOString() }]);
+    const sentAt = new Date().toISOString();
+    const behavior = agent.draft.behavior;
+    setTurns((current) => [...current, { role: "user", text: message, at: sentAt }]);
+    setSeenAt(null);
     setBusy(true);
+    const seen = behavior.markSeen ? setTimeout(() => setSeenAt(sentAt), 350) : undefined;
+    const showTyping = behavior.typing ? setTimeout(() => setTyping(true), 600) : undefined;
     try {
       const result = await post<AgentResult>(`/api/admin/agents/${agent.id}/preview`, { text: message, conversationId });
-      const at = new Date().toISOString();
-      setTurns((current) => [...current, ...result.messages.map((item, index) => ({ role: "assistant" as const, text: item.text, at, result, last: index === result.messages.length - 1 }))]);
+      // Plain-text replies split into short messages; structured replies already arrive as parts.
+      const texts = result.messages.flatMap((item) =>
+        behavior.splitReplies && !item.text.trim().startsWith("{") ? splitParts([{ kind: "text", text: item.text }]).map((part) => (part.kind === "text" ? part.text : "")) : [item.text],
+      );
+      for (let index = 0; index < texts.length; index++) {
+        const wait = index > 0 ? paceDelay(behavior.pace, { kind: "text", text: texts[index] }) : 0;
+        if (wait) {
+          setTyping(behavior.typing);
+          await new Promise((resolve) => setTimeout(resolve, wait));
+        }
+        setTyping(false);
+        const at = new Date().toISOString();
+        setTurns((current) => [...current, { role: "assistant" as const, text: texts[index], at, result, last: index === texts.length - 1 }]);
+      }
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
+      clearTimeout(seen);
+      clearTimeout(showTyping);
+      setTyping(false);
       setBusy(false);
     }
   }
@@ -1148,6 +1177,7 @@ function PreviewPane({
                 return (
                   <ChatGroup key={key} separator={separator}>
                     <RichBubbles side="out" text={turn.text} />
+                    {seenAt === turn.at && <span className="seen">Seen</span>}
                   </ChatGroup>
                 );
               const requestId = turn.result?.requestId ?? key;
@@ -1176,11 +1206,20 @@ function PreviewPane({
                 </ChatGroup>
               );
             })}
-            {busy && (
-              <div className="bubble bubble-in typing" aria-label="Typing">
-                <Spinner label="Typing" />
-              </div>
-            )}
+            {busy &&
+              (typing ? (
+                <div className="typing-dots" role="status" aria-label="Typing">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              ) : (
+                !agent.draft.behavior.typing && (
+                  <div className="bubble bubble-in typing" aria-label="Writing a reply">
+                    <Spinner label="Writing a reply" />
+                  </div>
+                )
+              ))}
           </div>
         )}
         {error && (

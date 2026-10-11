@@ -23,7 +23,7 @@ const nav: Array<{ id: Page; label: string; icon: string }> = [
   { id: "connections", label: "Channels", icon: "link" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];
-const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "versions"];
+const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "followups", "behavior", "versions"];
 
 const defaultBrand: Brand = { name: "Assistant", logoUrl: "", primaryColor: "#007aff", supportUrl: "" };
 
@@ -121,6 +121,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
             refresh={reload}
             navigate={(target, ...rest) => go(target, undefined, ...rest)}
             onUnpublished={setUnpublished}
+            hasZernio={data.connections.some((connection) => connection.type === "zernio")}
           />
         )}
         {page === "data" && <DataPage collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id) => go("data", undefined, id)} />}

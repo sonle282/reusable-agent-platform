@@ -1,3 +1,4 @@
+import type { Behavior, FollowUps } from "../shared/contracts";
 import type { AnthropicModel } from "../shared/models";
 import type { AssistantProfile } from "../shared/prompt";
 
@@ -52,6 +53,8 @@ export type AgentDraft = {
   toolBindings: string[];
   customerFieldSchema: unknown[];
   handoffRules: unknown[];
+  behavior: Behavior;
+  followUps: FollowUps;
 };
 
 export type AgentSummary = {

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
-import { agentDraftSchema, anthropicModelSchema, collectionSchema, genericMessageSchema, starterDraft, type AgentResult, type NormalizedMessage } from "../shared/contracts";
+import { agentDraftSchema, anthropicModelSchema, parseVersionSnapshot, collectionSchema, genericMessageSchema, starterDraft, type AgentResult, type NormalizedMessage } from "../shared/contracts";
 import { parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
 import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
 import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
@@ -135,7 +135,7 @@ app.get("/api/admin/bootstrap", async (c) => {
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM deliveries WHERE status='failed'").first<{ count: number }>(),
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM contacts WHERE lead_status='new' AND erased_at IS NULL").first<{ count: number }>(),
   ]);
-  const unpublished = Boolean(drafts) && (!drafts!.snapshot_json || JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.draft_json))));
+  const unpublished = Boolean(drafts) && (!drafts!.snapshot_json || JSON.stringify(parseVersionSnapshot(JSON.parse(drafts!.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.draft_json))));
   return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: agents.results, collections: collections.results, connections: connections.results, attention: { unpublished, liveVersion: drafts?.version ?? null, failedDeliveries: failed?.count ?? 0, newLeads: newLeads?.count ?? 0 } });
 });
 
@@ -197,7 +197,7 @@ app.get("/api/admin/agents/:id", async (c) => {
   ]);
   const draft = agentDraftSchema.parse(JSON.parse(agent.draft_json));
   const live = agent.active_version_id ? await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>() : null;
-  const draftMatchesLive = Boolean(live) && JSON.stringify(agentDraftSchema.parse(JSON.parse(live!.snapshot_json))) === JSON.stringify(draft);
+  const draftMatchesLive = Boolean(live) && JSON.stringify(parseVersionSnapshot(JSON.parse(live!.snapshot_json))) === JSON.stringify(draft);
   return c.json({ ...agent, draft, draftMatchesLive, versions: versions.results, sources: sources.results, tools: tools.results, evalCases: evalCases.results });
 });
 
@@ -253,7 +253,7 @@ app.post("/api/admin/agents/:id/discard", async (c) => {
   if (!agent?.active_version_id) return c.json({ error: "Nothing is live yet" }, 409);
   const live = await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>();
   if (!live) return c.json({ error: "Live version not found" }, 404);
-  const draft = agentDraftSchema.parse(JSON.parse(live.snapshot_json));
+  const draft = parseVersionSnapshot(JSON.parse(live.snapshot_json));
   const dropped = (await c.env.DB.prepare("SELECT id,eval_case_id FROM answer_fixes WHERE agent_id=? AND status IN ('verified','kept_failing') AND target_kind IN ('knowledge','rule')").bind(agent.id).all<{ id: string; eval_case_id: string | null }>()).results;
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE agents SET draft_json=?,updated_at=datetime('now') WHERE id=?").bind(JSON.stringify(draft), agent.id),
