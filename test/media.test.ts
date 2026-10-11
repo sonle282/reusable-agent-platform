@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import { channelParts } from "../src/shared/channel-parts";
+import { hasImageField, lookupLinks, takeImageLines, withImages } from "../src/shared/media";
+
+const offer = { id: "OF-010", tieu_de: "RELAXO $2,095", link_anh: "https://cdn.example.com/of-010.webp", link_trang: "https://shop.example.com/relaxo" };
+
+describe("photos from Data rows", () => {
+  it("keeps only links that came back from lookups", () => {
+    const allowed = lookupLinks([[offer]]);
+    const result = takeImageLines("Dạ ưu đãi RELAXO đang $2,095 ạ.\nIMAGE: https://cdn.example.com/of-010.webp\nIMAGE: https://evil.example.com/x.png", allowed);
+    expect(result).toEqual({ text: "Dạ ưu đãi RELAXO đang $2,095 ạ.", images: ["https://cdn.example.com/of-010.webp"] });
+  });
+  it("sends text and photo as separate channel parts", () => {
+    const reply = withImages("Dạ ưu đãi RELAXO ạ.", ["https://cdn.example.com/of-010.webp"]);
+    expect(channelParts(reply)).toEqual([
+      { kind: "text", text: "Dạ ưu đãi RELAXO ạ." },
+      { kind: "image", url: "https://cdn.example.com/of-010.webp" },
+    ]);
+    expect(withImages("plain", [])).toBe("plain");
+  });
+  it("binds the rule only for tables with a photo column", () => {
+    expect(hasImageField(["id", "link_anh"])).toBe(true);
+    expect(hasImageField(["id", "tieu_de"])).toBe(false);
+  });
+});
