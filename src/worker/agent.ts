@@ -167,14 +167,6 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     this.saveFollowUpState(await this.scheduleFollowUp(this.followUpState(), snapshot, payload.step + 1));
   }
 
-  // Owner action for one chat (e.g. their own test thread): new turns use this version. Other chats keep theirs.
-  async useVersion(versionId: string): Promise<string | null> {
-    if (!this.state.initialized) return null;
-    const before = this.state.agentVersionId;
-    if (before !== versionId) this.setState({ ...this.state, agentVersionId: versionId });
-    return before;
-  }
-
   async setHumanTakeover(enabled: boolean) {
     if (!this.state.initialized) return;
     this.setState({ ...this.state, humanTakeover: enabled, stage: enabled ? "human_handoff" : "engaged" });
@@ -241,6 +233,11 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     const prior = this.sql<{ result_json: string }>`SELECT result_json FROM processed_events WHERE event_id = ${input.eventId} LIMIT 1`[0];
     if (prior) return { ...JSON.parse(prior.result_json) as AgentResult, status: "duplicate" };
 
+    // "Use the live version" (Conversations menu) records the new version on the conversation index; adopt it here.
+    const pinned = this.state.initialized && !options.snapshotOverride
+      ? (await this.env.DB.prepare("SELECT agent_version_id FROM conversations WHERE id = ?").bind(`${input.agentId}:${input.connectionId}:${input.conversationId}`).first<{ agent_version_id: string | null }>())?.agent_version_id
+      : null;
+    if (pinned && pinned !== this.state.agentVersionId) this.setState({ ...this.state, agentVersionId: pinned });
     const runtime = options.snapshotOverride
       ? { snapshot: options.snapshotOverride, versionId: options.versionId ?? "draft" }
       : await getRuntimeSnapshot(this.env.DB, input.agentId, this.state.initialized ? this.state.agentVersionId : options.versionId);
