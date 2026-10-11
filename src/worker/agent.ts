@@ -257,7 +257,14 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
 
     if (takeover) {
       const result: AgentResult = { requestId: input.eventId, conversationId: input.conversationId, status: "human_handoff", messages: [], versionId, trace: { sources: [], toolCalls: [], latencyMs: Date.now() - started } };
-      this.sql`INSERT INTO processed_events(event_id, result_json, created_at) VALUES(${input.eventId}, ${JSON.stringify(result)}, ${new Date().toISOString()})`;
+      const at = new Date().toISOString();
+      this.sql`INSERT INTO processed_events(event_id, result_json, created_at) VALUES(${input.eventId}, ${JSON.stringify(result)}, ${at})`;
+      // The assistant stays quiet, but the team still sees what the customer wrote in Conversations.
+      const text = input.content.text?.trim() || (input.content.images?.length ? "(sent a photo)" : input.content.attachments?.length ? "(sent a file)" : "");
+      if (text && this.state.initialized) {
+        this.sql`INSERT INTO conversation_messages(id, role, content, created_at) VALUES(${id("msg")}, ${"user"}, ${text}, ${at})`;
+        await this.env.DB.prepare("UPDATE conversations SET last_message_preview = ?, last_activity_at = ? WHERE id = ?").bind(text.slice(0, 220), at, conversationId).run();
+      }
       return result;
     }
 
