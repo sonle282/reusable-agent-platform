@@ -7,7 +7,7 @@ import { parseRichMessage } from "../RichMessage";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
 import { Avatar, Badge, Banner, Button, EmptyState, Icon, Menu, PageHeader, Section, SkeletonLine, errorMessage, useToast, type TileTone } from "../ui";
 
-type Go = (page: "assistant" | "conversations" | "connections" | "settings", ...params: string[]) => void;
+type Go = (page: "assistant" | "conversations" | "connections" | "settings" | "leads", ...params: string[]) => void;
 
 const plainText = (value: string) =>
   parseRichMessage(value)
@@ -156,7 +156,7 @@ export function HomePage({
       case "team":
         return { tone: "soft-gray", icon: "pause", title: "Your team is replying", sub: `${name} · assistant paused · ${when}`, label: "Open", variant: "gray", act: open };
       case "lead":
-        return { tone: "soft-blue", icon: "person-plus", title: "New lead to contact", sub: `${name} left contact details · ${when}`, label: "Open", variant: "gray", act: open };
+        return { tone: "soft-blue", icon: "person-plus", title: "New lead to contact", sub: `${name} left contact details · ${when}`, label: "Open", variant: "gray", act: () => (item.leadId ? go("leads", item.leadId) : open()) };
       case "backup":
         return { tone: "soft-orange", icon: "warning", title: "Sent the backup reply", sub: `${name} · the AI didn't answer · ${when}`, label: "Open", variant: "gray", act: open };
       case "price":

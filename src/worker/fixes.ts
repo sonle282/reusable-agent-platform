@@ -216,6 +216,7 @@ type AttentionItem = {
   type: "team" | "lead" | "backup" | "price" | "fix_pending" | "fix_failing";
   at: string;
   conversationId?: string;
+  leadId?: string;
   requestId?: string;
   fixId?: string;
   person?: { display_name: string | null; phone: string | null; external_user_id: string | null };
@@ -303,7 +304,7 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
     const person = "ct.display_name,ct.phone,c.external_user_id";
     const [team, leads, events, fixes, dismissed] = await Promise.all([
       c.env.DB.prepare(`SELECT c.id,c.last_activity_at AS at,${person} FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND c.agent_id=? AND c.human_takeover=1`).bind(agent.id).all<Record<string, string | null>>(),
-      c.env.DB.prepare(`SELECT c.id,c.last_activity_at AS at,${person} FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND c.agent_id=? AND c.stage='lead_captured' AND c.human_takeover=0 AND c.last_activity_at >= datetime('now','-7 day')`).bind(agent.id).all<Record<string, string | null>>(),
+      c.env.DB.prepare(`SELECT c.id,c.last_activity_at AS at,ct.id AS lead_id,${person} FROM conversations c LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND c.agent_id=? AND c.stage='lead_captured' AND c.human_takeover=0 AND COALESCE(ct.lead_status,'new')='new'  AND c.last_activity_at >= datetime('now','-7 day')`).bind(agent.id).all<Record<string, string | null>>(),
       c.env.DB.prepare(`SELECT e.id,e.request_id,e.status,e.metadata_json,e.created_at AS at,c.id AS conversation_id,${person} FROM runtime_events e JOIN conversations c ON c.id=e.conversation_id LEFT JOIN contacts ct ON ct.id=c.contact_id WHERE ${real} AND e.agent_id=? AND e.created_at >= datetime('now','-7 day') AND (e.status='failed' OR e.metadata_json LIKE '%"priced":true%') ORDER BY e.created_at DESC LIMIT 40`).bind(agent.id).all<Record<string, string | null>>(),
       c.env.DB.prepare("SELECT id,status,target_kind,customer_message,COALESCE(applied_at,created_at) AS at FROM answer_fixes WHERE agent_id=? AND (status='kept_failing' OR (status='verified' AND target_kind IN ('knowledge','rule')))").bind(agent.id).all<Record<string, string | null>>(),
       c.env.DB.prepare("SELECT item_key FROM attention_dismissals").all<{ item_key: string }>(),
@@ -312,7 +313,7 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
     const who = (row: Record<string, string | null>) => ({ display_name: row.display_name ?? null, phone: row.phone ?? null, external_user_id: row.external_user_id ?? null });
     const items: AttentionItem[] = [
       ...team.results.map((row) => ({ key: `team:${row.id}`, type: "team" as const, at: String(row.at), conversationId: String(row.id), person: who(row) })),
-      ...leads.results.map((row) => ({ key: `lead:${row.id}`, type: "lead" as const, at: String(row.at), conversationId: String(row.id), person: who(row) })),
+      ...leads.results.map((row) => ({ key: `lead:${row.id}`, type: "lead" as const, at: String(row.at), conversationId: String(row.id), leadId: row.lead_id ?? undefined, person: who(row) })),
       ...events.results.map((row) => ({
         key: `${row.status === "failed" ? "backup" : "price"}:${row.id}`,
         type: row.status === "failed" ? ("backup" as const) : ("price" as const),

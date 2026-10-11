@@ -687,6 +687,7 @@ export function Sheet({
   children,
   footer,
   lang,
+  drawer,
 }: {
   title: string;
   subtitle?: ReactNode;
@@ -694,13 +695,15 @@ export function Sheet({
   children: ReactNode;
   footer?: ReactNode;
   lang?: string;
+  // Slides in from the right edge (record details) instead of opening in the middle.
+  drawer?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   useDialog(ref, onClose, "[data-autofocus]");
   return (
-    <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1}>
+    <div className={`sheet-backdrop${drawer ? " is-drawer" : ""}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className={`sheet${drawer ? " is-drawer" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1}>
         <span className="sheet-grabber" aria-hidden="true" />
         <div className="sheet-header">
           <div className="spacer" style={{ minWidth: 0 }}>

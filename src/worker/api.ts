@@ -10,6 +10,7 @@ import { generateWithAnthropic } from "./model/anthropic";
 import { hasProfile } from "../shared/prompt";
 import { executeTool } from "./tools";
 import { markFixesPublished, registerFixRoutes, runCase } from "./fixes";
+import { registerLeadRoutes } from "./leads";
 import { clearSessionCookies, createSession, requireAdmin, setSessionCookies, type AuthVariables } from "./security/auth";
 import { constantTimeEqual, decryptCredential, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
 
@@ -106,6 +107,7 @@ app.post("/api/auth/login", async (c) => {
 
 app.use("/api/admin/*", requireAdmin);
 registerFixRoutes(app);
+registerLeadRoutes(app);
 
 app.get("/api/admin/session", (c) => c.json({ authenticated: true, csrfToken: c.get("csrfToken") }));
 
@@ -126,14 +128,15 @@ app.get("/api/admin/bootstrap", async (c) => {
   ]);
   // Sidebar signals: the draft differs from the live version (or nothing is live) and replies that failed to deliver.
   const first = agents.results[0] as { id: string } | undefined;
-  const [drafts, failed] = await Promise.all([
+  const [drafts, failed, newLeads] = await Promise.all([
     first
       ? c.env.DB.prepare("SELECT a.draft_json, v.snapshot_json, v.version FROM agents a LEFT JOIN agent_versions v ON v.id=a.active_version_id WHERE a.id=?").bind(first.id).first<{ draft_json: string; snapshot_json: string | null; version: number | null }>()
       : null,
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM deliveries WHERE status='failed'").first<{ count: number }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS count FROM contacts WHERE lead_status='new' AND erased_at IS NULL").first<{ count: number }>(),
   ]);
   const unpublished = Boolean(drafts) && (!drafts!.snapshot_json || JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.draft_json))));
-  return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: agents.results, collections: collections.results, connections: connections.results, attention: { unpublished, liveVersion: drafts?.version ?? null, failedDeliveries: failed?.count ?? 0 } });
+  return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: agents.results, collections: collections.results, connections: connections.results, attention: { unpublished, liveVersion: drafts?.version ?? null, failedDeliveries: failed?.count ?? 0, newLeads: newLeads?.count ?? 0 } });
 });
 
 app.patch("/api/admin/settings/brand", async (c) => {
@@ -659,7 +662,7 @@ app.post("/api/admin/conversations/:id/erase", async (c) => {
     c.env.DB.prepare(`UPDATE answer_fixes SET conversation_id=NULL WHERE conversation_id IN (${marks})`).bind(...ids),
     ...(found.chat.contact_id
       ? [
-          c.env.DB.prepare("UPDATE contacts SET display_name=NULL,phone=NULL,email=NULL,locale=NULL,custom_json='{}',consent_json=json_object('erased',1),erased_at=datetime('now'),updated_at=datetime('now') WHERE id=?").bind(found.chat.contact_id),
+          c.env.DB.prepare("UPDATE contacts SET display_name=NULL,phone=NULL,email=NULL,locale=NULL,custom_json='{}',consent_json=json_object('erased',1),lead_status=NULL,lead_notes='',lead_summary='',erased_at=datetime('now'),updated_at=datetime('now') WHERE id=?").bind(found.chat.contact_id),
           // A new message from this person starts a fresh contact instead of re-linking the erased one.
           c.env.DB.prepare("DELETE FROM contact_identities WHERE contact_id=?").bind(found.chat.contact_id),
         ]

@@ -96,7 +96,7 @@ export type Connection = {
 };
 
 export type Bootstrap = {
-  attention?: { unpublished: boolean; liveVersion: number | null; failedDeliveries: number };
+  attention?: { unpublished: boolean; liveVersion: number | null; failedDeliveries: number; newLeads?: number };
   brand: Brand;
   modelDefaults: Record<string, unknown>;
   agents: AgentSummary[];
@@ -159,6 +159,7 @@ export type AttentionItem = {
   type: "team" | "lead" | "backup" | "price" | "fix_pending" | "fix_failing";
   at: string;
   conversationId?: string;
+  leadId?: string;
   requestId?: string;
   fixId?: string;
   person?: { display_name: string | null; phone: string | null; external_user_id: string | null };

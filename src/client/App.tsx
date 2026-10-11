@@ -6,15 +6,17 @@ import { ConnectionsPage } from "./pages/Connections";
 import { ConversationsPage } from "./pages/Conversations";
 import { DataPage } from "./pages/Data";
 import { HomePage } from "./pages/Home";
+import { LeadsPage } from "./pages/Leads";
 import { SettingsPage } from "./pages/Settings";
 import { useTheme, type ThemeChoice } from "./theme";
 import type { Bootstrap, Brand } from "./types";
 import { Banner, Button, FieldRow, Icon, Section, Segmented, Spinner, TextInput, ToastProvider, errorMessage } from "./ui";
 
-type Page = "home" | "assistant" | "data" | "conversations" | "connections" | "settings";
+type Page = "home" | "leads" | "assistant" | "data" | "conversations" | "connections" | "settings";
 
 const nav: Array<{ id: Page; label: string; icon: string }> = [
   { id: "home", label: "Home", icon: "house" },
+  { id: "leads", label: "Leads", icon: "person-plus" },
   { id: "assistant", label: "Assistant", icon: "sparkles" },
   { id: "data", label: "Data", icon: "table" },
   { id: "conversations", label: "Conversations", icon: "bubbles" },
@@ -70,14 +72,15 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
   const [unpublished, setUnpublished] = useState(Boolean(data.attention?.unpublished));
   useEffect(() => setUnpublished(Boolean(data.attention?.unpublished)), [data.attention?.unpublished]);
   const failed = data.attention?.failedDeliveries ?? 0;
+  const newLeads = data.attention?.newLeads ?? 0;
   useEffect(() => {
     document.title = `${nav.find((item) => item.id === page)?.label ?? ""} · ${data.brand.name}`;
   }, [page, data.brand.name]);
   if (!agent) return <CreateAssistant brand={data.brand} onDone={reload} />;
   const signal = (id: Page) => ({
     dot: id === "assistant" && unpublished,
-    badge: id === "connections" && failed > 0 ? failed : 0,
-    hint: id === "assistant" && unpublished ? ", unpublished changes" : id === "connections" && failed > 0 ? `, ${failed} not delivered` : "",
+    badge: id === "connections" && failed > 0 ? failed : id === "leads" ? newLeads : 0,
+    hint: id === "assistant" && unpublished ? ", unpublished changes" : id === "connections" && failed > 0 ? `, ${failed} not delivered` : id === "leads" && newLeads > 0 ? `, ${newLeads} new` : "",
   });
   return (
     <div className="app-shell">
@@ -108,6 +111,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
       </nav>
       <main className="content">
         {page === "home" && <HomePage agent={agent} connections={data.connections} liveVersion={data.attention?.liveVersion ?? null} unpublished={unpublished} refresh={reload} go={(target, ...rest) => go(target, undefined, ...rest)} />}
+        {page === "leads" && <LeadsPage openId={params[0]} onOpen={(id) => (id ? go("leads", undefined, id) : go("leads"))} onOpenConversation={(id) => go("conversations", undefined, id)} onChanged={() => void reload()} />}
         {page === "assistant" && (
           <AssistantPage
             agentId={agent.id}
@@ -126,7 +130,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
       </main>
       {/* Phone tab bar: unchanged for now; the phone layout is a later pass. */}
       <nav className="tab-bar" aria-label="Main">
-        {nav.map((item) => (
+        {nav.filter((item) => item.id !== "data").map((item) => (
           <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => go(item.id)}>
             <Icon name={item.icon} size={22} />
             <span>{item.label}</span>
