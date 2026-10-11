@@ -2,13 +2,13 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import { api, del, patch, post } from "../api";
 import { modelSupportsTemperature, type AnthropicModel } from "../../shared/models";
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
-import { formatDate, timeSeparator, titleField } from "../format";
+import { formatDate, formatWhen, timeSeparator, titleField } from "../format";
 import { paceDelay, splitParts } from "../../shared/channel-parts";
 import { readable, useFixAnswer } from "../FixSheet";
 import { BehaviorTab, FollowUpsTab } from "./AssistantBehavior";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
-import { AgentAvatar, Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Row, Segmented, Select, SettingRow, Sheet, Skeleton, SkeletonLine, Spinner, Switch, Tabs, TextArea, TextInput, Tile, TypingDots, useToast } from "../ui";
+import { AgentAvatar, agentStatus, Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Row, Segmented, Select, SettingRow, Sheet, Skeleton, SkeletonLine, Spinner, Switch, Tabs, TextArea, TextInput, Tile, TypingDots, useToast, When } from "../ui";
 
 export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "checks" | "versions";
 type EditorTab = Exclude<AssistantTab, "test">;
@@ -38,13 +38,8 @@ export const modelLabel = (model?: string) => modelOptions.find((option) => opti
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
-// "Updated today" reads better than a bare time in a list of sources.
-function updatedLabel(value?: string | null) {
-  const label = formatDate(value);
-  if (/\d:\d\d [AP]M$/.test(label)) return "Updated today";
-  if (label === "Yesterday") return "Updated yesterday";
-  return `Updated ${label}`;
-}
+// "Updated Yesterday 4:12 PM": sources are told apart by when they changed.
+const updatedLabel = (value?: string | null) => `Updated ${formatWhen(value)}`;
 
 // GPT-builder layout: the editor on the left, a live Preview of the draft on the right.
 export function AssistantPage({
@@ -179,11 +174,7 @@ export function AssistantPage({
     );
 
   const editorTab: EditorTab = tab === "test" ? "instructions" : tab;
-  const status = !live
-    ? { dot: "dot-gray", text: "Not live yet · test it, then publish" }
-    : upToDate
-      ? { dot: "dot-green", text: `Live · version ${live.version}` }
-      : { dot: "dot-orange", text: `Unpublished changes · customers see version ${live.version}` };
+  const status = agentStatus(live?.version ?? null, !upToDate);
   const saveText = saveFailed ? "Not saved yet" : saveState === "saving" ? "Saving…" : saveState === "dirty" ? "Editing…" : "Draft saved";
   const missing = [
     !agent.draft.modelConfig.credentialId && { text: "Add your Anthropic API key so the assistant can answer.", action: "Open Settings", go: () => navigate("settings") },
@@ -922,7 +913,7 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
           <EmptyState icon="history" title="No versions yet" text="Publish the draft to make it live. Every publish is saved here so you can go back." />
         ) : (
           <>
-            {unpublished && <Row icon="edit" tone="warning" title="Draft" subtitle={saving ? "Unpublished changes · saving…" : "Unpublished changes · saved"} accessory={<Badge tone="warning">Not live</Badge>} />}
+            {unpublished && <Row icon="edit" tone="warning" title="Draft" subtitle={saving ? "Unpublished changes · saving…" : "Unpublished changes · saved"} accessory={<Badge>Not published</Badge>} />}
             {agent.versions.map((version) => {
               const live = version.id === agent.active_version_id;
               return (
@@ -931,7 +922,7 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
                   icon="clock"
                   tone={live ? "success" : "default"}
                   title={`Version ${version.version}`}
-                  subtitle={formatDate(version.published_at)}
+                  subtitle={<When value={version.published_at} />}
                   accessory={
                     live ? (
                       <Badge tone="success">Live</Badge>
@@ -1377,8 +1368,8 @@ function ChecksTab({ agent, flush, reload }: { agent: AgentDetail; flush: () => 
   return (
     <>
       <Card
-        title="Answer checks"
-        sub={cases.length ? `${plural(cases.length, "check")} · ${required} required to publish` : "Questions that test your assistant"}
+        title="Checks"
+        sub="Questions it must answer right before you publish"
         action={
           <div className="row-flex">
             {cases.length > 0 && (

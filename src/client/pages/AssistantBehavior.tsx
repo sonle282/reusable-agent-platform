@@ -29,7 +29,7 @@ export function BehaviorTab({ draft, mutate, hasZernio }: { draft: AgentDraft; m
             accessory={<Switch label={item.title} checked={behavior[item.key]} onChange={(on) => set({ [item.key]: on })} />}
           />
         ))}
-        <SettingRow title="Reply length" sub="Answer checks fail when a reply is longer">
+        <SettingRow title="Reply length" sub="Checks fail when a reply is longer">
           <Select block={false} style={{ width: "auto" }} aria-label="Reply length" value={behavior.maxSentences} onChange={(event) => set({ maxSentences: Number(event.target.value) })}>
             {[2, 3, 4, 5].map((count) => (
               <option key={count} value={count}>

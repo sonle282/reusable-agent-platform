@@ -13,7 +13,7 @@ const channelLabel = (connection?: Connection) => {
 };
 import { formatPhone } from "../../shared/contact";
 import { platformName, platformOf } from "../platform";
-import { AgentAvatar, Alert, Avatar, Badge, Button, Chips, Dialog, EmptyState, errorMessage, Icon, Menu, SearchField, Skeleton, SkeletonLine, Switch, useToast } from "../ui";
+import { AgentAvatar, Alert, AvatarWithChannel, Badge, Button, Chips, Dialog, EmptyState, errorMessage, Icon, Menu, SearchField, Skeleton, SkeletonLine, Switch, useToast } from "../ui";
 
 const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 
@@ -177,7 +177,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
               const current = item.id === selectedId;
               return (
                 <button type="button" key={item.id} className={`row top${current ? " is-selected" : ""}`} style={{ borderTop: 0 }} aria-current={current || undefined} onClick={() => onOpen(item.id)}>
-                  <Avatar name={item.display_name ? name : undefined} platform={platformOf(channelOf(item.connection_id))} />
+                  <AvatarWithChannel name={item.display_name ? name : undefined} platform={platformOf(channelOf(item.connection_id))} />
                   <span className="row-text">
                     <span className="row-flex">
                       <span className="row-title truncate">{name}</span>
@@ -204,7 +204,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
           <>
             <div className="thread-head">
               <Button variant="ghost" icon="chevron-left" className="back-link" aria-label="Back to conversations" onClick={() => onOpen(undefined)} />
-              <Avatar name={selected.display_name ? displayName(selected) : undefined} platform={platformOf(channelOf(selected.connection_id))} />
+              <AvatarWithChannel name={selected.display_name ? displayName(selected) : undefined} platform={platformOf(channelOf(selected.connection_id))} />
               <div className="spacer stack" style={{ gap: 0, minWidth: 160 }}>
                 <span id="thread-name" className="strong truncate">
                   {displayName(selected)}

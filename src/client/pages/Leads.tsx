@@ -3,7 +3,7 @@ import { api, del, patch } from "../api";
 import { formatPhone } from "../../shared/contact";
 import { displayName, formatDate } from "../format";
 import { platformKey, platformName } from "../platform";
-import { AgentAvatar, Alert, Avatar, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, PageHeader, Segmented, Skeleton, Table, TextArea, useToast } from "../ui";
+import { AgentAvatar, Alert, AvatarWithChannel, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, PageHeader, Segmented, Skeleton, Table, TextArea, useToast } from "../ui";
 
 export type LeadStatus = "new" | "called" | "won" | "not_fit";
 type Lead = {
@@ -135,7 +135,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
                     <tr key={lead.id} onClick={() => onOpen(lead.id)}>
                       <td>
                         <button type="button" className="row-flex lead-who" onClick={(event) => (event.stopPropagation(), onOpen(lead.id))}>
-                          <Avatar name={lead.display_name ?? undefined} platform={platformKey(lead.platform)} />
+                          <AvatarWithChannel name={lead.display_name ?? undefined} platform={platformKey(lead.platform)} />
                           <span className="stack" style={{ gap: 0 }}>
                             <span className="medium truncate">{displayName(lead)}</span>
                             <span className="xs t3 tabular">{contactLine(lead)}</span>
@@ -216,7 +216,7 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
       <Drawer
         title={name}
         subtitle={lead ? `${platformLabel(lead.platform)} · ${formatDate(lead.lead_created_at)}` : undefined}
-        leading={lead ? <Avatar name={lead.display_name ?? undefined} platform={platformKey(lead.platform)} /> : undefined}
+        leading={lead ? <AvatarWithChannel name={lead.display_name ?? undefined} platform={platformKey(lead.platform)} /> : undefined}
         onClose={onClose}
         footer={
           lead && (

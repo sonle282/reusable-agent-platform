@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, del, patch, post } from "../api";
 import { nextKey, titleField } from "../format";
 import type { AgentDetail, AgentSummary, Collection } from "../types";
-import { AgentAvatar, Alert, Badge, Button, Card, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, formatDate, Icon, Menu, PageHeader, SearchField, Select, SettingRow, Sheet, Skeleton, Switch, Table, TextArea, TextInput, Tile, useToast } from "../ui";
+import { AgentAvatar, Alert, Badge, Button, Card, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, formatDate, Icon, Menu, PageHeader, SearchField, Select, SettingRow, Sheet, Skeleton, Switch, Table, TextArea, TextInput, Tile, useToast, When } from "../ui";
 
 type RecordRow = { id: string; data_json: string; status: string; valid_from?: string | null; valid_until?: string | null; external_key?: string | null };
 type FieldDef = { key: string; label: string; type: string; required?: boolean; unique?: boolean; options?: string[] };
@@ -154,7 +154,9 @@ function TablesList({ agent, collections, usedBy, reload, onSelect }: { agent: A
                       <span className="xs t3">Not used</span>
                     )}
                   </td>
-                  <td className="table-cols-optional t2">{formatDate(collection.updated_at)}</td>
+                  <td className="table-cols-optional t2">
+                    <When value={collection.updated_at} />
+                  </td>
                   <td className="cell-actions">
                     <Icon name="chevron-right" className="chev" size={16} />
                   </td>

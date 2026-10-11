@@ -68,6 +68,23 @@ export function formatDate(value?: string | null, now = new Date()) {
   });
 }
 
+// Lists where the exact moment matters (versions, updates): "1:16 PM" today, "Yesterday 4:12 PM", "Oct 8, 4:12 PM", "Oct 8, 2025, 4:12 PM".
+export function formatWhen(value?: string | null, now = new Date()) {
+  const date = parseDate(value);
+  if (!date) return value ? value : "—";
+  const days = Math.round((startOfDay(now) - startOfDay(date)) / DAY);
+  if (days <= 0) return time(date);
+  if (days === 1) return `Yesterday ${time(date)}`;
+  const day = date.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) });
+  return `${day}, ${time(date)}`;
+}
+
+// Full date and time for a tooltip: "Sunday, October 11, 2026 at 1:16 PM".
+export function fullDate(value?: string | null) {
+  const date = parseDate(value);
+  return date ? `${date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} at ${time(date)}` : "";
+}
+
 // Transcript separator shown before a message when more than 15 minutes passed: "Today 2:39 PM", "Oct 3 9:05 AM".
 export function timeSeparator(previous: string | null | undefined, current: string, now = new Date()) {
   const date = parseDate(current);

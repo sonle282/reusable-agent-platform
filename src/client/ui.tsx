@@ -15,10 +15,26 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
-import { formatDate } from "./format";
+import { formatDate, formatWhen, fullDate } from "./format";
 import { iconPaths, logoPaths } from "./icons";
 
-export { formatDate };
+export { formatDate, formatWhen };
+
+// The assistant's state, written the same way everywhere (sidebar, Home, builder).
+export function agentStatus(liveVersion: number | null | undefined, unpublished: boolean) {
+  if (!liveVersion) return { dot: "dot-gray", tone: "gray" as const, text: "Not live yet" };
+  if (unpublished) return { dot: "dot-orange", tone: "orange" as const, text: `Live · version ${liveVersion} · unpublished changes` };
+  return { dot: "dot-green", tone: "green" as const, text: `Live · version ${liveVersion}` };
+}
+
+// A time with its day, full date on hover.
+export function When({ value }: { value?: string | null }) {
+  return (
+    <time dateTime={value ?? undefined} title={fullDate(value)} className="tabular">
+      {formatWhen(value)}
+    </time>
+  );
+}
 
 // Names used before v2 keep working; they map onto the Apps SDK UI glyphs in icons.ts.
 const aliases: Record<string, string> = {
@@ -104,7 +120,8 @@ export function AgentAvatar({ id, name, size }: { id: string; name: string; size
   );
 }
 
-export function Avatar({ name, icon, platform }: { name?: string; tone?: string; icon?: string; platform?: string }) {
+// A customer: initials (or a person glyph) with the channel's logo in the corner.
+export function AvatarWithChannel({ name, icon, platform }: { name?: string; icon?: string; platform?: string }) {
   const initials = initialsOf(name);
   return (
     <span className="avatar" aria-hidden="true">

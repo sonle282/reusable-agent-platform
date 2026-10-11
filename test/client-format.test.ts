@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { displayName, formatDate, nextKey, previewSnippet, timeSeparator } from "../src/client/format";
+import { displayName, formatDate, formatWhen, nextKey, previewSnippet, timeSeparator } from "../src/client/format";
+
+describe("formatWhen", () => {
+  const now = new Date(2026, 9, 11, 18, 0);
+  const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m, d, h, min).toISOString();
+  it("keeps the day next to the time", () => {
+    expect(formatWhen(at(2026, 9, 11, 13, 16), now)).toBe("1:16 PM");
+    expect(formatWhen(at(2026, 9, 10, 16, 12), now)).toBe("Yesterday 4:12 PM");
+    expect(formatWhen(at(2026, 9, 8, 16, 12), now)).toBe("Oct 8, 4:12 PM");
+    expect(formatWhen(at(2025, 9, 8, 16, 12), now)).toBe("Oct 8, 2025, 4:12 PM");
+  });
+});
 import { parseRichMessage } from "../src/client/RichMessage";
 
 describe("nextKey", () => {

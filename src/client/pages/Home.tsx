@@ -6,7 +6,7 @@ import { publishWithChecks } from "../publish";
 import { parseRichMessage } from "../RichMessage";
 import { platformOf } from "../platform";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
-import { AgentAvatar, Alert, Avatar, Badge, Button, Card, EmptyState, errorMessage, Icon, Menu, PageHeader, Row, SkeletonLine, Tile, useToast, type TileTone } from "../ui";
+import { AgentAvatar, agentStatus, Alert, AvatarWithChannel, Badge, Button, Card, EmptyState, errorMessage, Icon, Menu, PageHeader, Row, SkeletonLine, Tile, useToast, type TileTone } from "../ui";
 
 type Go = (page: "assistant" | "conversations" | "channels" | "settings" | "leads" | "data", ...params: string[]) => void;
 
@@ -141,12 +141,7 @@ export function HomePage({
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const loading = !summary && !conversations && !error;
   const live = Boolean(agent.active_version_id);
-  const channelCount = connections.filter((connection) => connection.agent_id === agent.id && connection.status === "active").length;
-  const statusText = !live
-    ? "Not live yet · test it, then publish"
-    : unpublished
-      ? `Live · version ${liveVersion ?? "—"} · the draft has unpublished changes`
-      : `Live · version ${liveVersion ?? "—"} · answering on ${channelCount} ${channelCount === 1 ? "channel" : "channels"}`;
+  const status = agentStatus(live ? liveVersion : null, unpublished);
   const recent = conversations?.slice(0, 5) ?? [];
 
   // What each item says and which single action it offers.
@@ -164,9 +159,9 @@ export function HomePage({
       case "backup":
         return { tone: "warning", icon: "warning", title: "Sent the backup reply", sub: `${name} · the AI didn't answer · ${when}`, label: "Open", variant: "outline", act: open };
       case "price":
-        return { tone: "warning", icon: "warning", title: "Price given without checking Data", sub: `${name} · ${when}`, label: "Fix", variant: "soft", act: () => void fixFromConversation(item) };
+        return { tone: "warning", icon: "warning", title: "Price given without checking Data", sub: `${name} · ${when}`, label: "Fix answer", variant: "soft", act: () => void fixFromConversation(item) };
       case "fix_pending":
-        return { tone: "info", icon: "wrench", title: "Fix not live yet", sub: `“${item.message}” · customers still see version ${liveVersion ?? "—"}`, label: "Publish", variant: "primary", act: () => void publish(item) };
+        return { tone: "info", icon: "wrench", title: "Fix not live yet", sub: `“${item.message}” · not published yet`, label: "Publish", variant: "primary", act: () => void publish(item) };
       default:
         return { tone: "danger", icon: "error", title: "Fix kept but failing", sub: `“${item.message}” still fails its test scenario`, label: "Try again", variant: "soft", act: () => void retryFix(item) };
     }
@@ -266,8 +261,8 @@ export function HomePage({
                 <span className="row-text">
                   <span className="row-title truncate">{agent.name}</span>
                   <span className="status xs">
-                    <span className={`dot ${!live ? "dot-gray" : unpublished ? "dot-orange" : "dot-green"}`} aria-hidden="true" />
-                    <span className="truncate">{statusText}</span>
+                    <span className={`dot ${status.dot}`} aria-hidden="true" />
+                    <span className="truncate">{status.text}</span>
                   </span>
                 </span>
                 <Icon name="chevron-right" className="chev" size={16} />
@@ -298,7 +293,7 @@ export function HomePage({
                   const connection = connections.find((item) => item.id === conversation.connection_id);
                   return (
                     <button type="button" className="row top" key={conversation.id} onClick={() => go("conversations", conversation.id)}>
-                      <Avatar name={conversation.display_name ? name : undefined} platform={platformOf(connection)} />
+                      <AvatarWithChannel name={conversation.display_name ? name : undefined} platform={platformOf(connection)} />
                       <span className="row-text">
                         <span className="row-flex">
                           <span className="row-title truncate">{name}</span>

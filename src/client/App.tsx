@@ -10,7 +10,7 @@ import { LeadsPage } from "./pages/Leads";
 import { SettingsPage } from "./pages/Settings";
 import { useTheme, type ThemeChoice } from "./theme";
 import type { Bootstrap, Brand } from "./types";
-import { AgentAvatar, Alert, Button, errorMessage, Field, Icon, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
+import { AgentAvatar, agentStatus, Alert, Button, errorMessage, Field, Icon, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
 
 type Page = "home" | "leads" | "assistant" | "data" | "conversations" | "channels" | "settings";
 
@@ -93,7 +93,8 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
   if (!agent) return <CreateAssistant brand={data.brand} onDone={reload} />;
   const count = (id: Page) => (id === "channels" ? failed : id === "leads" ? newLeads : 0);
   const hint = (id: Page) => (id === "channels" && failed > 0 ? `, ${failed} not delivered` : id === "leads" && newLeads > 0 ? `, ${newLeads} new` : "");
-  const status = !agent.active_version_id ? { dot: "dot-gray", label: "Not live yet" } : unpublished ? { dot: "dot-orange", label: "Unpublished changes" } : { dot: "dot-green", label: "Live" };
+  const state = agentStatus(agent.active_version_id ? (data.attention?.liveVersion ?? null) : null, unpublished);
+  const status = { dot: state.dot, label: state.text };
   const flush = page === "assistant" || page === "conversations";
   return (
     <div className="app-shell">
