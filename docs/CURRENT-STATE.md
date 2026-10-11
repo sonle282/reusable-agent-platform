@@ -1,6 +1,6 @@
 # Current state and handoff snapshot
 
-Snapshot date: **2026-10-10** (Asia/Saigon), updated after AI activation and the UI redesign
+Snapshot date: **2026-10-11** (Asia/Saigon), updated after admin v2.1 (sign-in, Leads, Behavior, Follow-ups)
 
 This document lets a new operator or coding session resume without reconstructing completed work. It intentionally contains identifiers and status only, never secret values.
 
@@ -57,6 +57,30 @@ The repository contains a working single-tenant, multi-agent platform in one Clo
 - Contacts, conversations, customer profile, human takeover, and runtime/delivery events.
 - AES-GCM encrypted external credentials, PBKDF2 password hashes, signed HttpOnly sessions, CSRF/origin checks, login lockout, API-key rate limits, SSRF/MIME protections, and log redaction.
 - Mr Spa fixture importer without tenant-specific runtime branches.
+
+## Admin v2.1 (2026-10-11)
+
+Source: `docs/product/design-v2.1/HANDOFF.md`. **Scope rule (owner, 2026-10-11): build what Mr Spa uses now, scale later (KISS).** Single-owner install stays. Not in this round: SMS or email lead alerts, password reset by email, sign-up, onboarding, billing, multi-workspace, an own Meta app.
+
+The owner's business plan lives **outside this repo** at `../repnow-plan/` (sibling folder). Never copy it here or commit it.
+
+Shipped (one commit per phase):
+
+| Phase | Commit | What |
+| --- | --- | --- |
+| 0 | `816df75` | Zero-specificity reset (`:where(.app)`) so component classes always win; the primary-button bug from the v2 CSS was not present in this codebase, the fix prevents it |
+| 1 | `a2a869b` | Split sign-in and two-step setup; no forgot-password flow (owner uses `npm run admin:reset`); AI key moved out of setup; `/api/setup` unchanged |
+| 2 | `bba2480` | Leads on existing contacts (migration `0006_leads.sql`), list/detail/patch/delete/CSV export, Leads nav item with New badge, lead drawer, one-line `LEAD:` summary on capture (no extra model call), US phone formats recognised |
+| 3 | `fc62aba` | Draft `behavior` (seen, typing, split, pace, AI notice, outside-hours line) and `followUps`; Zernio typing/mark-read; Preview shows Seen → typing dots → paced parts |
+| 4 | `05c9534`, `88a7c72` | Follow-ups via the conversation DO scheduler: max 2 steps, 24 h guard (skip after 23h50m), stop rules, idempotent key, `followup_sent`/`followup_skipped` events, "Contact again" in Needs attention |
+| 5 | — | Baseline written to `../repnow-plan/03-mrspa-baseline.md` (counts only); Zernio findings in `../repnow-plan/04-zernio-capabilities.md` |
+
+Things to know:
+
+- **Versions published before v2.1 run with behavior and follow-ups off** (`parseVersionSnapshot`). New drafts get the defaults on, so Mr Spa shows "Unpublished changes" until the owner reviews the Behavior and Follow-ups tabs and publishes.
+- Follow-ups are sent only on Zernio channels. The website chat has no widget in this repo, so typing dots exist in Preview only.
+- Zernio shows typing on Messenger/Instagram; its mark-read does not show "Seen" to Messenger customers (WhatsApp/iMessage only).
+- The v2 visual redesign (`docs/product/design-v2/`) is **not** ported; v2.1 screens were built on the current tokens.
 
 ## Production data and AI state (2026-10-10)
 
