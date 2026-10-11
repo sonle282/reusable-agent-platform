@@ -182,12 +182,20 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
   }
 
   async getTranscript() {
-    return this.sql<{ id: string; role: string; content: string; created_at: string }>`SELECT id,role,content,created_at FROM conversation_messages ORDER BY created_at ASC LIMIT 500`;
+    return this.sql<{ id: string; role: string; content: string; created_at: string }>`SELECT id,role,content,created_at FROM conversation_messages ORDER BY created_at ASC, rowid ASC LIMIT 500`;
   }
 
   private history(): ModelMessage[] {
-    const rows = this.sql<{ role: string; content: string }>`SELECT role, content FROM conversation_messages ORDER BY created_at DESC LIMIT 16`;
-    return rows.reverse().map((row) => ({ role: row.role === "assistant" ? "assistant" : "user", content: row.content }));
+    const rows = this.sql<{ role: string; content: string }>`SELECT role, content FROM conversation_messages ORDER BY created_at DESC, rowid DESC LIMIT 16`;
+    // Neighbours with the same role (AI notice + reply, a follow-up after a reply) become one turn.
+    const turns: Array<{ role: "assistant" | "user"; content: string }> = [];
+    for (const row of rows.reverse()) {
+      const role = row.role === "assistant" ? "assistant" : "user";
+      const previous = turns[turns.length - 1];
+      if (previous?.role === role) previous.content = `${previous.content}\n\n${row.content}`;
+      else turns.push({ role, content: row.content });
+    }
+    return turns;
   }
 
   private async captureContact(input: NormalizedMessage, messageText: string, notice: string, summary: string) {
