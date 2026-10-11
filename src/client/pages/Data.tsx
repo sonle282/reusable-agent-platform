@@ -3,26 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, del, patch, post } from "../api";
 import { nextKey, titleField } from "../format";
 import type { Collection } from "../types";
-import {
-  Alert,
-  Badge,
-  Banner,
-  Button,
-  EmptyState,
-  FieldRow,
-  Icon,
-  Menu,
-  PageHeader,
-  SearchField,
-  Section,
-  Sheet,
-  Skeleton,
-  TextArea,
-  TextInput,
-  Toggle,
-  errorMessage,
-  useToast,
-} from "../ui";
+import { Alert, Badge, Button, Card, Dialog, EmptyState, errorMessage, Field, Icon, Menu, PageHeader, SearchField, Sheet, Skeleton, Switch, TextArea, TextInput, useToast } from "../ui";
 
 type RecordRow = { id: string; data_json: string; status: string; valid_from?: string | null; valid_until?: string | null; external_key?: string | null };
 type FieldDef = { key: string; label: string; type: string; required?: boolean; unique?: boolean; options?: string[] };
@@ -148,14 +129,14 @@ export function DataPage({
     <div className="page data-page">
       <PageHeader title="Data" subtitle="Prices, offers and stock. Edits reach customers right away." />
       {error && (
-        <Banner
+        <Alert
           tone="error"
           title={error.title}
           text={error.text}
           onClose={error.retry ? undefined : () => setError(null)}
           actions={
             error.retry ? (
-              <Button variant="gray" size="small" onClick={error.retry}>
+              <Button variant="outline" size="sm" onClick={error.retry}>
                 Try again
               </Button>
             ) : undefined
@@ -175,7 +156,7 @@ export function DataPage({
       ) : (
         <div className="split">
           <div className="master">
-            <Section title="Tables">
+            <Card title="Tables">
               {visibleCollections.map((collection) => (
                 <TableRow key={collection.id} collection={collection} selected={collection.id === selected?.id} onClick={() => onSelect(collection.id)} />
               ))}
@@ -194,8 +175,8 @@ export function DataPage({
                 </button>
               )}
               {showHidden && hiddenCollections.map((collection) => <TableRow key={collection.id} collection={collection} hidden selected={collection.id === selected?.id} onClick={() => onSelect(collection.id)} />)}
-            </Section>
-            <Button variant="plain" icon="plus" className="new-table" onClick={() => setCreating(true)}>
+            </Card>
+            <Button variant="ghost" icon="plus" className="new-table" onClick={() => setCreating(true)}>
               New table
             </Button>
           </div>
@@ -211,7 +192,7 @@ export function DataPage({
                   </p>
                 </div>
                 <SearchField className="detail-search" value={query} onChange={setQuery} placeholder="Search rows" />
-                <Button size="small" icon="plus" onClick={() => setEditing("new")}>
+                <Button size="sm" icon="plus" onClick={() => setEditing("new")}>
                   Add
                 </Button>
                 <Menu
@@ -235,7 +216,7 @@ export function DataPage({
                   <EmptyState icon="table" title="No rows yet" text="Add one row with Add, or many at once with Import CSV in the ••• menu." />
                 </div>
               ) : (
-                <Section footer="Rows that are off, have ended or haven't started are never used by the assistant.">
+                <Card footer="Rows that are off, have ended or haven't started are never used by the assistant.">
                   {visible.length === 0 ? (
                     <EmptyState icon="search" title={`No rows match “${query}”`} text="Try another word, or add a new row." />
                   ) : (
@@ -263,7 +244,7 @@ export function DataPage({
                       );
                     })
                   )}
-                </Section>
+                </Card>
               )}
             </div>
           )}
@@ -382,12 +363,12 @@ function RecordSheet({
         footer={
           <>
             {record && (
-              <Button variant="plain" destructive onClick={() => setConfirmDelete(true)}>
+              <Button variant="ghost" destructive onClick={() => setConfirmDelete(true)}>
                 Delete row
               </Button>
             )}
             <span className="spacer" />
-            <Button variant="gray" onClick={onClose}>
+            <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" form="record-form" busy={busy}>
@@ -397,29 +378,28 @@ function RecordSheet({
         }
       >
         <form id="record-form" className="sheet-form" onSubmit={submit}>
-          {error && <Banner tone="error" title="Couldn't save this row" text={`${error}. Your edit is kept here; customers still see the old row.`} />}
-          <Section title="Availability" footer="Leave Starts and Ends empty for a row that always applies.">
+          {error && <Alert tone="error" title="Couldn't save this row" text={`${error}. Your edit is kept here; customers still see the old row.`} />}
+          <Card title="Availability" footer="Leave Starts and Ends empty for a row that always applies.">
             <div className="field">
               <span className="field-label spacer">Active</span>
-              <Toggle label="Active" checked={active} onChange={setActive} />
+              <Switch label="Active" checked={active} onChange={setActive} />
             </div>
-            <FieldRow label="Starts">
+            <Field label="Starts">
               <TextInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label="Starts" />
-            </FieldRow>
-            <FieldRow label="Ends">
+            </Field>
+            <Field label="Ends">
               <TextInput type="date" value={until} onChange={(event) => setUntil(event.target.value)} aria-label="Ends" />
-            </FieldRow>
-          </Section>
-          <Section title="Details">
+            </Field>
+          </Card>
+          <Card title="Details">
             {fields.map((field) => {
               const value = data[field.key];
-              const stacked = field.type === "long_text" || field.type === "text" || field.type === "url" || field.type === "image_url";
               return (
-                <FieldRow key={field.key} label={field.label} stacked={stacked}>
+                <Field key={field.key} label={field.label}>
                   {field.type === "long_text" || field.type === "text" ? (
                     <TextArea rows={1} value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label} />
                   ) : field.type === "boolean" ? (
-                    <Toggle label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
+                    <Switch label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
                   ) : field.type === "enum" && field.options?.length ? (
                     <select className="select" value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label}>
                       <option value="">None</option>
@@ -438,14 +418,14 @@ function RecordSheet({
                       aria-label={field.label}
                     />
                   )}
-                </FieldRow>
+                </Field>
               );
             })}
-          </Section>
+          </Card>
         </form>
       </Sheet>
       {confirmDelete && record && (
-        <Alert
+        <Dialog
           title="Delete this row?"
           text="The assistant stops using it right away. This can't be undone."
           confirmLabel="Delete"
@@ -492,7 +472,7 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" form="rename-form" busy={busy}>
@@ -502,19 +482,19 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
       }
     >
       <form id="rename-form" className="sheet-form" onSubmit={submit}>
-        <Section>
-          <FieldRow label="Table name">
+        <Card>
+          <Field label="Table name">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
-          </FieldRow>
-        </Section>
-        <Section title="Column names" footer="Only the names you see change; data and CSV headers stay the same.">
+          </Field>
+        </Card>
+        <Card title="Column names" footer="Only the names you see change; data and CSV headers stay the same.">
           {fields.map((field) => (
-            <FieldRow key={field.key} label={field.label} hint={field.key}>
+            <Field key={field.key} label={field.label} hint={field.key}>
               <TextInput value={labels[field.key] ?? ""} onChange={(event) => setLabels({ ...labels, [field.key]: event.target.value })} required aria-label={`New name for ${field.label}`} />
-            </FieldRow>
+            </Field>
           ))}
-        </Section>
-        {error && <Banner tone="error" title="Couldn't rename" text={error} />}
+        </Card>
+        {error && <Alert tone="error" title="Couldn't rename" text={error} />}
       </form>
     </Sheet>
   );
@@ -574,7 +554,7 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" form="create-collection" busy={busy} disabled={!name || !fields.length}>
@@ -584,15 +564,15 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
       }
     >
       <form id="create-collection" className="sheet-form" onSubmit={submit}>
-        <Section>
-          <FieldRow label="Name">
+        <Card>
+          <Field label="Name">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Offers" required data-autofocus />
-          </FieldRow>
-        </Section>
-        <Section
+          </Field>
+        </Card>
+        <Card
           title="Columns"
           action={
-            <Button type="button" variant="plain" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Column ${current.length + 1}`, type: "text", required: false }])}>
+            <Button type="button" variant="ghost" icon="plus" onClick={() => setFields((current) => [...current, { key: `field_${current.length + 1}`, label: `Column ${current.length + 1}`, type: "text", required: false }])}>
               Add column
             </Button>
           }
@@ -608,11 +588,11 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
                   </option>
                 ))}
               </select>
-              <Toggle label={`Column ${index + 1} required`} checked={Boolean(field.required)} onChange={(required) => update(index, { required })} />
+              <Switch label={`Column ${index + 1} required`} checked={Boolean(field.required)} onChange={(required) => update(index, { required })} />
               <Button
                 type="button"
-                variant="plain"
-                size="small"
+                variant="ghost"
+                size="sm"
                 icon="xmark"
                 aria-label={`Remove column ${index + 1}`}
                 disabled={fields.length === 1}
@@ -620,8 +600,8 @@ function CreateCollectionSheet({ onClose, onDone }: { onClose: () => void; onDon
               />
             </div>
           ))}
-        </Section>
-        {error && <Banner tone="error" title="Couldn't create the table" text={error} />}
+        </Card>
+        {error && <Alert tone="error" title="Couldn't create the table" text={error} />}
       </form>
     </Sheet>
   );

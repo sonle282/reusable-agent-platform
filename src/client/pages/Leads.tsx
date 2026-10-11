@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api, del, patch } from "../api";
 import { formatPhone } from "../../shared/contact";
 import { displayName, formatDate } from "../format";
-import { Alert, Avatar, Banner, Button, EmptyState, PageHeader, Section, Segmented, Sheet, Skeleton, TextArea, errorMessage, useToast } from "../ui";
+import { Alert, Avatar, Button, Card, Dialog, EmptyState, errorMessage, PageHeader, Segmented, Sheet, Skeleton, TextArea, useToast } from "../ui";
 
 export type LeadStatus = "new" | "called" | "won" | "not_fit";
 type Lead = {
@@ -76,19 +76,19 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
         subtitle="People who left a phone number or email. Call the new ones first."
         actions={
           data && data.counts.all > 0 ? (
-            <Button variant="gray" icon="download" onClick={() => void exportCsv()}>
+            <Button variant="outline" icon="download" onClick={() => void exportCsv()}>
               Export
             </Button>
           ) : undefined
         }
       />
       {error && (
-        <Banner
+        <Alert
           tone="error"
           title="Leads didn't load"
           text="Your leads are safe. Check your connection and try again."
           actions={
-            <Button variant="gray" size="small" onClick={() => void load()}>
+            <Button variant="outline" size="sm" onClick={() => void load()}>
               Try again
             </Button>
           }
@@ -96,13 +96,13 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
       )}
       {!data && !error && <Skeleton rows={5} avatar />}
       {data && data.counts.all === 0 && (
-        <Section>
+        <Card>
           <EmptyState icon="person-plus" title="No leads yet" text="When a customer leaves a phone number or email, they show up here and in Needs attention on Home." />
-        </Section>
+        </Card>
       )}
       {data && data.counts.all > 0 && (
         <>
-          <Section>
+          <Card>
             <div className="metrics">
               <div className="metric">
                 <span className="metric-label">New · call these</span>
@@ -117,7 +117,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
                 <span className={`metric-value${data.wonThisMonth ? "" : " is-zero"}`}>{data.wonThisMonth}</span>
               </div>
             </div>
-          </Section>
+          </Card>
           <div className="chips" role="group" aria-label="Status">
             {filters.map((item) => (
               <button type="button" key={item.value} className="chip" aria-pressed={filter === item.value} onClick={() => setFilter(item.value)}>
@@ -125,7 +125,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
               </button>
             ))}
           </div>
-          <Section>
+          <Card>
             {rows.length === 0 ? (
               <p className="leads-none">No leads with this status.</p>
             ) : (
@@ -172,7 +172,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
                 </table>
               </div>
             )}
-          </Section>
+          </Card>
         </>
       )}
       {openId && (
@@ -227,7 +227,7 @@ function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string;
         footer={
           lead && (
             <>
-              <Button variant="plain" destructive onClick={() => setConfirmDelete(true)}>
+              <Button variant="ghost" destructive onClick={() => setConfirmDelete(true)}>
                 Delete lead
               </Button>
               <span className="spacer" />
@@ -236,23 +236,23 @@ function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string;
           )
         }
       >
-        {error && <Banner tone="error" title="Couldn't open the lead" text={error} />}
+        {error && <Alert tone="error" title="Couldn't open the lead" text={error} />}
         {!lead && !error && <Skeleton rows={4} card={false} />}
         {lead && (
           <>
             <div className="lead-actions">
               {lead.phone && (
-                <a className="btn btn-filled" href={`tel:${lead.phone}`}>
+                <a className="btn btn-primary" href={`tel:${lead.phone}`}>
                   Call {phone}
                 </a>
               )}
               {!lead.phone && lead.email && (
-                <a className="btn btn-filled" href={`mailto:${lead.email}`}>
+                <a className="btn btn-primary" href={`mailto:${lead.email}`}>
                   Email {lead.email}
                 </a>
               )}
               {lead.conversation_id && (
-                <Button variant="gray" onClick={() => onOpenConversation(lead.conversation_id!)}>
+                <Button variant="outline" onClick={() => onOpenConversation(lead.conversation_id!)}>
                   Open conversation
                 </Button>
               )}
@@ -314,7 +314,7 @@ function LeadSheet({ id, onClose, onOpenConversation, onChanged }: { id: string;
         )}
       </Sheet>
       {confirmDelete && (
-        <Alert
+        <Dialog
           title="Delete this lead?"
           text="They leave the Leads list. The conversation stays in Conversations."
           confirmLabel="Delete"

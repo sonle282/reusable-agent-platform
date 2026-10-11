@@ -8,32 +8,7 @@ import { readable, useFixAnswer } from "../FixSheet";
 import { BehaviorTab, FollowUpsTab } from "./AssistantBehavior";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
-import {
-  Alert,
-  Badge,
-  Banner,
-  Button,
-  DetailsCard,
-  Disclosure,
-  EmptyState,
-  FieldRow,
-  Icon,
-  MetaChip,
-  MiniList,
-  PageHeader,
-  Section,
-  Segmented,
-  Sheet,
-  Skeleton,
-  SkeletonLine,
-  Spinner,
-  StatusLine,
-  TextArea,
-  TextInput,
-  Toggle,
-  errorMessage,
-  useToast,
-} from "../ui";
+import { Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Segmented, Sheet, Skeleton, SkeletonLine, Spinner, StatusLine, Switch, TextArea, TextInput, useToast } from "../ui";
 
 export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "versions";
 type EditorTab = Exclude<AssistantTab, "test">;
@@ -179,12 +154,12 @@ export function AssistantPage({
     return error ? (
       <div className="page">
         <PageHeader title="Assistant" />
-        <Banner
+        <Alert
           tone="error"
           title="Couldn't open the assistant"
           text={`${error}. Customers are not affected.`}
           actions={
-            <Button variant="gray" size="small" onClick={() => void load().catch((caught) => setError(errorMessage(caught)))}>
+            <Button variant="outline" size="sm" onClick={() => void load().catch((caught) => setError(errorMessage(caught)))}>
               Try again
             </Button>
           }
@@ -232,23 +207,23 @@ export function AssistantPage({
       />
 
       {publishFailure && (
-        <Banner
+        <Alert
           tone="error"
           title={publishFailure.fromFix ? "An answer you fixed is wrong again" : "Not published — an answer needs fixing"}
           text={`“${publishFailure.input}”: ${publishFailure.problem}. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
           actions={
             <>
               {publishFailure.input && (
-                <Button variant="gray" size="small" onClick={() => startPublishFix({ origin: "test", customerMessage: publishFailure.input, badReply: readable(publishFailure.reply) })}>
+                <Button variant="outline" size="sm" onClick={() => startPublishFix({ origin: "test", customerMessage: publishFailure.input, badReply: readable(publishFailure.reply) })}>
                   Fix this answer
                 </Button>
               )}
               {live && !agent.draftMatchesLive && (
-                <Button variant="plain" size="small" destructive onClick={() => setDiscarding("ask")}>
+                <Button variant="ghost" size="sm" destructive onClick={() => setDiscarding("ask")}>
                   Discard unpublished changes
                 </Button>
               )}
-              <Button variant="plain" size="small" onClick={() => setPublishFailure(null)}>
+              <Button variant="ghost" size="sm" onClick={() => setPublishFailure(null)}>
                 Dismiss
               </Button>
             </>
@@ -256,7 +231,7 @@ export function AssistantPage({
         />
       )}
       {discarding && live && (
-        <Alert
+        <Dialog
           title="Discard unpublished changes?"
           text={`Instructions, knowledge choices and corrected answers go back to version ${live.version}, what customers see now. Data tables aren't changed.`}
           confirmLabel="Discard"
@@ -280,25 +255,25 @@ export function AssistantPage({
       )}
       {publishFixSheet}
       {saveFailed && (
-        <Banner
+        <Alert
           tone="warning"
           title="Your last change isn't saved yet"
           text="We'll keep trying. Your edits stay on this page until the connection is back."
           actions={
-            <Button variant="gray" size="small" onClick={() => void save()}>
+            <Button variant="outline" size="sm" onClick={() => void save()}>
               Try again
             </Button>
           }
         />
       )}
-      {error && <Banner tone="error" title="Couldn't publish" text={`${error}. Customers still see the current version.`} onClose={() => setError("")} />}
+      {error && <Alert tone="error" title="Couldn't publish" text={`${error}. Customers still see the current version.`} onClose={() => setError("")} />}
       {missing.length > 0 && (
-        <Banner
+        <Alert
           tone="warning"
           title={missing.length === 1 ? missing[0].text : "A few things before customers can use it"}
           text={missing.length > 1 ? missing.map((item) => item.text).join(" ") : undefined}
           actions={missing.map((item) => (
-            <Button key={item.action} variant="gray" size="small" onClick={item.go}>
+            <Button key={item.action} variant="outline" size="sm" onClick={item.go}>
               {item.action}
             </Button>
           ))}
@@ -405,43 +380,43 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
   const setPolicy = (value: Partial<AgentDraft["responsePolicy"]>) => mutate((current) => ({ ...current, responsePolicy: { ...current.responsePolicy, ...value } }));
   return (
     <>
-      <Section title="Assistant" footer="Only you see this. Customers see the business name.">
-        <FieldRow label="Name">
+      <Card title="Assistant" footer="Only you see this. Customers see the business name.">
+        <Field label="Name">
           <TextInput value={agent.name} onChange={(event) => rename("name", event.target.value)} />
-        </FieldRow>
-        <FieldRow label="Description" stacked>
+        </Field>
+        <Field label="Description">
           <TextArea rows={1} value={agent.description} onChange={(event) => rename("description", event.target.value)} placeholder="What this assistant is for" />
-        </FieldRow>
-      </Section>
+        </Field>
+      </Card>
 
-      <Section title="Your business" footer="Facts that rarely change. Prices, offers and stock belong in Data so they stay current.">
-        <FieldRow label="Business name">
+      <Card title="Your business" footer="Facts that rarely change. Prices, offers and stock belong in Data so they stay current.">
+        <Field label="Business name">
           <TextInput value={profile.businessName} onChange={(event) => setProfile({ businessName: event.target.value })} placeholder="Acme Furniture" />
-        </FieldRow>
-        <FieldRow label="What you offer" stacked>
+        </Field>
+        <Field label="What you offer">
           <TextArea rows={2} value={profile.offering} onChange={(event) => setProfile({ offering: event.target.value })} placeholder="Products or services you sell, and who they are for" />
-        </FieldRow>
-        <FieldRow label="Contact and hours" stacked>
+        </Field>
+        <Field label="Contact and hours">
           <TextArea rows={2} value={profile.contactInfo} onChange={(event) => setProfile({ contactInfo: event.target.value })} placeholder="Phone, email, address, opening hours" />
-        </FieldRow>
-        <FieldRow label="Website">
+        </Field>
+        <Field label="Website">
           <TextInput type="url" value={profile.website} onChange={(event) => setProfile({ website: event.target.value })} placeholder="https://" />
-        </FieldRow>
-      </Section>
+        </Field>
+      </Card>
 
-      <Section title="Your assistant's job" footer="What it should do for customers, and what a good conversation ends with.">
+      <Card title="Your assistant's job" footer="What it should do for customers, and what a good conversation ends with.">
         <label className="field stacked">
           <span className="sr-only">Your assistant's job</span>
           <TextArea rows={2} value={profile.job} onChange={(event) => setProfile({ job: event.target.value })} placeholder="Answer questions, recommend the right product and collect contact details when the customer is ready to buy." />
         </label>
-      </Section>
+      </Card>
 
-      <Section title="Voice and style" footer="It always replies in the customer's language.">
+      <Card title="Voice and style" footer="It always replies in the customer's language.">
         <label className="field stacked">
           <span className="sr-only">Voice and style</span>
           <TextArea rows={2} value={profile.voice} onChange={(event) => setProfile({ voice: event.target.value })} placeholder="Warm and polite, short messages, one question at a time." />
         </label>
-      </Section>
+      </Card>
 
       <RuleSection title="Always" footer="One rule per line." addLabel="Add a rule" placeholder="Check Data before stating a price or offer" value={profile.alwaysDo} onChange={(alwaysDo) => setProfile({ alwaysDo })} />
       <RuleSection title="Never" footer="One rule per line." addLabel="Add a rule" placeholder="Invent prices, discounts or delivery dates" value={profile.neverDo} onChange={(neverDo) => setProfile({ neverDo })} />
@@ -461,19 +436,19 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
         value={profile.collectDetails}
         onChange={(collectDetails) => setProfile({ collectDetails })}
       />
-      <Section footer="Said once, before the first time the assistant asks for contact details. Saved with each contact as proof of what they were told.">
-        <FieldRow label="Privacy notice" stacked>
+      <Card footer="Said once, before the first time the assistant asks for contact details. Saved with each contact as proof of what they were told.">
+        <Field label="Privacy notice">
           <TextArea rows={2} value={profile.consentNotice} onChange={(event) => setProfile({ consentNotice: event.target.value })} placeholder="We only use your phone number to send your quote and follow up on this request." />
-        </FieldRow>
-      </Section>
+        </Field>
+      </Card>
 
-      <Section title="When something goes wrong" footer="Sent only if the AI is unavailable or takes too long.">
-        <FieldRow label="Fallback reply" stacked>
+      <Card title="When something goes wrong" footer="Sent only if the AI is unavailable or takes too long.">
+        <Field label="Fallback reply">
           <TextArea rows={1} value={draft.responsePolicy.fallbackMessage} onChange={(event) => setPolicy({ fallbackMessage: event.target.value })} />
-        </FieldRow>
-      </Section>
+        </Field>
+      </Card>
 
-      <Section footer="The playbook is for long, detailed guidance. When it disagrees with the sections above, the sections above win.">
+      <Card footer="The playbook is for long, detailed guidance. When it disagrees with the sections above, the sections above win.">
         <Disclosure
           title={
             <>
@@ -494,7 +469,7 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
             </>
           }
         >
-          <FieldRow label="Model">
+          <Field label="Model">
             <select className="select" value={draft.modelConfig.model} onChange={(event) => setModel({ model: event.target.value as AnthropicModel })}>
               {modelOptions.map((option) => (
                 <option value={option.value} key={option.value}>
@@ -502,20 +477,20 @@ function InstructionsTab({ agent, mutate, rename }: { agent: AgentDetail; mutate
                 </option>
               ))}
             </select>
-          </FieldRow>
+          </Field>
           {sampling && (
-            <FieldRow label="Temperature">
+            <Field label="Temperature">
               <TextInput className="tabular" type="number" min={0} max={1} step={0.1} value={draft.modelConfig.temperature} onChange={(event) => setModel({ temperature: Number(event.target.value) })} />
-            </FieldRow>
+            </Field>
           )}
-          <FieldRow label="Max tokens">
+          <Field label="Max tokens">
             <TextInput className="tabular" type="number" min={128} max={8192} step={128} value={draft.modelConfig.maxTokens} onChange={(event) => setModel({ maxTokens: Number(event.target.value) })} />
-          </FieldRow>
-          <FieldRow label="Max reply length" hint="Characters">
+          </Field>
+          <Field label="Max reply length" hint="Characters">
             <TextInput className="tabular" type="number" min={100} max={8000} value={draft.responsePolicy.maxLength} onChange={(event) => setPolicy({ maxLength: Number(event.target.value) })} />
-          </FieldRow>
+          </Field>
         </Disclosure>
-      </Section>
+      </Card>
     </>
   );
 }
@@ -550,7 +525,7 @@ function RuleSection({
   };
   const remove = (index: number) => onChange(rules.filter((_, i) => i !== index));
   return (
-    <Section title={title} footer={footer}>
+    <Card title={title} footer={footer}>
       {rules.map((rule, index) => (
         <label className="field rule-field" key={index}>
           <span className="dot dot-gray rule-dot" aria-hidden="true" />
@@ -586,7 +561,7 @@ function RuleSection({
           <span className="row-title">{addLabel}</span>
         </span>
       </button>
-    </Section>
+    </Card>
   );
 }
 
@@ -622,11 +597,11 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
 
   return (
     <>
-      <Section
+      <Card
         title="Knowledge"
         action={
           agent.sources.length > 0 || corrected.length > 0 ? (
-            <Button variant="plain" icon="plus" onClick={() => setAdding(true)}>
+            <Button variant="ghost" icon="plus" onClick={() => setAdding(true)}>
               Add
             </Button>
           ) : undefined
@@ -653,7 +628,7 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
             title="No knowledge yet"
             text="Add your policies, buying guides or a web page. The assistant reads them before it answers."
             action={
-              <Button variant="tinted" onClick={() => setAdding(true)}>
+              <Button variant="soft" onClick={() => setAdding(true)}>
                 Add knowledge
               </Button>
             }
@@ -676,8 +651,8 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
                   </button>
                   {failed && (
                     <Button
-                      variant="gray"
-                      size="small"
+                      variant="outline"
+                      size="sm"
                       onClick={async () => {
                         await post(`/api/admin/knowledge/${source.id}/retry`);
                         toast("Reading the source again");
@@ -687,15 +662,15 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
                       Retry
                     </Button>
                   )}
-                  <Toggle label={`Use ${source.name}`} checked={agent.draft.knowledgeSourceIds.includes(source.id)} onChange={(on) => toggleSource(source.id, on)} />
+                  <Switch label={`Use ${source.name}`} checked={agent.draft.knowledgeSourceIds.includes(source.id)} onChange={(on) => toggleSource(source.id, on)} />
                 </div>
               </div>
             );
           })
         )}
-      </Section>
+      </Card>
 
-      <Section title="Data it can look up" footer="It always checks these before talking about prices, offers or stock. Ended or switched-off rows are never used.">
+      <Card title="Data it can look up" footer="It always checks these before talking about prices, offers or stock. Ended or switched-off rows are never used.">
         {collections.length === 0 ? (
           <div className="row">
             <div className="row-body">
@@ -715,14 +690,14 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
                   <span className="row-title">{collection.name}</span>
                   {collection.description && <span className="row-subtitle truncate">{collection.description}</span>}
                 </span>
-                <Toggle label={`Use ${collection.name}`} checked={agent.draft.collectionBindings.some((item) => item.collectionId === collection.id)} onChange={(on) => bindCollection(collection, on)} />
+                <Switch label={`Use ${collection.name}`} checked={agent.draft.collectionBindings.some((item) => item.collectionId === collection.id)} onChange={(on) => bindCollection(collection, on)} />
               </div>
             </div>
           ))
         )}
-      </Section>
+      </Card>
 
-      <Section footer="Read-only checks against your own systems, such as live stock. The assistant can never change anything outside.">
+      <Card footer="Read-only checks against your own systems, such as live stock. The assistant can never change anything outside.">
         <Disclosure
           title={
             <>
@@ -741,7 +716,7 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
                   <span className="row-title">{tool.name}</span>
                   <span className="row-subtitle truncate">{tool.description}</span>
                 </span>
-                <Toggle label={`Use ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />
+                <Switch label={`Use ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />
               </div>
             </div>
           ))}
@@ -752,14 +727,14 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
             </span>
           </button>
         </Disclosure>
-      </Section>
+      </Card>
 
       {showCorrected && (
         <Sheet title="Corrected answers" subtitle="Part of the draft · publish to send changes to customers" onClose={() => setShowCorrected(false)} footer={<Button onClick={() => setShowCorrected(false)}>Done</Button>}>
           {corrected.length === 0 ? (
             <EmptyState icon="check-bubble" title="No corrected answers" text="Answers you fix with Fix this answer show up here." />
           ) : (
-            <Section footer="Removing one also removes it from the draft; its test scenario stays until you delete it.">
+            <Card footer="Removing one also removes it from the draft; its test scenario stays until you delete it.">
               {corrected.map((item, index) => (
                 <div className="row top" key={item.fixId ?? index}>
                   <div className="row-body">
@@ -768,8 +743,8 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
                       <span className="row-subtitle">{item.answer}</span>
                     </span>
                     <Button
-                      variant="plain"
-                      size="small"
+                      variant="ghost"
+                      size="sm"
                       destructive
                       onClick={() => mutate((current) => ({ ...current, correctedAnswers: (current.correctedAnswers ?? []).filter((_, i) => i !== index) }))}
                     >
@@ -778,7 +753,7 @@ function SourcesTab({ agent, collections, mutate, reload }: { agent: AgentDetail
                   </div>
                 </div>
               ))}
-            </Section>
+            </Card>
           )}
         </Sheet>
       )}
@@ -845,7 +820,7 @@ function AddKnowledgeSheet({ agentId, onClose, onDone }: { agentId: string; onCl
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" form="add-knowledge" busy={busy} disabled={!name || !content}>
@@ -856,21 +831,21 @@ function AddKnowledgeSheet({ agentId, onClose, onDone }: { agentId: string; onCl
     >
       <form id="add-knowledge" onSubmit={submit} className="sheet-form">
         <Segmented label="Source type" value={kind} onChange={setKind} options={[{ value: "text", label: "Text" }, { value: "url", label: "Web page" }]} />
-        <Section footer={kind === "url" ? "One HTTPS page; linked pages are not followed." : "Paste text or Markdown. Changes go into the draft; publish to make them live."}>
-          <FieldRow label="Title">
+        <Card footer={kind === "url" ? "One HTTPS page; linked pages are not followed." : "Paste text or Markdown. Changes go into the draft; publish to make them live."}>
+          <Field label="Title">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Warranty policy" required data-autofocus />
-          </FieldRow>
+          </Field>
           {kind === "url" ? (
-            <FieldRow label="Address">
+            <Field label="Address">
               <TextInput type="url" value={content} onChange={(event) => setContent(event.target.value)} placeholder="https://" required />
-            </FieldRow>
+            </Field>
           ) : (
-            <FieldRow label="Content" stacked>
+            <Field label="Content">
               <TextArea rows={6} value={content} onChange={(event) => setContent(event.target.value)} placeholder="Paste text or Markdown" required />
-            </FieldRow>
+            </Field>
           )}
-        </Section>
-        {error && <Banner tone="error" title="Couldn't add it" text={error} />}
+        </Card>
+        {error && <Alert tone="error" title="Couldn't add it" text={error} />}
       </form>
     </Sheet>
   );
@@ -904,7 +879,7 @@ function AddToolSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" form="add-tool" busy={busy} disabled={!tool.name || !tool.description || (tool.kind === "http_get" && !tool.urlTemplate)}>
@@ -915,27 +890,27 @@ function AddToolSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
     >
       <form id="add-tool" className="sheet-form" onSubmit={submit}>
         <Segmented label="Lookup type" value={tool.kind} onChange={(kind) => setTool({ ...tool, kind })} options={[{ value: "http_get", label: "Web address" }, { value: "plugin", label: "Built-in" }]} />
-        <Section footer={tool.kind === "http_get" ? "Use {query} in the address for the search words. Public HTTPS only." : undefined}>
-          <FieldRow label="Name">
+        <Card footer={tool.kind === "http_get" ? "Use {query} in the address for the search words. Public HTTPS only." : undefined}>
+          <Field label="Name">
             <TextInput value={tool.name} placeholder="check_stock" onChange={(event) => setTool({ ...tool, name: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })} required />
-          </FieldRow>
-          <FieldRow label="When to use it" stacked>
+          </Field>
+          <Field label="When to use it">
             <TextArea rows={1} value={tool.description} onChange={(event) => setTool({ ...tool, description: event.target.value })} required />
-          </FieldRow>
+          </Field>
           {tool.kind === "http_get" ? (
-            <FieldRow label="Address" stacked>
+            <Field label="Address">
               <TextInput type="url" value={tool.urlTemplate} placeholder="https://api.example.com/search?q={query}" onChange={(event) => setTool({ ...tool, urlTemplate: event.target.value })} required />
-            </FieldRow>
+            </Field>
           ) : (
-            <FieldRow label="Lookup">
+            <Field label="Lookup">
               <select className="select" value={tool.pluginId} onChange={(event) => setTool({ ...tool, pluginId: event.target.value })}>
                 <option value="normalize_contact">Tidy contact details</option>
                 <option value="active_at">Check a date range</option>
               </select>
-            </FieldRow>
+            </Field>
           )}
-        </Section>
-        {error && <Banner tone="error" title="Couldn't add it" text={error} />}
+        </Card>
+        {error && <Alert tone="error" title="Couldn't add it" text={error} />}
       </form>
     </Sheet>
   );
@@ -949,7 +924,7 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
   const [busy, setBusy] = useState(false);
   return (
     <>
-      <Section title="Versions" footer="Each version is a frozen copy. Chats in progress keep the version they started with; restoring affects new chats only.">
+      <Card title="Versions" footer="Each version is a frozen copy. Chats in progress keep the version they started with; restoring affects new chats only.">
         {agent.versions.length === 0 ? (
           <EmptyState icon="clock" title="No versions yet" text="Publish the draft to make it live. Every publish is saved here so you can go back." />
         ) : (
@@ -983,7 +958,7 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
                     {live ? (
                       <Badge tone="green">Live</Badge>
                     ) : (
-                      <Button variant="gray" size="small" onClick={() => setConfirm(version)}>
+                      <Button variant="outline" size="sm" onClick={() => setConfirm(version)}>
                         Restore
                       </Button>
                     )}
@@ -993,9 +968,9 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
             })}
           </>
         )}
-      </Section>
+      </Card>
       {confirm && (
-        <Alert
+        <Dialog
           title={`Restore version ${confirm.version}?`}
           text={`New chats will use version ${confirm.version} right away. Chats already in progress keep their version, and your draft doesn't change.`}
           confirmLabel="Restore"
@@ -1146,8 +1121,8 @@ function PreviewPane({
           <div className="pane-sub">The draft · customers never see this</div>
         </div>
         <Button
-          variant="gray"
-          size="small"
+          variant="outline"
+          size="sm"
           icon="refresh"
           onClick={() => {
             setTurns([]);
@@ -1169,7 +1144,7 @@ function PreviewPane({
             <p className="empty-text">Tap a reply to see what it read and looked up.</p>
             <div className="starters">
               {starters.map((starter) => (
-                <button type="button" key={starter} className="btn btn-gray starter" onClick={() => void ask(starter)}>
+                <button type="button" key={starter} className="btn btn-outline starter" onClick={() => void ask(starter)}>
                   {starter}
                 </button>
               ))}
@@ -1231,7 +1206,7 @@ function PreviewPane({
         )}
         {error && (
           <div className="pane-banner">
-            <Banner tone="error" title="No reply" text={`${error}. Nothing was sent to customers.`} onClose={() => setError("")} />
+            <Alert tone="error" title="No reply" text={`${error}. Nothing was sent to customers.`} onClose={() => setError("")} />
           </div>
         )}
       </div>
@@ -1337,7 +1312,7 @@ function ReplyDetails({
             />
           ))}
           {trace.error && <p className="details-sub text-red">{trace.error}</p>}
-          <Button variant="tinted" icon="wrench" block onClick={onFix}>
+          <Button variant="soft" icon="wrench" block onClick={onFix}>
             Fix this answer
           </Button>
         </DetailsCard>
@@ -1428,7 +1403,7 @@ function ScenarioBar({
           {summary}
         </button>
         {cases.length > 0 && (
-          <Button variant="plain" size="small" busy={busy} onClick={() => void evaluate()}>
+          <Button variant="ghost" size="sm" busy={busy} onClick={() => void evaluate()}>
             Run all
           </Button>
         )}
@@ -1459,7 +1434,7 @@ function ScenarioBar({
               </button>
             );
           })}
-          <Button variant="plain" size="small" icon="plus" className="scen-add" onClick={() => setEditing("new")}>
+          <Button variant="ghost" size="sm" icon="plus" className="scen-add" onClick={() => setEditing("new")}>
             Add scenario
           </Button>
         </div>
@@ -1551,18 +1526,18 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
         footer={
           <>
             {existing && fix?.undoable ? (
-              <Button variant="plain" destructive onClick={() => setUndo({ reason: "", busy: false })}>
+              <Button variant="ghost" destructive onClick={() => setUndo({ reason: "", busy: false })}>
                 Undo fix
               </Button>
             ) : (
               existing && (
-                <Button variant="plain" destructive onClick={() => setConfirmDelete(true)}>
+                <Button variant="ghost" destructive onClick={() => setConfirmDelete(true)}>
                   Delete
                 </Button>
               )
             )}
             <span className="spacer" />
-            <Button variant="gray" onClick={onClose}>
+            <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" form="scenario" busy={busy} disabled={!form.name || !form.input}>
@@ -1572,43 +1547,43 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
         }
       >
         <form id="scenario" className="sheet-form" onSubmit={submit}>
-          <Section>
-            <FieldRow label="Name">
+          <Card>
+            <Field label="Name">
               <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Never invent a price" required data-autofocus={existing ? undefined : true} />
-            </FieldRow>
-            <FieldRow label="Customer message" stacked>
+            </Field>
+            <Field label="Customer message">
               <TextArea rows={1} value={form.input} onChange={(event) => setForm({ ...form, input: event.target.value })} required />
-            </FieldRow>
-            <FieldRow label="Required to publish">
-              <Toggle label="Required to publish" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
-            </FieldRow>
-          </Section>
-          <Section title="Passes when" footer="Write it the way you'd tell a new hire. The AI checks each reply against it, so wording can differ.">
-            <FieldRow label="Passes when" stacked>
+            </Field>
+            <Field label="Required to publish">
+              <Switch label="Required to publish" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
+            </Field>
+          </Card>
+          <Card title="Passes when" footer="Write it the way you'd tell a new hire. The AI checks each reply against it, so wording can differ.">
+            <Field label="Passes when">
               <TextArea rows={2} value={form.criteria} onChange={(event) => setForm({ ...form, criteria: event.target.value })} placeholder="Says returns cost 20% and asks for the order number" />
-            </FieldRow>
-          </Section>
-          <Section footer="Exact checks. Separate several phrases with commas.">
+            </Field>
+          </Card>
+          <Card footer="Exact checks. Separate several phrases with commas.">
             <Disclosure title={<>Exact words and lookups <span className="muted">(advanced)</span></>} defaultOpen={Boolean(form.mustInclude || form.mustNotInclude || form.expectedTool || form.maxLength) && !form.criteria}>
-              <FieldRow label="Says">
+              <Field label="Says">
                 <TextInput value={form.mustInclude} onChange={(event) => setForm({ ...form, mustInclude: event.target.value })} />
-              </FieldRow>
-              <FieldRow label="Never says">
+              </Field>
+              <Field label="Never says">
                 <TextInput value={form.mustNotInclude} onChange={(event) => setForm({ ...form, mustNotInclude: event.target.value })} />
-              </FieldRow>
-              <FieldRow label="Checks Data" hint="Lookup name">
+              </Field>
+              <Field label="Checks Data" hint="Lookup name">
                 <TextInput value={form.expectedTool} placeholder="search_products" onChange={(event) => setForm({ ...form, expectedTool: event.target.value })} />
-              </FieldRow>
-              <FieldRow label="Max length" hint="Characters">
+              </Field>
+              <Field label="Max length" hint="Characters">
                 <TextInput className="tabular" type="number" min={1} value={form.maxLength} onChange={(event) => setForm({ ...form, maxLength: event.target.value })} />
-              </FieldRow>
+              </Field>
             </Disclosure>
-          </Section>
-          {error && <Banner tone="error" title="Couldn't save it" text={error} />}
+          </Card>
+          {error && <Alert tone="error" title="Couldn't save it" text={error} />}
         </form>
       </Sheet>
       {undo && (
-        <Alert
+        <Dialog
           title="Undo this fix?"
           text={
             <>
@@ -1624,7 +1599,7 @@ function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string
         />
       )}
       {confirmDelete && existing && (
-        <Alert
+        <Dialog
           title="Delete this scenario?"
           text="Publish will no longer check it."
           confirmLabel="Delete"
@@ -1681,7 +1656,7 @@ function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSour
         <>
           {isUrl && (
             <Button
-              variant="plain"
+              variant="ghost"
               onClick={async () => {
                 await post(`/api/admin/knowledge/${source.id}/retry`);
                 onDone("Reading the page again");
@@ -1691,7 +1666,7 @@ function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSour
             </Button>
           )}
           <span className="spacer" />
-          <Button variant="gray" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" form="edit-knowledge" busy={busy} disabled={!name.trim() || text === null}>
@@ -1701,12 +1676,12 @@ function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSour
       }
     >
       <form id="edit-knowledge" className="sheet-form" onSubmit={save}>
-        <Section footer={isUrl ? "Web pages update when the page is read again." : "Saving new text re-reads this source; replies use it after a minute."}>
-          <FieldRow label="Title">
+        <Card footer={isUrl ? "Web pages update when the page is read again." : "Saving new text re-reads this source; replies use it after a minute."}>
+          <Field label="Title">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} required />
-          </FieldRow>
+          </Field>
           {!isUrl && (
-            <FieldRow label="Content" stacked>
+            <Field label="Content">
               {text === null ? (
                 <span className="sheet-loading">
                   <SkeletonLine width="90%" />
@@ -1716,10 +1691,10 @@ function EditKnowledgeSheet({ source, onClose, onDone }: { source: KnowledgeSour
               ) : (
                 <TextArea rows={6} value={text} onChange={(event) => setText(event.target.value)} />
               )}
-            </FieldRow>
+            </Field>
           )}
-        </Section>
-        {error && <Banner tone="error" title="Couldn't save it" text={error} />}
+        </Card>
+        {error && <Alert tone="error" title="Couldn't save it" text={error} />}
       </form>
     </Sheet>
   );

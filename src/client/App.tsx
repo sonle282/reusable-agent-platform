@@ -10,7 +10,7 @@ import { LeadsPage } from "./pages/Leads";
 import { SettingsPage } from "./pages/Settings";
 import { useTheme, type ThemeChoice } from "./theme";
 import type { Bootstrap, Brand } from "./types";
-import { Banner, Button, FieldRow, Icon, Section, Segmented, Spinner, TextInput, ToastProvider, errorMessage } from "./ui";
+import { Alert, Button, Card, errorMessage, Field, Icon, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
 
 type Page = "home" | "leads" | "assistant" | "data" | "conversations" | "connections" | "settings";
 
@@ -182,17 +182,17 @@ function CreateAssistant({ brand, onDone }: { brand: Brand; onDone: () => Promis
             { value: "blank", label: "Blank" },
           ]}
         />
-        <Section>
-          <FieldRow label="Business name">
+        <Card>
+          <Field label="Business name">
             <TextInput value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} required />
-          </FieldRow>
-          <FieldRow label="What do you offer?" stacked>
+          </Field>
+          <Field label="What do you offer?">
             <TextInput value={form.offering} onChange={(event) => setForm({ ...form, offering: event.target.value })} placeholder="e.g. Handmade furniture for homes and offices" />
-          </FieldRow>
-        </Section>
-        {error && <Banner>{error}</Banner>}
+          </Field>
+        </Card>
+        {error && <Alert>{error}</Alert>}
         <div className="auth-actions">
-          <Button size="large" busy={busy} disabled={!form.businessName.trim()}>
+          <Button size="lg" busy={busy} disabled={!form.businessName.trim()}>
             Create assistant
           </Button>
         </div>

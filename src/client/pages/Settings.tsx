@@ -3,7 +3,7 @@ import { patch, post } from "../api";
 import { formatDate } from "../format";
 import type { ThemeChoice } from "../theme";
 import type { Brand } from "../types";
-import { Banner, Button, Disclosure, FieldRow, Icon, PageHeader, Section, Segmented, TextInput, errorMessage, useToast } from "../ui";
+import { Alert, Button, Card, Disclosure, errorMessage, Field, Icon, PageHeader, Segmented, TextInput, useToast } from "../ui";
 import { AnswerChecks, modelLabel } from "./Assistant";
 
 type Check = { state: "idle" | "checking" | "ok" | "failed"; detail?: string };
@@ -85,21 +85,21 @@ export function SettingsPage({
       <PageHeader title="Settings" />
       <div className="form-col">
         {check.state === "failed" && (
-          <Banner
+          <Alert
             tone="error"
             title="The AI isn't accepting your key"
             text={`Customers get the fallback reply until this is fixed. ${check.detail ?? ""}`.trim()}
             actions={
-              <Button variant="gray" size="small" onClick={() => setKeyOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setKeyOpen(true)}>
                 Replace key
               </Button>
             }
           />
         )}
-        {!hasKey && <Banner tone="info" title="Add your AI key to start" text="Your assistant needs it to answer customers. It takes a minute." />}
-        {error && <Banner tone="error" title={error.title} text={error.text} onClose={() => setError(null)} />}
+        {!hasKey && <Alert tone="info" title="Add your AI key to start" text="Your assistant needs it to answer customers. It takes a minute." />}
+        {error && <Alert tone="error" title={error.title} text={error.text} onClose={() => setError(null)} />}
 
-        <Section title="AI" footer="Your key is encrypted and never shown again. A new key is used by customers after your next publish.">
+        <Card title="AI" footer="Your key is encrypted and never shown again. A new key is used by customers after your next publish.">
           {hasKey && (
             <div className="row">
               <span className="tile tile-indigo" aria-hidden="true">
@@ -118,7 +118,7 @@ export function SettingsPage({
                     Not working
                   </span>
                 ) : null}
-                <Button variant="gray" size="small" busy={check.state === "checking"} onClick={() => void testConnection()}>
+                <Button variant="outline" size="sm" busy={check.state === "checking"} onClick={() => void testConnection()}>
                   {check.state === "idle" ? "Check" : "Check again"}
                 </Button>
               </div>
@@ -134,7 +134,7 @@ export function SettingsPage({
                 <span className="row-subtitle">{hasKey ? ["Saved", keyHint && `ends in ${keyHint}`, savedAt && formatDate(savedAt)].filter(Boolean).join(" · ") : "Not added yet"}</span>
               </span>
               {!keyOpen && (
-                <Button variant="gray" size="small" onClick={() => setKeyOpen(true)}>
+                <Button variant="outline" size="sm" onClick={() => setKeyOpen(true)}>
                   {hasKey ? "Replace" : "Add key"}
                 </Button>
               )}
@@ -156,8 +156,8 @@ export function SettingsPage({
               <div className="key-actions">
                 <Button
                   type="button"
-                  variant="gray"
-                  size="small"
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setKeyOpen(false);
                     setApiKey("");
@@ -166,7 +166,7 @@ export function SettingsPage({
                   Cancel
                 </Button>
                 {apiKey.length >= 10 && !idsMissing && (
-                  <Button type="submit" size="small" busy={busy === "key"}>
+                  <Button type="submit" size="sm" busy={busy === "key"}>
                     Test and save
                   </Button>
                 )}
@@ -174,19 +174,19 @@ export function SettingsPage({
             </form>
           )}
           <Disclosure title="Advanced" defaultOpen={idsMissing}>
-            <FieldRow label="Cloudflare account ID">
+            <Field label="Cloudflare account ID">
               <TextInput className="mono-value" value={ids.accountId} onChange={(event) => setIds({ ...ids, accountId: event.target.value })} />
-            </FieldRow>
-            <FieldRow label="AI Gateway ID">
+            </Field>
+            <Field label="AI Gateway ID">
               <TextInput className="mono-value" value={ids.gatewayId} onChange={(event) => setIds({ ...ids, gatewayId: event.target.value })} />
-            </FieldRow>
+            </Field>
           </Disclosure>
-        </Section>
+        </Card>
 
-        <Section title="Brand" footer="Customers see your brand on the sign-in screen and in the chat. This admin keeps system colors so status stays readable.">
-          <FieldRow label="Name">
+        <Card title="Brand" footer="Customers see your brand on the sign-in screen and in the chat. This admin keeps system colors so status stays readable.">
+          <Field label="Name">
             <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-          </FieldRow>
+          </Field>
           <div className="field">
             <span className="field-label">Logo</span>
             <span className="brand-tile" role="img" aria-label="Current logo">
@@ -202,22 +202,22 @@ export function SettingsPage({
               <input type="color" value={form.primaryColor} onChange={(event) => setForm({ ...form, primaryColor: event.target.value })} />
             </label>
           </div>
-          <FieldRow label="Help page" hint="Optional">
+          <Field label="Help page" hint="Optional">
             <TextInput type="url" value={form.supportUrl} onChange={(event) => setForm({ ...form, supportUrl: event.target.value })} placeholder="https://" />
-          </FieldRow>
+          </Field>
           {brandChanged && (
             <div className="row row-actions">
-              <Button variant="gray" size="small" onClick={() => setForm(brand)}>
+              <Button variant="outline" size="sm" onClick={() => setForm(brand)}>
                 Cancel
               </Button>
-              <Button size="small" busy={busy === "brand"} onClick={() => void saveBrand()}>
+              <Button size="sm" busy={busy === "brand"} onClick={() => void saveBrand()}>
                 Save
               </Button>
             </div>
           )}
-        </Section>
+        </Card>
 
-        <Section title="Appearance" footer="System follows your device's light or dark setting.">
+        <Card title="Appearance" footer="System follows your device's light or dark setting.">
           <div className="field">
             <span className="field-label spacer">Theme</span>
             <Segmented<ThemeChoice>
@@ -231,13 +231,13 @@ export function SettingsPage({
               ]}
             />
           </div>
-        </Section>
+        </Card>
 
-        <Section title="Answer checks" footer="Publish already checks the required answers for you. Run every check here after a big change.">
+        <Card title="Answer checks" footer="Publish already checks the required answers for you. Run every check here after a big change.">
           <AnswerChecks agentId={agentId} />
-        </Section>
+        </Card>
 
-        <Section title="Backup">
+        <Card title="Backup">
           <div className="row">
             <span className="tile tile-gray" aria-hidden="true">
               <Icon name="archive" size={18} />
@@ -247,13 +247,13 @@ export function SettingsPage({
                 <span className="row-title">Download a backup</span>
                 <span className="row-subtitle">Instructions, knowledge, data and versions in one file. Never includes keys or passwords.</span>
               </span>
-              <a className="btn btn-gray btn-sm" href="/api/admin/export" download>
+              <a className="btn btn-outline btn-sm" href="/api/admin/export" download>
                 <Icon name="download" size={15} />
                 <span>Download</span>
               </a>
             </div>
           </div>
-        </Section>
+        </Card>
 
         <section className="section" aria-label="Account">
           <div className="section-card">

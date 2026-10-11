@@ -3,7 +3,7 @@ import { post } from "./api";
 import { maskContact } from "../shared/mask";
 import { publishWithChecks } from "./publish";
 import { parseRichMessage } from "./RichMessage";
-import { Alert, Badge, Banner, Button, Diff, Icon, Section, Segmented, Sheet, Spinner, Steps, TextArea, errorMessage, useToast } from "./ui";
+import { Alert, Badge, Button, Card, Dialog, Diff, errorMessage, Icon, Segmented, Sheet, Spinner, Steps, TextArea, useToast } from "./ui";
 
 type Kind = "data" | "knowledge" | "rule";
 type RuleSection = "alwaysDo" | "neverDo" | "handoffWhen";
@@ -151,7 +151,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
   const footer: ReactNode =
     step === 1 ? (
       <>
-        <Button variant="gray" onClick={onClose}>
+        <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
         <span className="spacer" />
@@ -161,7 +161,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
       </>
     ) : step === 2 ? (
       <>
-        <Button variant="gray" onClick={() => setStep(1)}>
+        <Button variant="outline" onClick={() => setStep(1)}>
           Back
         </Button>
         <span className="spacer" />
@@ -181,7 +181,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
       </>
     ) : (
       <>
-        <Button variant="plain" destructive onClick={() => setConfirmKeep(true)}>
+        <Button variant="ghost" destructive onClick={() => setConfirmKeep(true)}>
           Keep it anyway
         </Button>
         <span className="spacer" />
@@ -211,41 +211,41 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
               <div className="quote bubble-in fix-reply">
                 <span className={replyOpen ? undefined : "clamp-2"}>{input.badReply}</span>
                 {input.badReply.length > 120 && (
-                  <button type="button" className="btn btn-plain btn-sm fix-more" onClick={() => setReplyOpen(!replyOpen)}>
+                  <button type="button" className="btn btn-ghost btn-sm fix-more" onClick={() => setReplyOpen(!replyOpen)}>
                     {replyOpen ? "Show less" : "Show all"}
                   </button>
                 )}
               </div>
             </div>
-            {error && <Banner tone="error" title="No suggestion yet" text={error} />}
-            <Section footer="Edit the reply until it's right. The facts are enough — we'll find where to fix it.">
+            {error && <Alert tone="error" title="No suggestion yet" text={error} />}
+            <Card footer="Edit the reply until it's right. The facts are enough — we'll find where to fix it.">
               <label className="field stacked">
                 <span className="field-label">What it should have said</span>
                 <TextArea rows={4} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write the answer you'd give, in your own words." data-autofocus />
               </label>
-            </Section>
+            </Card>
           </>
         )}
 
         {step === 2 && suggestion && (
           <>
             {suggestion.aiError === "no_key" && (
-              <Banner
+              <Alert
                 tone="warning"
                 title="Suggestions need your AI key"
                 text="We picked Corrected answers for now. Add the key in Settings, or choose another place below."
                 actions={
                   onOpenSettings ? (
-                    <Button variant="gray" size="small" onClick={onOpenSettings}>
+                    <Button variant="outline" size="sm" onClick={onOpenSettings}>
                       Open Settings
                     </Button>
                   ) : undefined
                 }
               />
             )}
-            {suggestion.aiError === "failed" && <Banner tone="warning" title="The AI didn't suggest a place" text="We picked Corrected answers. Choose another place below if it fits better." />}
-            {error && <Banner tone="error" title="Couldn't apply the fix" text={error} />}
-            <Section title={kind === suggestion.recommended ? "Best place to fix it" : "You chose"}>
+            {suggestion.aiError === "failed" && <Alert tone="warning" title="The AI didn't suggest a place" text="We picked Corrected answers. Choose another place below if it fits better." />}
+            {error && <Alert tone="error" title="Couldn't apply the fix" text={error} />}
+            <Card title={kind === suggestion.recommended ? "Best place to fix it" : "You chose"}>
               <div className="fix-card">
                 <div className="fix-card-head">
                   <span className={`tile tile-${places[kind].tile}`} aria-hidden="true">
@@ -294,8 +294,8 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
                   {kind === "data" ? "Data changes reach customers right away — no publish needed." : "Goes into the draft. Publish to make it live."}
                 </p>
               </div>
-            </Section>
-            <Section>
+            </Card>
+            <Card>
               <button type="button" className="disclosure" aria-expanded={showOthers} onClick={() => setShowOthers(!showOthers)}>
                 <span className="spacer fix-other">Choose another place</span>
                 <Icon name="chevron-right" className="chev" size={13} />
@@ -318,7 +318,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
                   ))}
                 </div>
               )}
-            </Section>
+            </Card>
           </>
         )}
 
@@ -342,10 +342,10 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
                   : "The draft now gives the right answer. We saved a test scenario so it stays fixed. Publish to make it live."}
               </p>
             </div>
-            <Section title="New reply">
+            <Card title="New reply">
               <div className="quote bubble-in fix-new">{outcome.reply}</div>
-            </Section>
-            <Section title="Saved as a test scenario">
+            </Card>
+            <Card title="Saved as a test scenario">
               <div className="row">
                 <span className="tile tile-soft-green" aria-hidden="true">
                   <Icon name="check-circle" size={18} />
@@ -358,7 +358,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
                   <Badge tone="outline">Required</Badge>
                 </div>
               </div>
-            </Section>
+            </Card>
           </>
         )}
         {step === 3 && outcome?.state === "fail" && (
@@ -371,15 +371,15 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
               <p className="result-text">{friendlyFailure(outcome.failures)} Nothing was changed for customers.</p>
             </div>
             {outcome.reply && (
-              <Section title="What the draft says now">
+              <Card title="What the draft says now">
                 <div className="quote bubble-in fix-new">{outcome.reply}</div>
-              </Section>
+              </Card>
             )}
           </>
         )}
       </Sheet>
       {confirmKeep && (
-        <Alert
+        <Dialog
           title="Keep a fix that still fails?"
           text={kind === "data" ? "Customers see the new value right away. It stays in Needs attention until its scenario passes." : "It goes into the draft anyway and stays in Needs attention until its scenario passes."}
           confirmLabel="Keep it"

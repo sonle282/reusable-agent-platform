@@ -3,7 +3,7 @@ import { api } from "../api";
 import type { Behavior, FollowUps } from "../../shared/contracts";
 import { DELAY_LABEL, DELAY_MS, WINDOW_MS } from "../../shared/followups";
 import type { AgentDraft } from "../types";
-import { Button, FieldRow, Icon, Row, Section, Segmented, TextArea, TextInput, Toggle } from "../ui";
+import { Button, Card, Field, Icon, Row, Segmented, Switch, TextArea, TextInput } from "../ui";
 
 type Mutate = (fn: (draft: AgentDraft) => AgentDraft) => void;
 
@@ -18,19 +18,19 @@ export function BehaviorTab({ draft, mutate, hasZernio }: { draft: AgentDraft; m
   ];
   return (
     <>
-      <Section title="Feel like a person" footer="Messenger and Instagram through Zernio. Preview shows the same steps.">
+      <Card title="Feel like a person" footer="Messenger and Instagram through Zernio. Preview shows the same steps.">
         {toggles.map((item) => (
           <Row
             key={item.key}
             icon={item.icon}
-            tone="blue"
+            tone="info"
             title={item.title}
             subtitle={item.note ? `${item.sub}. ${item.note}` : item.sub}
             multiline
-            accessory={<Toggle label={item.title} checked={behavior[item.key]} onChange={(on) => set({ [item.key]: on })} />}
+            accessory={<Switch label={item.title} checked={behavior[item.key]} onChange={(on) => set({ [item.key]: on })} />}
           />
         ))}
-        <FieldRow label="Reply length" hint="Test scenarios fail when a reply is longer">
+        <Field label="Reply length" hint="Test scenarios fail when a reply is longer">
           <select className="select" value={behavior.maxSentences} onChange={(event) => set({ maxSentences: Number(event.target.value) })}>
             {[2, 3, 4, 5].map((count) => (
               <option key={count} value={count}>
@@ -39,8 +39,8 @@ export function BehaviorTab({ draft, mutate, hasZernio }: { draft: AgentDraft; m
             ))}
             <option value={0}>No limit</option>
           </select>
-        </FieldRow>
-        <FieldRow label="Reply pace" hint="Natural waits 1–3 seconds per message, like typing">
+        </Field>
+        <Field label="Reply pace" hint="Natural waits 1–3 seconds per message, like typing">
           <Segmented
             label="Reply pace"
             value={behavior.pace}
@@ -51,31 +51,31 @@ export function BehaviorTab({ draft, mutate, hasZernio }: { draft: AgentDraft; m
               { value: "slow", label: "Slow" },
             ]}
           />
-        </FieldRow>
-      </Section>
+        </Field>
+      </Card>
 
-      <Section
+      <Card
         title="Tell customers it’s AI"
-        action={<Toggle label="Tell customers it is AI" checked={behavior.aiNotice} onChange={(aiNotice) => set({ aiNotice })} />}
+        action={<Switch label="Tell customers it is AI" checked={behavior.aiNotice} onChange={(aiNotice) => set({ aiNotice })} />}
         footer={behavior.aiNotice ? "Sent once, before the first reply in each conversation. Required for customers in the EU (AI Act, Article 50) and builds trust everywhere." : undefined}
       >
         {behavior.aiNotice ? (
-          <FieldRow label="Notice" stacked>
+          <Field label="Notice">
             <TextInput value={behavior.aiNoticeText} maxLength={300} onChange={(event) => set({ aiNoticeText: event.target.value })} />
-          </FieldRow>
+          </Field>
         ) : (
-          <Row icon="warning" tone="orange" title="Customers won’t know it’s AI" subtitle="Not allowed for customers in the EU. In the US, people who find out later trust you less." multiline />
+          <Row icon="warning" tone="warning" title="Customers won’t know it’s AI" subtitle="Not allowed for customers in the EU. In the US, people who find out later trust you less." multiline />
         )}
-      </Section>
+      </Card>
 
-      <Section title="Outside business hours" footer="Hours come from Contact and hours in Instructions. The assistant always answers.">
-        <FieldRow label="Outside hours">
+      <Card title="Outside business hours" footer="Hours come from Contact and hours in Instructions. The assistant always answers.">
+        <Field label="Outside hours">
           <select className="select" value={behavior.outsideHours} onChange={(event) => set({ outsideHours: event.target.value as Behavior["outsideHours"] })}>
             <option value="callback">Say the team calls back next business day</option>
             <option value="none">Answer as usual, say nothing</option>
           </select>
-        </FieldRow>
-      </Section>
+        </Field>
+      </Card>
     </>
   );
 }
@@ -107,9 +107,9 @@ export function FollowUpsTab({ agentId, draft, mutate, onPreview }: { agentId: s
           </span>
         </div>
       )}
-      <Section
+      <Card
         title="Within 24 hours"
-        action={<Toggle label="Follow up within 24 hours" checked={followUps.enabled} onChange={(enabled) => set({ enabled })} />}
+        action={<Switch label="Follow up within 24 hours" checked={followUps.enabled} onChange={(enabled) => set({ enabled })} />}
         footer="At most 2 per conversation. Make each one useful (an active offer, a next step), never just “are you there?”."
       >
         <div className="fu-window" aria-hidden="true">
@@ -149,29 +149,29 @@ export function FollowUpsTab({ agentId, draft, mutate, onPreview }: { agentId: s
                 <TextArea aria-label={`Follow-up ${index + 1} message`} rows={2} maxLength={1000} value={step.text} onChange={(event) => setStep(index, { text: event.target.value })} />
                 <div className="fu-foot">
                   <span className="muted">{index === followUps.steps.length - 1 && index > 0 ? "Sent exactly as written · last chance before the 24-hour window closes" : "Sent exactly as written"}</span>
-                  <Button variant="plain" size="small" disabled={!step.text.trim()} onClick={() => onPreview(step.text, index + 1)}>
+                  <Button variant="ghost" size="sm" disabled={!step.text.trim()} onClick={() => onPreview(step.text, index + 1)}>
                     Show in Preview
                   </Button>
                 </div>
               </div>
             </div>
           ))}
-      </Section>
-      <Section title="After 24 hours" footer="Meta doesn’t allow free-form messages after 24 hours. Your team can still reply by hand for 7 days with Meta’s Human Agent tag.">
+      </Card>
+      <Card title="After 24 hours" footer="Meta doesn’t allow free-form messages after 24 hours. Your team can still reply by hand for 7 days with Meta’s Human Agent tag.">
         <Row
           icon="reply"
-          tone="blue"
+          tone="info"
           title="Add “Contact again” to Needs attention"
           subtitle="So your team can reply by hand from the page, or call if they left a number"
           multiline
-          accessory={<Toggle label="Add contact again to Needs attention" checked={followUps.contactAgain} onChange={(contactAgain) => set({ contactAgain })} />}
+          accessory={<Switch label="Add contact again to Needs attention" checked={followUps.contactAgain} onChange={(contactAgain) => set({ contactAgain })} />}
         />
-      </Section>
-      <Section title="Stops automatically when">
+      </Card>
+      <Card title="Stops automatically when">
         {["The customer replies", "They leave a phone number or email", "They say they’re not interested or ask you to stop", "You mark the lead Won or Not a fit, or your team takes over"].map((text) => (
-          <Row key={text} icon="check" tone="green" title={text} />
+          <Row key={text} icon="check" tone="success" title={text} />
         ))}
-      </Section>
+      </Card>
     </>
   );
 }

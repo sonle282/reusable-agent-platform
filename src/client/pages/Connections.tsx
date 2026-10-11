@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, patch, post } from "../api";
 import { formatDate, parseDate } from "../format";
 import type { AgentSummary, Connection, Delivery } from "../types";
-import { Alert, Badge, Banner, Button, CopyField, Disclosure, EmptyState, FieldRow, Icon, PageHeader, Section, Segmented, Sheet, TextInput, errorMessage, useToast, type TileTone } from "../ui";
+import { Alert, Badge, Button, Card, CopyField, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, PageHeader, Segmented, Sheet, TextInput, useToast, type TileTone } from "../ui";
 
 type ConnectionType = "generic_api" | "generic_webhook" | "zernio";
 
@@ -21,7 +21,7 @@ const typeInfo: Record<
     label: "Zernio",
     name: "Zernio inbox",
     icon: "inbox",
-    tone: "green",
+    tone: "success",
     sub: "Reply in your Zernio inbox",
     help: "Paste your Zernio API key, pick the page, and the assistant answers its messages.",
   },
@@ -29,7 +29,7 @@ const typeInfo: Record<
     label: "Webhook",
     name: "Webhook",
     icon: "webhook",
-    tone: "indigo",
+    tone: "discovery",
     sub: "Another system sends signed events",
     help: "Another system sends signed events; replies go to the address you give.",
   },
@@ -37,7 +37,7 @@ const typeInfo: Record<
     label: "API",
     name: "API",
     icon: "bolt",
-    tone: "blue",
+    tone: "info",
     sub: "Your website, app or CRM",
     help: "Your website, app or CRM sends customer messages and gets replies right away or at an address you give.",
   },
@@ -110,24 +110,24 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
       />
       <div className="form-col">
         {!agent.active_version_id && connections.length > 0 && (
-          <Banner
+          <Alert
             tone="warning"
             title="Channels can't reply yet"
             text="Publish the assistant first; channels always use the live version."
             actions={
-              <Button variant="gray" size="small" onClick={onOpenAssistant}>
+              <Button variant="outline" size="sm" onClick={onOpenAssistant}>
                 Open Assistant
               </Button>
             }
           />
         )}
         {error && (
-          <Banner
+          <Alert
             tone="error"
             title="Couldn't check deliveries"
             text={`${error}. Customers are still being answered.`}
             actions={
-              <Button variant="gray" size="small" onClick={() => void loadDeliveries()}>
+              <Button variant="outline" size="sm" onClick={() => void loadDeliveries()}>
                 Try again
               </Button>
             }
@@ -135,13 +135,13 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
         )}
 
         {failed.length > 0 && (
-          <Section
+          <Card
             title="Replies not delivered"
             badge={<span className="badge badge-count badge-count-red">{failed.length}</span>}
             action={
               failed.length > 1 ? (
                 <Button
-                  variant="plain"
+                  variant="ghost"
                   busy={retrying === "all"}
                   onClick={() =>
                     void retry(
@@ -168,13 +168,13 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
                     </span>
                     <span className="row-subtitle truncate">{plainError(delivery.last_error)}</span>
                   </span>
-                  <Button variant="gray" size="small" busy={retrying === delivery.id} onClick={() => void retry([delivery.id], delivery.id)}>
+                  <Button variant="outline" size="sm" busy={retrying === delivery.id} onClick={() => void retry([delivery.id], delivery.id)}>
                     Retry
                   </Button>
                 </div>
               </div>
             ))}
-          </Section>
+          </Card>
         )}
 
         {connections.length === 0 ? (
@@ -182,7 +182,7 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
             <EmptyState icon="link" title="No channels yet" text="Connect a channel so customers can reach your assistant. Every channel uses the live version." />
           </div>
         ) : (
-          <Section title="Connected" footer="Every channel uses the same assistant and its live version.">
+          <Card title="Connected" footer="Every channel uses the same assistant and its live version.">
             {connections.map((connection) => {
               const info = infoOf(connection);
               const failures = failedFor(connection.id);
@@ -207,10 +207,10 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
                 </button>
               );
             })}
-          </Section>
+          </Card>
         )}
 
-        <Section title={connections.length ? "Add another channel" : "Add a channel"}>
+        <Card title={connections.length ? "Add another channel" : "Add a channel"}>
           {order.map((type) => (
             <button type="button" className="row" key={type} onClick={() => setCreating(type)}>
               <span className={`tile tile-${typeInfo[type].tone}`} aria-hidden="true">
@@ -225,7 +225,7 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
               </span>
             </button>
           ))}
-        </Section>
+        </Card>
       </div>
 
       {creating && (
@@ -326,7 +326,7 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
       onClose={onClose}
       footer={
         <>
-          <Button variant="gray" onClick={onClose}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           {valid && (
@@ -341,18 +341,18 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
         <Segmented<ConnectionType> full label="Channel type" value={type} onChange={setType} options={order.map((value) => ({ value, label: typeInfo[value].label }))} />
         {type === "zernio" ? (
           <>
-            <Section footer="Find it in Zernio › API keys. It's encrypted when saved and never shown again. We set up the Zernio webhook for you.">
-              <FieldRow label="Zernio API key">
+            <Card footer="Find it in Zernio › API keys. It's encrypted when saved and never shown again. We set up the Zernio webhook for you.">
+              <Field label="Zernio API key">
                 <TextInput type="password" autoComplete="off" value={form.apiCredential} placeholder="sk_…" onChange={(event) => setForm({ ...form, apiCredential: event.target.value })} data-autofocus />
-              </FieldRow>
+              </Field>
               <div className="row row-actions">
-                <Button type="button" variant="gray" size="small" busy={busy === "find"} disabled={form.apiCredential.trim().length < 20} onClick={() => void findAccounts()}>
+                <Button type="button" variant="outline" size="sm" busy={busy === "find"} disabled={form.apiCredential.trim().length < 20} onClick={() => void findAccounts()}>
                   Find my pages
                 </Button>
               </div>
-            </Section>
+            </Card>
             {accounts && (
-              <Section title="Which page should it answer?" footer={accounts.length ? "The assistant answers new messages on this page with its live version." : "No connected pages. Connect one in Zernio › Connections, then try again."}>
+              <Card title="Which page should it answer?" footer={accounts.length ? "The assistant answers new messages on this page with its live version." : "No connected pages. Connect one in Zernio › Connections, then try again."}>
                 {accounts.map((account) => (
                   <button type="button" key={account.id} className="row" role="radio" aria-checked={account.id === accountId} onClick={() => setAccountId(account.id)}>
                     <span className="tile tile-soft-blue" aria-hidden="true">
@@ -367,25 +367,25 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
                     </span>
                   </button>
                 ))}
-              </Section>
+              </Card>
             )}
           </>
         ) : (
-          <Section footer={typeInfo[type].help}>
-            <FieldRow label="Name">
+          <Card footer={typeInfo[type].help}>
+            <Field label="Name">
               <TextInput value={form.name} placeholder={typeInfo[type].name} onChange={(event) => setForm({ ...form, name: event.target.value })} data-autofocus />
-            </FieldRow>
-            <FieldRow label="Send replies to" hint={type === "generic_api" ? "Optional" : undefined}>
+            </Field>
+            <Field label="Send replies to" hint={type === "generic_api" ? "Optional" : undefined}>
               <TextInput type="url" value={form.callbackUrl} placeholder="https://" onChange={(event) => setForm({ ...form, callbackUrl: event.target.value })} />
-            </FieldRow>
+            </Field>
             {type === "generic_webhook" && (
-              <FieldRow label="Signing secret">
+              <Field label="Signing secret">
                 <TextInput type="password" autoComplete="off" value={form.webhookSecret} onChange={(event) => setForm({ ...form, webhookSecret: event.target.value })} />
-              </FieldRow>
+              </Field>
             )}
-          </Section>
+          </Card>
         )}
-        {error && <Banner tone="error" title="Couldn't add the channel" text={error} />}
+        {error && <Alert tone="error" title="Couldn't add the channel" text={error} />}
       </form>
     </Sheet>
   );
@@ -395,7 +395,7 @@ function SecretsSheet({ secrets, onClose }: { secrets: Secrets; onClose: () => v
   const origin = window.location.origin;
   return (
     <Sheet title="Save this now" subtitle="It's shown only once" onClose={onClose} footer={<Button onClick={onClose}>Done</Button>}>
-      <Banner tone="warning" title="You won't see it again" text="Copy it into your app or password manager before you close this. If you lose it, make a new key." />
+      <Alert tone="warning" title="You won't see it again" text="Copy it into your app or password manager before you close this. If you lose it, make a new key." />
       {secrets.apiKey && (
         <>
           <CopyField label="Address" value={`${origin}/api/v1/messages`} />
@@ -465,13 +465,13 @@ function ConnectionSheet({
         footer={
           <>
             {active ? (
-              <Button variant="plain" destructive onClick={() => setConfirm("off")}>
+              <Button variant="ghost" destructive onClick={() => setConfirm("off")}>
                 Turn off channel
               </Button>
             ) : (
               canTurnOn && (
                 <Button
-                  variant="plain"
+                  variant="ghost"
                   busy={busy === "status"}
                   onClick={() =>
                     void run("status", async () => {
@@ -492,12 +492,12 @@ function ConnectionSheet({
           </>
         }
       >
-        {!active && !canTurnOn && <Banner tone="info" title="Publish the assistant to turn this on" text="Channels always use the live version." />}
-        {error && <Banner tone="error" title="That didn't work" text={error} onClose={() => setError("")} />}
-        <Section footer={type === "generic_api" ? "A new key stops the old one right away. Update your app before you make one." : "A new webhook address stops the old one right away."}>
-          <FieldRow label="Name">
+        {!active && !canTurnOn && <Alert tone="info" title="Publish the assistant to turn this on" text="Channels always use the live version." />}
+        {error && <Alert tone="error" title="That didn't work" text={error} onClose={() => setError("")} />}
+        <Card footer={type === "generic_api" ? "A new key stops the old one right away. Update your app before you make one." : "A new webhook address stops the old one right away."}>
+          <Field label="Name">
             <TextInput value={name} onChange={(event) => setName(event.target.value)} />
-          </FieldRow>
+          </Field>
           {type === "generic_api" ? (
             <>
               <div className="field">
@@ -508,7 +508,7 @@ function ConnectionSheet({
               <div className="field">
                 <span className="field-label">Key</span>
                 <span className="field-value mono-value">{keyHint ? `•••• ${keyHint}` : "••••"}</span>
-                <Button variant="gray" size="small" onClick={() => setConfirm("rotate")}>
+                <Button variant="outline" size="sm" onClick={() => setConfirm("rotate")}>
                   New key
                 </Button>
               </div>
@@ -522,7 +522,7 @@ function ConnectionSheet({
             <div className="field">
               <span className="field-label">Webhook address</span>
               <span className="field-value muted">Shown once when made</span>
-              <Button variant="gray" size="small" onClick={() => setConfirm("rotate")}>
+              <Button variant="outline" size="sm" onClick={() => setConfirm("rotate")}>
                 New address
               </Button>
             </div>
@@ -533,9 +533,9 @@ function ConnectionSheet({
               <span className="field-value truncate">{connection.callback_url}</span>
             </div>
           )}
-        </Section>
+        </Card>
         {type === "generic_api" && (
-          <Section>
+          <Card>
             <Disclosure title="For your developer">
               <pre className="code-block flush">{`POST ${origin}/api/v1/messages
 Authorization: Bearer <key>
@@ -545,11 +545,11 @@ Idempotency-Key: <unique id per message>
   "user_id": "customer-123",
   "message": { "text": "Hello" } }`}</pre>
             </Disclosure>
-          </Section>
+          </Card>
         )}
       </Sheet>
       {confirm === "off" && (
-        <Alert
+        <Dialog
           title={`Turn off ${connection.name}?`}
           text="Customers on this channel stop getting replies until you turn it back on."
           confirmLabel="Turn off"
@@ -566,7 +566,7 @@ Idempotency-Key: <unique id per message>
         />
       )}
       {confirm === "rotate" && (
-        <Alert
+        <Dialog
           title={type === "generic_api" ? "Make a new key?" : "Make a new webhook address?"}
           text="The current one stops working right away. Anything still using it is refused until you update it."
           confirmLabel={type === "generic_api" ? "New key" : "New address"}
@@ -601,8 +601,8 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   return (
     <Button
       type="button"
-      variant="gray"
-      size="small"
+      variant="outline"
+      size="sm"
       icon="copy"
       aria-label={label}
       onClick={async () => {

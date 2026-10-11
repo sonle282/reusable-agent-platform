@@ -12,175 +12,44 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
+  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
 import { formatDate } from "./format";
+import { iconPaths, logoPaths } from "./icons";
 
 export { formatDate };
 
-// SF Symbols–style outline glyphs (24 grid, 1.6 stroke). Source: docs/product/design/reference/Icons.dc.html.
-const glyphs: Record<string, ReactNode> = {
-  house: <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />,
-  sparkles: <path d="M10 3.5l1.6 4.4 4.4 1.6-4.4 1.6L10 15.5l-1.6-4.4L4 9.5l4.4-1.6zM17.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />,
-  table: <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 9.5h16M4 14.5h16M10 9.5V20" />,
-  bubbles: <path d="M7 4.5h6a2.5 2.5 0 0 1 2.5 2.5v3.5A2.5 2.5 0 0 1 13 13H9.5L6.5 15.5V13H7a2.5 2.5 0 0 1-2.5-2.5V7A2.5 2.5 0 0 1 7 4.5zM15.5 9H17a2.5 2.5 0 0 1 2.5 2.5V15a2.5 2.5 0 0 1-2.5 2.5h-.5V20l-3-2.5H11A2.5 2.5 0 0 1 8.5 15v-.5" />,
-  link: <path d="M10 14a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1 1M14 10a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1-1" />,
-  gear: (
-    <>
-      <circle cx="12" cy="12" r="6.5" />
-      <circle cx="12" cy="12" r="2.6" />
-      <path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6" />
-    </>
-  ),
-  "chevron-right": <path d="M9.5 6l6 6-6 6" />,
-  "chevron-left": <path d="M14.5 6l-6 6 6 6" />,
-  "chevron-down": <path d="M6 9.5l6 6 6-6" />,
-  xmark: <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />,
-  plus: <path d="M12 5v14M5 12h14" />,
-  search: (
-    <>
-      <circle cx="10.5" cy="10.5" r="6" />
-      <path d="M15 15l4.5 4.5" />
-    </>
-  ),
-  ellipsis: <path d="M6 12h.01M12 12h.01M18 12h.01" strokeWidth={3} />,
-  refresh: <path d="M19 12a7 7 0 1 1-2.05-4.95M19 4.5V8h-3.5" />,
-  "arrow-up": <path d="M12 18V6M6.5 11.5 12 6l5.5 5.5" />,
-  doc: <path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1zM13 3.5V8.5h5M9 12.5h6M9 16h6" />,
-  wrench: <path d="M20 7.2a4.5 4.5 0 0 1-6 4.3L7.6 18a1.9 1.9 0 1 1-2.7-2.7l6.5-6.4a4.5 4.5 0 0 1 5.7-5.7l-2.6 2.6.5 2.4 2.4.5z" />,
-  check: <path d="M5.5 12.5l4 4 9-9" />,
-  "check-circle": (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M8.5 12.2l2.3 2.3 4.7-4.9" />
-    </>
-  ),
-  warning: <path d="M10.3 5.2a2 2 0 0 1 3.4 0l6.6 11.4a2 2 0 0 1-1.7 3H5.4a2 2 0 0 1-1.7-3zM12 10v4M12 16.8v.2" />,
-  error: (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 8v4.5M12 15.8v.2" />
-    </>
-  ),
-  info: (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 11v5M12 8v.2" />
-    </>
-  ),
-  person: (
-    <>
-      <circle cx="12" cy="8.5" r="3.5" />
-      <path d="M5 19.5a7 7 0 0 1 14 0" />
-    </>
-  ),
-  "person-plus": (
-    <>
-      <circle cx="10" cy="8.5" r="3.5" />
-      <path d="M3.5 19.5a6.5 6.5 0 0 1 13 0M18.5 8v6M15.5 11h6" />
-    </>
-  ),
-  team: (
-    <>
-      <circle cx="9" cy="8.5" r="3" />
-      <circle cx="16.5" cy="9.5" r="2.5" />
-      <path d="M3.5 19a5.5 5.5 0 0 1 11 0M14.5 15.2a4.5 4.5 0 0 1 6 3.8" />
-    </>
-  ),
-  bolt: <path d="M13 3 5.5 13.5H12L11 21l7.5-10.5H12z" />,
-  webhook: (
-    <>
-      <circle cx="6" cy="17.5" r="2" />
-      <circle cx="18" cy="17.5" r="2" />
-      <circle cx="12" cy="6" r="2" />
-      <path d="M12 8v3.5l-5 4.5M12 11.5l5 4.5" />
-    </>
-  ),
-  inbox: <path d="M4 13.5 6.5 5h11L20 13.5V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18zM4 13.5h4.5a3.5 3.5 0 0 0 7 0H20" />,
-  clock: (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 7.5V12l3 2" />
-    </>
-  ),
-  restore: <path d="M9 6.5 5 10.5l4 4M5 10.5h9.5a5 5 0 0 1 0 10H12" />,
-  download: <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />,
-  upload: <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 19.5h14" />,
-  key: (
-    <>
-      <circle cx="8" cy="15.5" r="3.5" />
-      <path d="M10.5 13 19 4.5M16 7.5l2.5 2.5M13.5 10l2 2" />
-    </>
-  ),
-  palette: (
-    <>
-      <path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.9 1.4-1.9-.5-1.2.3-2.3 1.6-2.3h1.8a3.7 3.7 0 0 0 3.7-3.7C20.5 7.4 16.7 3.5 12 3.5z" />
-      <path d="M8 11h.01M10.5 7.5h.01M15 7.5h.01" strokeWidth={2.6} />
-    </>
-  ),
-  signout: <path d="M14 5H6.5A1.5 1.5 0 0 0 5 6.5v11A1.5 1.5 0 0 0 6.5 19H14M10 12h10M17 9l3 3-3 3" />,
-  lock: (
-    <>
-      <rect x="5.5" y="10.5" width="13" height="9.5" rx="2" />
-      <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
-    </>
-  ),
-  eye: <path d="M3 12c.5-1.5 4-6 9-6s8.5 4.5 9 6c-.5 1.5-4 6-9 6s-8.5-4.5-9-6zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
-  "eye-slash": <path d="M4 4l16 16M10.6 6.1A9 9 0 0 1 12 6c5 0 8.5 4.5 9 6-.3.9-1.2 2.4-2.6 3.7M6.6 7.6C4.6 9 3.3 11 3 12c.5 1.5 4 6 9 6 1.6 0 3-.4 4.2-1.1M9.9 9.9a3 3 0 0 0 4.2 4.2" />,
-  pencil: <path d="M15.5 4.5l4 4L9 19l-4.5 1 1-4.5z" />,
-  trash: <path d="M5 7h14M10 7V5h4v2M7 7l1 12.5h8L17 7M10.5 11v5M13.5 11v5" />,
-  offline: <path d="M4 4l16 16M8.5 16a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 4.3-2.4M19 12.5a10 10 0 0 0-2.4-1.6M2.5 9a14 14 0 0 1 3.5-2.2M21.5 9a14 14 0 0 0-8.6-3.4M12 19.5h.01" />,
-  copy: (
-    <>
-      <rect x="8.5" y="8.5" width="11" height="11" rx="2" />
-      <path d="M15.5 8.5V6.5A1.5 1.5 0 0 0 14 5H6.5A1.5 1.5 0 0 0 5 6.5V14a1.5 1.5 0 0 0 1.5 1.5h2" />
-    </>
-  ),
-  "check-bubble": <path d="M6.5 4.5h11A2.5 2.5 0 0 1 20 7v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5v-3.5h-.5A2.5 2.5 0 0 1 4 14V7a2.5 2.5 0 0 1 2.5-2.5zM8.5 10.5l2.3 2.3 4.7-4.6" />,
-  globe: (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5s1.1-6.1 3.4-8.5z" />
-    </>
-  ),
-  pause: (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M10 9v6M14 9v6" />
-    </>
-  ),
-  archive: <path d="M4 5h16v4H4zM5.5 9v9.5A1.5 1.5 0 0 0 7 20h10a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4" />,
-  calendar: (
-    <>
-      <rect x="4" y="5.5" width="16" height="14" rx="2" />
-      <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
-    </>
-  ),
-  sliders: (
-    <>
-      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
-      <circle cx="15" cy="7" r="2" />
-      <circle cx="9" cy="17" r="2" />
-    </>
-  ),
-  play: <path d="M8 5.5v13l10.5-6.5z" />,
-  reply: <path d="M10 6.5 5 11l5 4.5M5 11h8.5a5.5 5.5 0 0 1 5.5 5.5V18" />,
-};
-
-// Names used before the redesign keep working.
+// Names used before v2 keep working; they map onto the Apps SDK UI glyphs in icons.ts.
 const aliases: Record<string, string> = {
-  overview: "house",
-  home: "house",
-  assistant: "sparkles",
+  house: "home",
+  overview: "home",
+  sparkles: "sparkle",
   data: "table",
-  conversations: "bubbles",
+  bubbles: "chats",
+  conversations: "chats",
   connections: "link",
   channels: "link",
-  settings: "gear",
+  gear: "settings",
   chevron: "chevron-right",
   back: "chevron-left",
-  close: "xmark",
+  xmark: "x",
+  close: "x",
+  ellipsis: "dots",
+  refresh: "reload",
   send: "arrow-up",
+  doc: "document",
+  person: "user",
+  "person-plus": "user-add",
+  team: "users",
+  webhook: "branch",
+  inbox: "mail",
+  palette: "color",
+  signout: "logout",
+  "eye-slash": "eye-off",
+  pencil: "edit",
+  offline: "unlink",
+  "check-bubble": "chat",
 };
 
 export function Icon({ name, size = 20, label, className }: { name: string; size?: number; label?: string; className?: string }) {
@@ -189,28 +58,76 @@ export function Icon({ name, size = 20, label, className }: { name: string; size
       className={`icon${className ? ` ${className}` : ""}`}
       style={{ width: size, height: size }}
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="currentColor"
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
       focusable="false"
-    >
-      {glyphs[aliases[name] ?? name]}
-    </svg>
+      dangerouslySetInnerHTML={{ __html: iconPaths[aliases[name] ?? name] ?? "" }}
+    />
   );
 }
 
-type ButtonVariant = "filled" | "tinted" | "gray" | "plain" | "destructive";
-const sizeClass = { small: " btn-sm", regular: "", large: " btn-lg" } as const;
+// ---------- Platform marks (Simple Icons, CC0) — only to identify the platform ----------
 
-// One filled button per screen. Busy keeps the label (and width) and shows a spinner in place of the icon.
+const builtInPlatforms: Record<string, string> = { api: "link", web: "website", website: "website", webhook: "branch", email: "mail" };
+
+export function BrandLogo({ platform, size, label }: { platform: string; size?: "sm" | "lg"; label?: string }) {
+  const key = platform.toLowerCase();
+  const mark = logoPaths[key];
+  const neutral = !mark;
+  return (
+    <span className={`logo logo-${neutral ? (key === "web" || key === "website" ? "web" : "api") : key}${size ? ` ${size}` : ""}`} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+      {mark ? <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" dangerouslySetInnerHTML={{ __html: mark }} /> : <Icon name={builtInPlatforms[key] ?? "link"} />}
+    </span>
+  );
+}
+
+// ---------- Avatars ----------
+
+export const initialsOf = (name?: string) =>
+  (name ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+// Pastel square per assistant; the color is stable for a given id.
+export function AgentAvatar({ id, name, size }: { id: string; name: string; size?: "sm" | "xs" | "lg" }) {
+  const tone = (Array.from(id).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 5) + 1;
+  const style = size === "lg" ? { width: 56, height: 56, borderRadius: "var(--radius-xl)", fontSize: 18 } : undefined;
+  return (
+    <span className={`agent-av av-${tone}${size && size !== "lg" ? ` ${size}` : ""}`} style={style} aria-hidden="true">
+      {initialsOf(name) || "AI"}
+    </span>
+  );
+}
+
+export function Avatar({ name, icon, platform }: { name?: string; tone?: string; icon?: string; platform?: string }) {
+  const initials = initialsOf(name);
+  return (
+    <span className="avatar" aria-hidden="true">
+      {icon || !initials ? <Icon name={icon ?? "user"} /> : initials}
+      {platform && (
+        <span className="avatar-badge">
+          <BrandLogo platform={platform} size="sm" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ---------- Button ----------
+
+type ButtonVariant = "primary" | "outline" | "soft" | "ghost" | "danger" | "danger-ghost" | "link";
+type ButtonSize = "sm" | "md" | "lg" | "xl";
+
+// One primary button per screen. Busy keeps the label (and width) and shows a spinner in place of the icon.
+// `destructive` turns primary into danger and anything else into danger-ghost.
 export function Button({
-  variant = "filled",
-  size = "regular",
+  variant = "primary",
+  size = "md",
   icon,
   busy,
   destructive,
@@ -221,22 +138,15 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
-  size?: "small" | "regular" | "large";
+  size?: ButtonSize;
   icon?: string;
   busy?: boolean;
   destructive?: boolean;
   block?: boolean;
 }) {
   const iconOnly = !children && Boolean(icon);
-  const classes = [
-    `btn btn-${variant}${sizeClass[size]}`,
-    iconOnly && "btn-icon",
-    destructive && "is-destructive",
-    block && "btn-block",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const resolved = destructive ? (variant === "primary" || variant === "danger" ? "danger" : "danger-ghost") : variant;
+  const classes = [`btn btn-${resolved}`, size !== "md" && `btn-${size}`, iconOnly && "btn-icon", block && "btn-block", className].filter(Boolean).join(" ");
   return (
     <button
       className={classes}
@@ -251,21 +161,23 @@ export function Button({
         onClick?.(event);
       }}
     >
-      {busy ? <Spinner /> : icon && <Icon name={icon} size={size === "small" ? 15 : 17} />}
+      {busy ? <Spinner /> : icon && <Icon name={icon} size={size === "sm" ? 16 : 18} />}
       {children && <span>{children}</span>}
     </button>
   );
 }
 
-export function Spinner({ large = false, label = "Loading" }: { large?: boolean; small?: boolean; label?: string }) {
+export function Spinner({ large = false, label = "Loading" }: { large?: boolean; label?: string }) {
   return <span className={`spinner${large ? " spinner-lg" : ""}`} role="status" aria-label={label} />;
 }
 
+// ---------- Page ----------
+
 export function StatusLine({ tone = "gray", children }: { tone?: "green" | "orange" | "gray" | "red"; children: ReactNode }) {
   return (
-    <p className="status-line">
+    <p className="status xs" style={{ margin: 0 }}>
       <span className={`dot dot-${tone}`} aria-hidden="true" />
-      {children}
+      <span className="truncate">{children}</span>
     </p>
   );
 }
@@ -287,69 +199,82 @@ export function PageHeader({
 }) {
   return (
     <header className="page-header">
-      <div className="page-heading">
+      <div className="stack" style={{ gap: 2 }}>
         {onBack && (
-          <button type="button" className="btn btn-plain back-link" onClick={onBack}>
-            <Icon name="chevron-left" size={17} />
-            <span>{backLabel ?? "Back"}</span>
-          </button>
+          <nav className="crumbs xs" aria-label="Breadcrumb">
+            <button type="button" onClick={onBack}>
+              {backLabel ?? "Back"}
+            </button>
+            <Icon name="chevron-right" size={14} />
+          </nav>
         )}
-        <h1 className="large-title">{title}</h1>
-        {subtitle && <p className="page-subtitle">{subtitle}</p>}
+        <h1 className="page-title">{title}</h1>
+        {subtitle && <p className="page-sub">{subtitle}</p>}
         {status}
       </div>
-      {actions && <div className="page-actions">{actions}</div>}
+      {actions && <div className="row-flex">{actions}</div>}
     </header>
   );
 }
 
-export function Section({
+// ---------- Card (replaces the inset grouped Section) ----------
+
+export function Card({
   title,
   footer,
   action,
   badge,
+  sub,
   children,
-  plain = false,
+  padded,
+  className,
+  label,
 }: {
   title?: ReactNode;
   footer?: ReactNode;
   action?: ReactNode;
   badge?: ReactNode;
-  children: ReactNode;
-  plain?: boolean;
+  sub?: ReactNode;
+  children?: ReactNode;
+  padded?: boolean;
+  className?: string;
+  label?: string;
 }) {
   return (
-    <section className="section">
+    <section className={`card${className ? ` ${className}` : ""}`} aria-label={label}>
       {(title || action) && (
-        <h2 className="section-header">
-          {title}
-          {badge}
-          <span className="spacer" />
+        <div className="card-head">
+          <div className="stack spacer" style={{ gap: 0 }}>
+            <h2 className="card-title row-flex">
+              {title}
+              {badge}
+            </h2>
+            {sub && <span className="xs t3">{sub}</span>}
+          </div>
           {action}
-        </h2>
+        </div>
       )}
-      {plain ? <div className="section-plain">{children}</div> : <div className="section-card">{children}</div>}
-      {footer && <p className="section-footer">{footer}</p>}
+      {padded ? <div className="card-body">{children}</div> : children}
+      {footer && <div className="card-foot">{footer}</div>}
     </section>
   );
 }
 
-export type TileTone =
-  | "blue"
-  | "green"
-  | "orange"
-  | "indigo"
-  | "gray"
-  | "soft-blue"
-  | "soft-green"
-  | "soft-orange"
-  | "soft-indigo"
-  | "soft-red"
-  | "soft-gray";
+// ---------- Row ----------
+
+export type TileTone = "default" | "success" | "warning" | "danger" | "info" | "discovery";
+
+export function Tile({ icon, tone = "default", large }: { icon: string; tone?: TileTone; large?: boolean }) {
+  return (
+    <span className={`tile${tone !== "default" ? ` tile-${tone}` : ""}${large ? " tile-lg" : ""}`} aria-hidden="true">
+      <Icon name={icon} size={large ? 22 : 18} />
+    </span>
+  );
+}
 
 export function Row({
   icon,
-  tone = "gray",
+  tone,
   avatar,
   title,
   strong,
@@ -364,6 +289,7 @@ export function Row({
   chevron,
   selected,
   top,
+  compact,
   label,
 }: {
   icon?: string;
@@ -382,26 +308,21 @@ export function Row({
   chevron?: boolean;
   selected?: boolean;
   top?: boolean;
+  compact?: boolean;
   label?: string;
 }) {
-  const className = ["row", selected && "is-selected", (top || clamp2 || multiline) && "top"].filter(Boolean).join(" ");
+  const className = ["row", compact && "compact", selected && "is-selected", (top || clamp2 || multiline) && "top"].filter(Boolean).join(" ");
   const content = (
     <>
       {avatar}
-      {icon && !avatar && (
-        <span className={`tile tile-${tone}`} aria-hidden="true">
-          <Icon name={icon} size={18} />
-        </span>
-      )}
-      <span className="row-body">
-        <span className="row-text">
-          <span className={`row-title${strong ? " strong" : ""}`}>{title}</span>
-          {subtitle && <span className={`row-subtitle${clamp2 ? " clamp-2" : multiline ? "" : " truncate"}`}>{subtitle}</span>}
-        </span>
-        {detail !== undefined && detail !== null && <span className="row-detail">{detail}</span>}
-        {accessory}
-        {chevron && <Icon name="chevron-right" className="row-chevron" size={14} />}
+      {icon && !avatar && <Tile icon={icon} tone={tone} />}
+      <span className="row-text">
+        <span className={`row-title${strong ? " strong" : ""}`}>{title}</span>
+        {subtitle && <span className={`row-sub${clamp2 ? " clamp-2" : multiline ? "" : " truncate"}`}>{subtitle}</span>}
       </span>
+      {detail !== undefined && detail !== null && <span className="row-meta">{detail}</span>}
+      {accessory}
+      {chevron && <Icon name="chevron-right" className="chev" size={16} />}
     </>
   );
   if (href)
@@ -419,45 +340,36 @@ export function Row({
   return <div className={className}>{content}</div>;
 }
 
-export function Avatar({ name, tone, icon }: { name?: string; tone?: "indigo" | "orange"; icon?: string }) {
-  const initials = (name ?? "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-  return (
-    <span className={`avatar${tone ? ` avatar-${tone}` : ""}`} aria-hidden="true">
-      {icon || !initials ? <Icon name={icon ?? "person"} /> : initials}
-    </span>
-  );
-}
+// ---------- Field (label above) ----------
 
-export function FieldRow({
-  label,
-  hint,
-  children,
-  stacked,
-}: {
-  label: string;
-  hint?: ReactNode;
-  children: ReactNode;
-  stacked?: boolean;
-}) {
+export function Field({ label, hint, children, hideLabel, counter }: { label: string; hint?: ReactNode; children: ReactNode; hideLabel?: boolean; counter?: ReactNode }) {
   return (
-    <label className={`field${stacked ? " stacked" : ""}`}>
-      <span className="field-label">
-        {label}
-        {hint && !stacked && <small className="field-hint">{hint}</small>}
+    <label className="field">
+      <span className={hideLabel ? "sr-only" : "field-label row-flex"}>
+        <span className="spacer">{label}</span>
+        {counter && <span className="counter">{counter}</span>}
       </span>
-      <span className="field-control">{children}</span>
-      {hint && stacked && <small className="field-hint">{hint}</small>}
+      {children}
+      {hint && <span className="help">{hint}</span>}
     </label>
   );
 }
 
+// A setting with its label on the left and a control on the right (Switch, Segmented, Select).
+export function SettingRow({ title, sub, children }: { title: ReactNode; sub?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="field-row">
+      <span className="stack" style={{ gap: 0 }}>
+        <span className="medium">{title}</span>
+        {sub && <span className="xs t3">{sub}</span>}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={`text-input${className ? ` ${className}` : ""}`} {...props} />;
+  return <input className={`input${className ? ` ${className}` : ""}`} {...props} />;
 }
 
 const supportsFieldSizing = typeof CSS !== "undefined" && CSS.supports?.("field-sizing", "content");
@@ -471,20 +383,21 @@ export function TextArea({ className, mono, value, ...props }: TextareaHTMLAttri
     node.style.height = "auto";
     node.style.height = `${node.scrollHeight}px`;
   }, [value]);
-  return <textarea ref={ref} className={`field-textarea${mono ? " mono" : ""}${className ? ` ${className}` : ""}`} value={value} {...props} />;
+  return <textarea ref={ref} className={`textarea${mono ? " mono" : ""}${className ? ` ${className}` : ""}`} value={value} {...props} />;
 }
 
-export function Toggle({
-  checked,
-  onChange,
-  label,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: (value: boolean) => void;
-  label: string;
-  disabled?: boolean;
-}) {
+export function Select({ className, children, block = true, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { block?: boolean }) {
+  return (
+    <span className="select-wrap" style={block ? { display: "flex" } : undefined}>
+      <select className={`select${className ? ` ${className}` : ""}`} {...props}>
+        {children}
+      </select>
+      <Icon name="chevron-down" size={16} />
+    </span>
+  );
+}
+
+export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (value: boolean) => void; label: string; disabled?: boolean }) {
   return (
     <button
       type="button"
@@ -492,13 +405,26 @@ export function Toggle({
       aria-checked={checked}
       aria-label={label}
       disabled={disabled}
-      className="toggle"
+      className="switch"
       onClick={(event) => {
         event.stopPropagation();
         onChange(!checked);
       }}
     />
   );
+}
+
+// ---------- Segmented (pill), Tabs (underline), Chips ----------
+
+function useArrowKeys<T extends string>(values: T[], value: T, onChange: (value: T) => void) {
+  return (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    const index = values.indexOf(value);
+    const next = values[(index + (event.key === "ArrowRight" ? 1 : values.length - 1)) % values.length];
+    onChange(next);
+    const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(":scope > button");
+    buttons?.[values.indexOf(next)]?.focus();
+  };
 }
 
 export function Segmented<T extends string>({
@@ -514,26 +440,77 @@ export function Segmented<T extends string>({
   label: string;
   full?: boolean;
 }) {
+  const onKeyDown = useArrowKeys(
+    options.map((option) => option.value),
+    value,
+    onChange,
+  );
   return (
     <div className={`segmented${full ? " full" : ""}`} role="tablist" aria-label={label}>
+      {options.map((option) => (
+        <button type="button" key={option.value} role="tab" aria-selected={option.value === value} tabIndex={option.value === value ? 0 : -1} onClick={() => onChange(option.value)} onKeyDown={onKeyDown}>
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Tabs<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  scroll,
+}: {
+  value: T;
+  options: Array<{ value: T; label: ReactNode; hint?: string }>;
+  onChange: (value: T) => void;
+  label: string;
+  scroll?: boolean;
+}) {
+  const onKeyDown = useArrowKeys(
+    options.map((option) => option.value),
+    value,
+    onChange,
+  );
+  return (
+    <div className={`tabs${scroll ? " scroll" : ""}`} role="tablist" aria-label={label}>
       {options.map((option) => (
         <button
           type="button"
           key={option.value}
           role="tab"
           aria-selected={option.value === value}
+          aria-label={option.hint}
           tabIndex={option.value === value ? 0 : -1}
           onClick={() => onChange(option.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-            const index = options.findIndex((item) => item.value === value);
-            const next = options[(index + (event.key === "ArrowRight" ? 1 : options.length - 1)) % options.length];
-            onChange(next.value);
-            const buttons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button");
-            buttons?.[options.indexOf(next)]?.focus();
-          }}
+          onKeyDown={onKeyDown}
         >
           {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Chips<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: Array<{ value: T; label: string; count?: number }>;
+  onChange: (value: T) => void;
+  label: string;
+}) {
+  return (
+    <div className="chips" role="group" aria-label={label}>
+      {options.map((option) => (
+        <button type="button" key={option.value} className="chip" aria-pressed={option.value === value} onClick={() => onChange(option.value)}>
+          {option.label}
+          {option.count !== undefined && <span className="count tabular">{option.count}</span>}
         </button>
       ))}
     </div>
@@ -568,71 +545,70 @@ export function SearchField({
   );
 }
 
-type BadgeTone = "green" | "orange" | "red" | "blue" | "neutral" | "outline";
+// ---------- Badge, status ----------
 
-export function Badge({ tone = "neutral", count, children }: { tone?: BadgeTone | "gray"; count?: boolean; children: ReactNode }) {
+type BadgeTone = "success" | "warning" | "danger" | "info" | "discovery" | "neutral" | "outline" | "example";
+const badgeAlias: Record<string, BadgeTone> = { green: "success", orange: "warning", red: "danger", blue: "info", indigo: "discovery", gray: "neutral" };
+
+export function Badge({ tone = "neutral", count, children }: { tone?: BadgeTone | "green" | "orange" | "red" | "blue" | "indigo" | "gray"; count?: boolean; children: ReactNode }) {
   if (count) return <span className="badge badge-count">{children}</span>;
-  return <span className={`badge badge-${tone === "gray" ? "neutral" : tone}`}>{children}</span>;
+  const resolved = badgeAlias[tone] ?? (tone as BadgeTone);
+  const className = resolved === "neutral" ? "badge" : resolved === "example" ? "badge example" : `badge badge-${resolved}`;
+  return <span className={className}>{children}</span>;
 }
 
-// Only exceptions get a badge; normal states (active, ready, delivered, passed…) render nothing.
-const statusMap: Record<string, { tone: BadgeTone; label: string } | null> = {
-  active: null,
-  ready: null,
-  completed: null,
-  delivered: null,
-  passed: null,
-  engaged: null,
-  new: null,
-  draft: { tone: "neutral", label: "Not live" },
-  archived: { tone: "neutral", label: "Off" },
-  disabled: { tone: "neutral", label: "Off" },
-  paused: { tone: "neutral", label: "Off" },
-  error: { tone: "red", label: "Not working" },
-  pending: { tone: "orange", label: "Processing" },
-  processing: { tone: "orange", label: "Processing" },
-  accepted: { tone: "orange", label: "Processing" },
-  lead_captured: { tone: "blue", label: "New lead" },
-  human_handoff: { tone: "orange", label: "Your team is replying" },
-  failed: { tone: "red", label: "Failed" },
-};
+export type LeadStatusValue = "new" | "called" | "won" | "not_fit";
+const leadStatusLabel: Record<LeadStatusValue, string> = { new: "New", called: "Called", won: "Won", not_fit: "Not a fit" };
 
-export function StatusBadge({ value }: { value: string }) {
-  const status = value in statusMap ? statusMap[value] : { tone: "neutral" as const, label: value.replaceAll("_", " ") };
-  return status ? <Badge tone={status.tone}>{status.label}</Badge> : null;
+export function LeadStatus({ status }: { status: LeadStatusValue }) {
+  return <span className={`lead-status ls-${status === "not_fit" ? "lost" : status}`}>{leadStatusLabel[status]}</span>;
 }
 
-type BannerTone = "info" | "warning" | "error" | "success";
-const bannerAlias: Record<string, BannerTone> = { red: "error", orange: "warning", blue: "info", green: "success" };
-const bannerIcon: Record<BannerTone, string> = { info: "info", warning: "warning", error: "error", success: "check-circle" };
+export function TypingDots({ label = "Typing" }: { label?: string }) {
+  return (
+    <div className="typing-dots" role="status" aria-label={label}>
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
+
+// ---------- Alert (banner) ----------
+
+type AlertTone = "info" | "warning" | "danger" | "success";
+const alertAlias: Record<string, AlertTone> = { error: "danger", red: "danger", orange: "warning", blue: "info", green: "success" };
+const alertIcon: Record<AlertTone, string> = { info: "info", warning: "warning", danger: "error", success: "check-circle" };
 
 // Warnings and errors say what happened and offer the next step (actions).
-export function Banner({
-  tone = "error",
+export function Alert({
+  tone = "danger",
   title,
   text,
   actions,
   children,
   onClose,
+  icon,
 }: {
-  tone?: BannerTone | "red" | "orange" | "blue" | "green";
+  tone?: AlertTone | "error" | "red" | "orange" | "blue" | "green";
   title?: ReactNode;
   text?: ReactNode;
   actions?: ReactNode;
   children?: ReactNode;
   onClose?: () => void;
+  icon?: string;
 }) {
-  const resolved = bannerAlias[tone] ?? (tone as BannerTone);
+  const resolved = alertAlias[tone] ?? (tone as AlertTone);
   return (
-    <div className={`banner banner-${resolved}`} role={resolved === "error" ? "alert" : "status"}>
-      <Icon name={bannerIcon[resolved]} size={22} />
-      <div className="banner-body">
-        {title && <span className="banner-title">{title}</span>}
-        {text && <span className="banner-text">{text}</span>}
-        {children && <div className="banner-text banner-children">{children}</div>}
-        {actions && <div className="banner-actions">{actions}</div>}
+    <div className={`alert-box alert-${resolved}`} role={resolved === "danger" ? "alert" : "status"}>
+      <Icon name={icon ?? alertIcon[resolved]} />
+      <div className="alert-body">
+        {title && <span className="alert-title">{title}</span>}
+        {text && <span className="alert-text">{text}</span>}
+        {children && <div className="alert-text">{children}</div>}
+        {actions && <div className="alert-actions">{actions}</div>}
       </div>
-      {onClose && <Button type="button" variant="plain" size="small" icon="xmark" aria-label="Dismiss" onClick={onClose} />}
+      {onClose && <Button type="button" variant="ghost" size="sm" icon="x" aria-label="Dismiss" onClick={onClose} />}
     </div>
   );
 }
@@ -680,6 +656,7 @@ function useDialog(ref: RefObject<HTMLElement | null>, onClose: () => void, init
   }, [ref, initial]);
 }
 
+// Modal sheet (center on desktop, bottom sheet on phone). `drawer` docks it to the right edge instead.
 export function Sheet({
   title,
   subtitle,
@@ -688,6 +665,8 @@ export function Sheet({
   footer,
   lang,
   drawer,
+  wide,
+  leading,
 }: {
   title: string;
   subtitle?: ReactNode;
@@ -695,24 +674,26 @@ export function Sheet({
   children: ReactNode;
   footer?: ReactNode;
   lang?: string;
-  // Slides in from the right edge (record details) instead of opening in the middle.
   drawer?: boolean;
+  wide?: boolean;
+  leading?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   useDialog(ref, onClose, "[data-autofocus]");
   return (
-    <div className={`sheet-backdrop${drawer ? " is-drawer" : ""}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className={`sheet${drawer ? " is-drawer" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1}>
-        <span className="sheet-grabber" aria-hidden="true" />
+    <div className={drawer ? "drawer-backdrop" : "sheet-backdrop"} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className={drawer ? "drawer" : `sheet${wide ? " wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1}>
+        {!drawer && <span className="sheet-grabber" aria-hidden="true" />}
         <div className="sheet-header">
-          <div className="spacer" style={{ minWidth: 0 }}>
+          {leading}
+          <div className="spacer">
             <h2 id={titleId} className="sheet-title clamp-2" lang={lang}>
               {title}
             </h2>
             {subtitle && <p className="sheet-sub">{subtitle}</p>}
           </div>
-          <Button type="button" variant="gray" size="small" icon="xmark" aria-label="Close" onClick={onClose} />
+          <Button type="button" variant="ghost" icon="x" aria-label="Close" onClick={onClose} />
         </div>
         <div className="sheet-body">{children}</div>
         {footer && <div className="sheet-footer">{footer}</div>}
@@ -721,8 +702,12 @@ export function Sheet({
   );
 }
 
-// Small confirm dialog (Restore version, Keep a failing fix).
-export function Alert({
+export function Drawer(props: Omit<Parameters<typeof Sheet>[0], "drawer" | "wide">) {
+  return <Sheet {...props} drawer />;
+}
+
+// Small confirm dialog (Restore version, Keep a failing fix, Discard).
+export function Dialog({
   title,
   text,
   confirmLabel,
@@ -743,19 +728,19 @@ export function Alert({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  useDialog(ref, onCancel, ".alert-actions button:last-child");
+  useDialog(ref, onCancel, ".dialog-actions button:last-child");
   return (
-    <div className="sheet-backdrop is-alert" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
-      <div className="alert" role="alertdialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1}>
-        <h2 id={titleId} className="alert-title">
+    <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
+      <div className="dialog" role="alertdialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1}>
+        <h2 id={titleId} className="dialog-title">
           {title}
         </h2>
-        {text && <p className="alert-text">{text}</p>}
-        <div className="alert-actions">
-          <Button type="button" variant="gray" onClick={onCancel}>
+        {text && <p className="dialog-text">{text}</p>}
+        <div className="dialog-actions">
+          <Button type="button" variant="outline" onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button type="button" variant={destructive ? "destructive" : "filled"} busy={busy} onClick={onConfirm}>
+          <Button type="button" variant={destructive ? "danger" : "primary"} busy={busy} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </div>
@@ -764,13 +749,12 @@ export function Alert({
   );
 }
 
-export type MenuItem =
-  | { label: string; icon?: string; onSelect: () => void; destructive?: boolean }
-  | { separator: true }
-  | { group: string };
+// ---------- Menu ----------
+
+export type MenuItem = { label: string; icon?: string; onSelect: () => void; destructive?: boolean } | { separator: true } | { group: string };
 
 // "•••" popover. Arrow keys move, Esc or an outside click closes, focus returns to the trigger.
-export function Menu({ label, items, size = "small" }: { label: string; items: MenuItem[]; size?: "small" | "regular" }) {
+export function Menu({ label, items, size = "sm" }: { label: string; items: MenuItem[]; size?: "sm" | "md" }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -805,14 +789,14 @@ export function Menu({ label, items, size = "small" }: { label: string; items: M
       <button
         ref={trigger}
         type="button"
-        className={`btn btn-gray btn-icon${size === "small" ? " btn-sm" : ""}`}
+        className={`btn btn-ghost btn-icon${size === "sm" ? " btn-sm" : ""}`}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((value) => !value)}
       >
-        <Icon name="ellipsis" size={size === "small" ? 15 : 17} />
+        <Icon name="dots" size={size === "sm" ? 16 : 18} />
       </button>
       {open && (
         <div className="menu" role="menu" id={menuId} aria-label={label} onKeyDown={move}>
@@ -828,7 +812,7 @@ export function Menu({ label, items, size = "small" }: { label: string; items: M
                 key={index}
                 type="button"
                 role="menuitem"
-                className={`menu-item${item.destructive ? " is-destructive" : ""}`}
+                className={`menu-item${item.destructive ? " is-danger" : ""}`}
                 onClick={() => {
                   setOpen(false);
                   trigger.current?.focus();
@@ -846,26 +830,16 @@ export function Menu({ label, items, size = "small" }: { label: string; items: M
   );
 }
 
-// Collapsible row for advanced areas; lives inside a section card.
-export function Disclosure({
-  title,
-  detail,
-  defaultOpen = false,
-  children,
-}: {
-  title: ReactNode;
-  detail?: ReactNode;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
+// Collapsible row for advanced areas; lives inside a card.
+export function Disclosure({ title, detail, defaultOpen = false, children }: { title: ReactNode; detail?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   const regionId = useId();
   return (
     <>
       <button type="button" className="disclosure" aria-expanded={open} aria-controls={regionId} onClick={() => setOpen((value) => !value)}>
         <span className="spacer">{title}</span>
-        {detail !== undefined && <span className="row-detail">{detail}</span>}
-        <Icon name="chevron-right" className="chev" size={13} />
+        {detail !== undefined && <span className="xs t3">{detail}</span>}
+        <Icon name="chevron-right" className="chev" size={16} />
       </button>
       {open && (
         <div id={regionId} className="disclosure-body">
@@ -875,6 +849,8 @@ export function Disclosure({
     </>
   );
 }
+
+// ---------- Fix sheet pieces ----------
 
 export function Steps({ total, current, label }: { total: number; current: number; label?: string }) {
   return (
@@ -908,11 +884,13 @@ export function Diff({ head, removed, added }: { head: ReactNode; removed?: Reac
   );
 }
 
-// "Read 3 sources · looked up 1 row" under an assistant reply; toggles its DetailsCard.
+// ---------- Preview reply details ----------
+
+// "5 sources · 2 offers" under an assistant reply; toggles its DetailsCard.
 export function MetaChip({ expanded, onClick, children }: { expanded: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" className="meta-chip" aria-expanded={expanded} onClick={onClick}>
-      <Icon name="chevron-right" size={13} />
+    <button type="button" className="msg-action" aria-expanded={expanded} onClick={onClick}>
+      <Icon name="book" size={16} />
       {children}
     </button>
   );
@@ -920,10 +898,10 @@ export function MetaChip({ expanded, onClick, children }: { expanded: boolean; o
 
 export function DetailsCard({ title, sub, children }: { title: string; sub?: ReactNode; children: ReactNode }) {
   return (
-    <div className="details-card" role="region" aria-label="Reply details">
-      <div>
-        <p className="details-title">{title}</p>
-        {sub && <p className="details-sub">{sub}</p>}
+    <div className="details" role="region" aria-label="Reply details">
+      <div className="stack" style={{ gap: 0 }}>
+        <span className="strong">{title}</span>
+        {sub && <span className="xs t3">{sub}</span>}
       </div>
       {children}
     </div>
@@ -935,20 +913,35 @@ export function MiniList({
   items,
 }: {
   label: string;
-  items: Array<{ key: string; label: ReactNode; icon: string; tone?: "indigo" | "green"; onClick?: () => void; wrap?: boolean }>;
+  items: Array<{ key: string; label: ReactNode; icon: string; tone?: "discovery" | "success" | "indigo" | "green"; onClick?: () => void; wrap?: boolean }>;
 }) {
+  const toneClass = { discovery: "text-discovery", indigo: "text-discovery", success: "text-success", green: "text-success" } as const;
   return (
-    <div className="mini-list">
+    <div className="stack" style={{ gap: 2 }}>
       <span className="mini-label">{label}</span>
       {items.map((item) => (
-        <button type="button" key={item.key} className={`mini-item${item.wrap ? " wrap" : ""}`} onClick={item.onClick}>
-          <Icon name={item.icon} size={16} className={item.tone ? `text-${item.tone}` : undefined} />
+        <button type="button" key={item.key} className="mini-item" style={{ border: 0, background: "none", textAlign: "left", cursor: item.onClick ? "pointer" : "default" }} onClick={item.onClick}>
+          <Icon name={item.icon} size={16} className={item.tone ? toneClass[item.tone] : undefined} />
           <span className={`spacer${item.wrap ? "" : " truncate"}`}>{item.label}</span>
         </button>
       ))}
     </div>
   );
 }
+
+// ---------- Table ----------
+
+export function Table({ children, label }: { children: ReactNode; label?: string }) {
+  return (
+    <div className="table-wrap">
+      <table className="table" aria-label={label}>
+        {children}
+      </table>
+    </div>
+  );
+}
+
+// ---------- Loading and empty ----------
 
 // First-load placeholder in the shape of a list (replaces page-level spinners).
 export function Skeleton({ rows = 3, avatar = false, card = true }: { rows?: number; avatar?: boolean; card?: boolean }) {
@@ -967,7 +960,7 @@ export function Skeleton({ rows = 3, avatar = false, card = true }: { rows?: num
     </div>
   ));
   return (
-    <div className={card ? "section-card" : undefined} aria-busy="true" aria-label="Loading">
+    <div className={card ? "card" : undefined} aria-busy="true" aria-label="Loading">
       {body}
     </div>
   );
@@ -981,7 +974,7 @@ export function EmptyState({ icon, title, text, action }: { icon: string; title:
   return (
     <div className="empty">
       <span className="empty-icon" aria-hidden="true">
-        <Icon name={icon} size={28} />
+        <Icon name={icon} size={24} />
       </span>
       <h3 className="empty-title">{title}</h3>
       <p className="empty-text">{text}</p>
@@ -990,7 +983,7 @@ export function EmptyState({ icon, title, text, action }: { icon: string; title:
   );
 }
 
-// ---------- Toast: pill, bottom center, 3.6 s, optional action (Undo, Publish) ----------
+// ---------- Toast: inverse pill, bottom center, 3.6 s, optional action (Undo, Publish) ----------
 
 type ToastOptions = { tone?: "default" | "error"; actionLabel?: string; onAction?: () => void };
 type ShowToast = (message: string, options?: ToastOptions | "default" | "error") => void;
@@ -1013,9 +1006,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api.current}>
       {children}
-      <div className="toast-live" aria-live="polite">
+      <div aria-live="polite">
         {toast && (
-          <div className={`toast${toast.tone === "error" ? " is-error" : ""}${toast.actionLabel ? "" : " no-action"}`} key={toast.key} role="status">
+          <div className={`toast${toast.actionLabel ? "" : " no-action"}`} key={toast.key} role="status">
             <Icon name={toast.tone === "error" ? "error" : "check-circle"} size={18} />
             <span>{toast.message}</span>
             {toast.actionLabel && (
@@ -1046,15 +1039,15 @@ export function errorMessage(error: unknown, fallback = "Something went wrong") 
 export function CopyField({ label, value }: { label: string; value: string }) {
   const toast = useToast();
   return (
-    <div className="copy-field">
-      <span className="copy-label">{label}</span>
-      <div>
-        <code>{value}</code>
+    <div className="field">
+      <span className="field-label">{label}</span>
+      <div className="row-flex">
+        <input className="input mono" value={value} readOnly aria-label={label} onFocus={(event) => event.currentTarget.select()} />
         <Button
           type="button"
-          variant="gray"
-          size="small"
+          variant="outline"
           icon="copy"
+          aria-label={`Copy ${label}`}
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(value);
@@ -1063,9 +1056,7 @@ export function CopyField({ label, value }: { label: string; value: string }) {
               toast("Couldn't copy. Select the text and copy it.", "error");
             }
           }}
-        >
-          Copy
-        </Button>
+        />
       </div>
     </div>
   );

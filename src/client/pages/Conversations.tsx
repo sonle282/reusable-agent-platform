@@ -4,7 +4,7 @@ import { displayName, formatDate, previewSnippet, timeSeparator } from "../forma
 import { useFixAnswer } from "../FixSheet";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { Connection, Conversation, TranscriptMessage } from "../types";
-import { Alert, Avatar, Badge, Banner, Button, EmptyState, Icon, Menu, PageHeader, SearchField, Skeleton, SkeletonLine, Toggle, errorMessage, useToast } from "../ui";
+import { Alert, Avatar, Badge, Button, Dialog, EmptyState, errorMessage, Icon, Menu, PageHeader, SearchField, Skeleton, SkeletonLine, Switch, useToast } from "../ui";
 
 const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 
@@ -119,12 +119,12 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
     <div className="page conversations-page">
       <PageHeader title="Conversations" />
       {listError && (
-        <Banner
+        <Alert
           tone="error"
           title="Couldn't load new messages"
           text={`${loadedAt ? `You're seeing chats up to ${formatDate(loadedAt.toISOString())}. ` : ""}Customers are still being answered.`}
           actions={
-            <Button variant="gray" size="small" onClick={() => void load()}>
+            <Button variant="outline" size="sm" onClick={() => void load()}>
               Try again
             </Button>
           }
@@ -189,7 +189,7 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
                   </div>
                   <label className="takeover">
                     <span>Your team replies</span>
-                    <Toggle label="Your team replies" checked={Boolean(selected.human_takeover)} disabled={switching} onChange={(enabled) => void setTakeover(selected, enabled)} />
+                    <Switch label="Your team replies" checked={Boolean(selected.human_takeover)} disabled={switching} onChange={(enabled) => void setTakeover(selected, enabled)} />
                   </label>
                   <Menu
                     label="Conversation actions"
@@ -203,7 +203,7 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
                     ]}
                   />
                   {moving && (
-                    <Alert
+                    <Dialog
                       title="Use the live version in this chat?"
                       text="Chats keep the version they started on. This one switches to the version customers see now; the chat history stays. Other chats are not affected."
                       confirmLabel="Switch"
@@ -213,7 +213,7 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
                     />
                   )}
                   {erasing && (
-                    <Alert
+                    <Dialog
                       title="Erase this customer's data?"
                       text="Their name, phone, email and every chat with them are deleted for good. Export first if you need a copy. Business data and fixes you made stay."
                       confirmLabel="Erase"
@@ -235,12 +235,12 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
                 <div className="pane-scroll" ref={scroller}>
                   {detailError ? (
                     <div className="pane-banner pane-banner-top">
-                      <Banner
+                      <Alert
                         tone="error"
                         title="Couldn't open this chat"
                         text={`${detailError}. The customer is not affected.`}
                         actions={
-                          <Button variant="gray" size="small" onClick={() => void loadDetail(selected.id)}>
+                          <Button variant="outline" size="sm" onClick={() => void loadDetail(selected.id)}>
                             Try again
                           </Button>
                         }
@@ -273,8 +273,8 @@ export function ConversationsPage({ agentId, connections, openId, onOpen, onOpen
                                   <span className="reply-meta">
                                     <span>Sent by the assistant · {formatDate(message.created_at)}</span>
                                     <Button
-                                      variant="tinted"
-                                      size="small"
+                                      variant="soft"
+                                      size="sm"
                                       icon="wrench"
                                       onClick={() =>
                                         startFix({

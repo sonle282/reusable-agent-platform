@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { post, setCsrf } from "../api";
 import type { Brand } from "../types";
-import { Banner, Button, TextInput, errorMessage } from "../ui";
+import { Alert, Button, errorMessage, TextInput } from "../ui";
 
 export function AppIcon({ brand, size = 64 }: { brand: Brand; size?: number }) {
   return (
@@ -70,7 +70,7 @@ function PasswordField({ id, label, value, onChange, autoComplete, strength }: {
       </label>
       <div className="pw-wrap">
         <TextInput id={id} type={shown ? "text" : "password"} autoComplete={autoComplete} value={value} onChange={(event) => onChange(event.target.value)} required />
-        <Button type="button" variant="plain" size="small" icon={shown ? "eye-slash" : "eye"} className="pw-toggle" aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown} onClick={() => setShown(!shown)} />
+        <Button type="button" variant="ghost" size="sm" icon={shown ? "eye-slash" : "eye"} className="pw-toggle" aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown} onClick={() => setShown(!shown)} />
       </div>
       {strength && (
         <>
@@ -128,7 +128,7 @@ export function Login({ brand, onDone }: { brand: Brand; onDone: () => void }) {
           <p className="auth-lead">Manage your assistants, data and conversations.</p>
         </div>
         {error && (
-          <Banner
+          <Alert
             tone="error"
             title={locked ? "Sign-in is paused" : /invalid email or password/i.test(error) ? "Email or password is wrong" : "Couldn't sign in"}
             text={locked ? "Too many tries. Wait 15 minutes, then try again." : /invalid email or password/i.test(error) ? "Check both and try again. After 5 tries, sign-in pauses for 15 minutes." : error}
@@ -138,7 +138,7 @@ export function Login({ brand, onDone }: { brand: Brand; onDone: () => void }) {
           <TextInput type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@business.com" required />
         </Field>
         <PasswordField id="login-password" label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
-        <Button size="large" block busy={busy} disabled={!email.trim() || !password}>
+        <Button size="lg" block busy={busy} disabled={!email.trim() || !password}>
           {busy ? "Signing in…" : "Sign in"}
         </Button>
         <p className="auth-help auth-center">Only the workspace owner can sign in here. Forgot the password? Reset it with the admin reset command.</p>
@@ -218,17 +218,17 @@ export function Setup({ onDone }: { onDone: () => void }) {
               </span>
               <input className="color-input" type="color" aria-label="Chat color" value={form.primaryColor} onChange={(event) => update("primaryColor", event.target.value)} />
             </div>
-            <Banner tone="info" title="AI key comes next, inside the app" text="Home shows it as the first step of the checklist. Nothing answers customers until you add it." />
+            <Alert tone="info" title="AI key comes next, inside the app" text="Home shows it as the first step of the checklist. Nothing answers customers until you add it." />
           </>
         )}
-        {error && <Banner tone="error" title="Couldn't finish setup" text={error} />}
+        {error && <Alert tone="error" title="Couldn't finish setup" text={error} />}
         <div className="auth-actions">
           {step === 2 && (
-            <Button type="button" variant="gray" size="large" onClick={() => setStep(1)}>
+            <Button type="button" variant="outline" size="lg" onClick={() => setStep(1)}>
               Back
             </Button>
           )}
-          <Button size="large" className="grow" busy={busy} disabled={cant}>
+          <Button size="lg" className="grow" busy={busy} disabled={cant}>
             {step === 1 ? "Continue" : "Open the app"}
           </Button>
         </div>

@@ -5,7 +5,7 @@ import { displayName, formatDate, parseDate, previewSnippet } from "../format";
 import { publishWithChecks } from "../publish";
 import { parseRichMessage } from "../RichMessage";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
-import { Avatar, Badge, Banner, Button, EmptyState, Icon, Menu, PageHeader, Section, SkeletonLine, errorMessage, useToast, type TileTone } from "../ui";
+import { Alert, Avatar, Badge, Button, Card, EmptyState, errorMessage, Icon, Menu, PageHeader, SkeletonLine, useToast, type TileTone } from "../ui";
 
 type Go = (page: "assistant" | "conversations" | "connections" | "settings" | "leads", ...params: string[]) => void;
 
@@ -148,25 +148,25 @@ export function HomePage({
   const recent = conversations?.slice(0, 5) ?? [];
 
   // What each item says and which single action it offers.
-  const present = (item: AttentionItem): { tone: TileTone; icon: string; title: string; sub: string; label: string; variant: "gray" | "tinted" | "filled"; act: () => void } => {
+  const present = (item: AttentionItem): { tone: TileTone; icon: string; title: string; sub: string; label: string; variant: "outline" | "soft" | "primary"; act: () => void } => {
     const name = item.person ? displayName(item.person) : "";
     const when = formatDate(item.at);
     const open = () => item.conversationId && go("conversations", item.conversationId);
     switch (item.type) {
       case "team":
-        return { tone: "soft-gray", icon: "pause", title: "Your team is replying", sub: `${name} · assistant paused · ${when}`, label: "Open", variant: "gray", act: open };
+        return { tone: "default", icon: "pause", title: "Your team is replying", sub: `${name} · assistant paused · ${when}`, label: "Open", variant: "outline", act: open };
       case "lead":
-        return { tone: "soft-blue", icon: "person-plus", title: "New lead to contact", sub: `${name} left contact details · ${when}`, label: "Open", variant: "gray", act: () => (item.leadId ? go("leads", item.leadId) : open()) };
+        return { tone: "info", icon: "person-plus", title: "New lead to contact", sub: `${name} left contact details · ${when}`, label: "Open", variant: "outline", act: () => (item.leadId ? go("leads", item.leadId) : open()) };
       case "contact_again":
-        return { tone: "soft-orange", icon: "reply", title: "Contact again", sub: `${name} went quiet after a follow-up · reply by hand from the page · ${when}`, label: "Open", variant: "gray", act: open };
+        return { tone: "warning", icon: "reply", title: "Contact again", sub: `${name} went quiet after a follow-up · reply by hand from the page · ${when}`, label: "Open", variant: "outline", act: open };
       case "backup":
-        return { tone: "soft-orange", icon: "warning", title: "Sent the backup reply", sub: `${name} · the AI didn't answer · ${when}`, label: "Open", variant: "gray", act: open };
+        return { tone: "warning", icon: "warning", title: "Sent the backup reply", sub: `${name} · the AI didn't answer · ${when}`, label: "Open", variant: "outline", act: open };
       case "price":
-        return { tone: "soft-orange", icon: "warning", title: "Price given without checking Data", sub: `${name} · ${when}`, label: "Fix", variant: "tinted", act: () => void fixFromConversation(item) };
+        return { tone: "warning", icon: "warning", title: "Price given without checking Data", sub: `${name} · ${when}`, label: "Fix", variant: "soft", act: () => void fixFromConversation(item) };
       case "fix_pending":
-        return { tone: "soft-blue", icon: "wrench", title: "Fix not live yet", sub: `“${item.message}” · customers still see version ${liveVersion ?? "—"}`, label: "Publish", variant: "filled", act: () => void publish(item) };
+        return { tone: "info", icon: "wrench", title: "Fix not live yet", sub: `“${item.message}” · customers still see version ${liveVersion ?? "—"}`, label: "Publish", variant: "primary", act: () => void publish(item) };
       default:
-        return { tone: "soft-red", icon: "error", title: "Fix kept but failing", sub: `“${item.message}” still fails its test scenario`, label: "Try again", variant: "tinted", act: () => void retryFix(item) };
+        return { tone: "danger", icon: "error", title: "Fix kept but failing", sub: `“${item.message}” still fails its test scenario`, label: "Try again", variant: "soft", act: () => void retryFix(item) };
     }
   };
 
@@ -175,12 +175,12 @@ export function HomePage({
       <PageHeader title="Home" subtitle={today} />
 
       {error && (
-        <Banner
+        <Alert
           tone="error"
           title="Couldn't refresh Home"
           text={updatedAt ? `Showing what we had at ${formatDate(updatedAt.toISOString())}. Check your connection, then try again.` : "Check your connection, then try again."}
           actions={
-            <Button variant="gray" size="small" busy={busy === "load"} onClick={() => void load()}>
+            <Button variant="outline" size="sm" busy={busy === "load"} onClick={() => void load()}>
               Try again
             </Button>
           }
@@ -204,15 +204,15 @@ export function HomePage({
         <HomeSkeleton />
       ) : (
         <>
-          <Section title="Needs attention" badge={attention?.length ? <Badge count>{attention.length}</Badge> : undefined}>
+          <Card title="Needs attention" badge={attention?.length ? <Badge count>{attention.length}</Badge> : undefined}>
             {attentionError ? (
               <div className="pane-banner pane-banner-top">
-                <Banner
+                <Alert
                   tone="error"
                   title="Couldn't load Needs attention"
                   text="Other parts of the page still work."
                   actions={
-                    <Button variant="gray" size="small" onClick={() => void loadAttention()}>
+                    <Button variant="outline" size="sm" onClick={() => void loadAttention()}>
                       Try again
                     </Button>
                   }
@@ -237,7 +237,7 @@ export function HomePage({
                         </Badge>
                       )}
                       <div className="attn-actions">
-                        <Button variant={view.variant} size="small" busy={busy === item.key} onClick={view.act}>
+                        <Button variant={view.variant} size="sm" busy={busy === item.key} onClick={view.act}>
                           {view.label}
                         </Button>
                         <Menu
@@ -268,23 +268,23 @@ export function HomePage({
                 </div>
               </div>
             )}
-          </Section>
+          </Card>
 
           {summary && (
-            <Section title="Last 24 hours">
+            <Card title="Last 24 hours">
               <div className="metrics">
                 <Metric value={summary.chats24h} label="Chats" sub={summary.chats7d ? `${summary.chats7d} this week` : "None this week"} />
                 <Metric value={summary.waitingForTeam} label="Waiting for your team" sub={summary.waitingForTeam ? "Reply in Conversations" : "All handled"} />
                 <Metric value={summary.failedDeliveries} label="Replies not delivered" sub={summary.failedDeliveries ? "Retry in Channels" : "All delivered"} />
               </div>
-            </Section>
+            </Card>
           )}
 
-          <Section
+          <Card
             title="Recent conversations"
             action={
               recent.length > 0 ? (
-                <Button variant="plain" onClick={() => go("conversations")}>
+                <Button variant="ghost" onClick={() => go("conversations")}>
                   See all
                 </Button>
               ) : undefined
@@ -318,7 +318,7 @@ export function HomePage({
                 );
               })
             )}
-          </Section>
+          </Card>
         </>
       )}
       {fixSheet}
@@ -339,7 +339,7 @@ function Metric({ value, label, sub }: { value: number; label: string; sub: stri
 function HomeSkeleton() {
   return (
     <>
-      <Section title="Needs attention">
+      <Card title="Needs attention">
         {[0, 1].map((index) => (
           <div className="skel-row" key={index} aria-hidden="true">
             <span className="skel" style={{ width: 30, height: 30 }} />
@@ -349,7 +349,7 @@ function HomeSkeleton() {
             </span>
           </div>
         ))}
-      </Section>
+      </Card>
       <div className="section-card metrics" aria-busy="true" aria-label="Loading">
         {[0, 1, 2].map((index) => (
           <div className="metric" key={index}>
