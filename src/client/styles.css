@@ -737,7 +737,7 @@ button.mini-item { width: calc(100% + 12px); border: 0; background: transparent;
 .fu-step { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 16px; border-top: 1px solid var(--color-separator); }
 .fu-num { width: 28px; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--color-fill); font: 600 12px/1 var(--font-sans); }
 .fu-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.fu-body .text-area { width: 100%; padding: 10px 12px; border: 1px solid var(--color-separator); border-radius: 12px; background: var(--color-bg); }
+.fu-body .field-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--color-separator); border-radius: 12px; background: var(--color-bg); }
 .inline-select { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .inline-select .select { width: auto; height: 32px; padding: 0 10px; border: 1px solid var(--color-separator); border-radius: 8px; background: var(--color-bg); color: var(--color-label); text-align: left; appearance: auto; }
 .fu-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: var(--text-footnote); }
