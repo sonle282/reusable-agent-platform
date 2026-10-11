@@ -151,7 +151,7 @@ export function AssistantPage({
         const run = await post<EvalRun>(`/api/admin/agents/${agentId}/evaluate`);
         setEvalRun(run);
         if (!run.passed) {
-          const failing = agent.evalCases.filter((item) => run.results.some((result) => result.caseId === item.id && !result.passed));
+          const failing = agent.evalCases.filter((item) => item.critical && run.results.some((result) => result.caseId === item.id && !result.passed));
           // A broken fix is the most important one to show: it passed once and regressed.
           const failed = failing.find((item) => (JSON.parse(item.assertions_json || "{}") as Assertions).fromFix) ?? failing[0];
           const reply = run.results.find((result) => result.caseId === failed?.id)?.output?.messages?.map((message) => message.text).join("\n") ?? "";

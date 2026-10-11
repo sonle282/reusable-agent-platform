@@ -294,7 +294,8 @@ app.post("/api/admin/agents/:id/evaluate", async (c) => {
     const { caseId, passed, failures, output } = await runCase(c.env, agent.id, draft, testCase);
     results.push({ caseId, passed, failures, output });
   }
-  const passed = results.every((result) => result.passed);
+  // Publish needs every required scenario to pass; the others are reported but don't block.
+  const passed = results.every((result, index) => result.passed || !cases[index].critical);
   const runId = id("eval");
   await c.env.DB.prepare("INSERT INTO eval_runs(id,agent_id,status,result_json,completed_at) VALUES(?,?,?,?,datetime('now'))").bind(runId, agent.id, passed ? "passed" : "failed", JSON.stringify(results)).run();
   return c.json({ id: runId, passed, results });
