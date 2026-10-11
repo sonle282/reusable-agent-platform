@@ -266,8 +266,9 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     const behavior = snapshot.behavior;
     // Seen right away, then typing while the model works (Meta clears it after ~20 s, so repeat every 15 s).
     const actions = behavior.markSeen || behavior.typing ? await channelActions(this.env, input.connectionId, input.conversationId).catch(() => null) : null;
-    if (actions && behavior.markSeen) await actions.seen();
-    if (actions && behavior.typing) await actions.typing();
+    const senderLog: string[] = [];
+    if (actions && behavior.markSeen) senderLog.push(await actions.seen());
+    if (actions && behavior.typing) senderLog.push(await actions.typing());
     const typingLoop = actions && behavior.typing ? setInterval(() => void actions.typing(), 15_000) : undefined;
     try {
       const preparedMessage = await prepareUserMessage(this.env, input);
@@ -356,7 +357,7 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
         this.saveFollowUpState(onZernio ? await this.scheduleFollowUp(next, snapshot, 0) : next);
       }
       await this.env.DB.prepare("INSERT INTO runtime_events(id, conversation_id, agent_id, version_id, request_id, event_type, status, latency_ms, metadata_json) VALUES(?,?,?,?,?,'message','completed',?,?)")
-        .bind(id("evt"), conversationId, input.agentId, versionId, input.eventId, Date.now() - started, JSON.stringify({ sources: sources.length, tools: traces.map((trace) => trace.name), priced: snapshot.collectionBindings.length > 0 && traces.length === 0 && mentionsPrice(answer) })).run();
+        .bind(id("evt"), conversationId, input.agentId, versionId, input.eventId, Date.now() - started, JSON.stringify({ sources: sources.length, tools: traces.map((trace) => trace.name), priced: snapshot.collectionBindings.length > 0 && traces.length === 0 && mentionsPrice(answer), ...(senderLog.length ? { actions: senderLog } : {}) })).run();
       return result;
     } catch (error) {
       const message = safeError(error);

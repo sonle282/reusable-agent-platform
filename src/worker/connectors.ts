@@ -81,16 +81,21 @@ export async function zernioRequest<T>(apiKey: string, path: string, init: Reque
 }
 
 // Best-effort sender actions ("typing", "read"): never block or fail a reply. See repnow-plan/04-zernio-capabilities.md.
+// Returns a short outcome ("typing 200 sent", "read 400 not_found") so failures show up in the message event.
 async function zernioAction(token: string, conversation: string, accountId: string, action: "typing" | "read") {
   try {
-    await fetch(`${ZERNIO_API}/inbox/conversations/${conversation}/${action}`, {
+    const response = await fetch(`${ZERNIO_API}/inbox/conversations/${conversation}/${action}`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
       body: JSON.stringify({ accountId }),
       signal: AbortSignal.timeout(5000),
     });
-  } catch {
+    const body = (await response.json().catch(() => ({}))) as { success?: boolean; code?: string; error?: string };
+    const outcome = response.ok ? (body.success === false ? "not sent" : "sent") : String(body.code ?? body.error ?? "error").slice(0, 60);
+    return `${action} ${response.status} ${outcome}`;
+  } catch (error) {
     // The reply matters more than the dots.
+    return `${action} failed ${error instanceof Error ? error.name : "error"}`;
   }
 }
 
