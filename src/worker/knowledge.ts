@@ -117,7 +117,8 @@ export async function retrieveKnowledge(env: Env, agentId: string, sourceIds: st
   const instance = await searchInstance(env);
   const result = await instance.search({
     query,
-    ai_search_options: { retrieval: { max_num_results: 5, match_threshold: 0.35, filters: { agentid: { $eq: agentId } } } },
+    // Ask for more than we keep: chunks from switched-off sources are dropped below, and they must not crowd out the ones in use.
+    ai_search_options: { retrieval: { max_num_results: 20, match_threshold: 0.35, filters: { agentid: { $eq: agentId } } } },
   });
   const chunks = result.chunks.filter((chunk) => sourceIds.includes(String(metadataValue(chunk.item.metadata, "sourceid") ?? ""))).slice(0, 5);
   const ids = [...new Set(chunks.map((chunk) => String(metadataValue(chunk.item.metadata, "sourceid"))))];

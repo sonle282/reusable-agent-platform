@@ -12,6 +12,9 @@ export type ModelTool = {
   input_schema: Record<string, unknown>;
 };
 
+// A system prompt in parts. "cache" marks a prompt-cache breakpoint after that part (tools + system up to it are cached).
+export type SystemPart = { text: string; cache?: boolean };
+
 export type ModelResponse = {
   id: string;
   stopReason: string | null;
@@ -38,7 +41,7 @@ async function withTimeout(send: (signal: AbortSignal) => Promise<Response>, tim
 export async function generateWithAnthropic(
   env: Env,
   config: AgentVersionSnapshot["modelConfig"],
-  system: string,
+  system: string | SystemPart[],
   messages: ModelMessage[],
   tools: ModelTool[],
   requestId: string,
@@ -58,8 +61,10 @@ export async function generateWithAnthropic(
     model: config.model,
     max_tokens: config.maxTokens,
     temperature: modelSupportsTemperature(config.model) ? config.temperature : undefined,
-    system,
-    messages,
+    system: typeof system === "string" ? system : system.filter((part) => part.text.trim()).map((part) => ({ type: "text", text: part.text, ...(part.cache ? { cache_control: { type: "ephemeral" } } : {}) })),
+    // With a split system prompt, the latest message is a breakpoint too: the follow-up call after a tool result
+    // in the same turn reads the whole conversation from the cache instead of paying for it again.
+    messages: typeof system === "string" ? messages : withCacheBreakpoint(messages),
     tools: tools.length ? tools : undefined,
   };
 
@@ -89,4 +94,14 @@ export async function generateWithAnthropic(
     text: data.content.filter((block) => block.type === "text").map((block) => String(block.text ?? "")).join("\n").trim(),
     usage: data.usage,
   };
+}
+
+// Marks the last block of the last message (a copy; the caller's messages are not changed).
+export function withCacheBreakpoint(messages: ModelMessage[]): ModelMessage[] {
+  const last = messages.at(-1);
+  if (!last) return messages;
+  const blocks = typeof last.content === "string" ? (last.content.trim() ? [{ type: "text", text: last.content }] : []) : last.content;
+  if (!blocks.length) return messages;
+  const marked = [...blocks.slice(0, -1), { ...blocks.at(-1), cache_control: { type: "ephemeral" } }];
+  return [...messages.slice(0, -1), { ...last, content: marked }];
 }

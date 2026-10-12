@@ -11,6 +11,15 @@ export function fallbackChecks(correct: string, bad: string) {
 }
 
 // Flags replies that state a price or offer without looking anything up (Needs attention: "Price given without checking Data").
+// Money amounts and percentages in a reply ("$1,495", "1495 USD", "5%") that none of the sources contain.
+// Used to flag "price given without checking": a number the owner's data and instructions never gave.
+const AMOUNT = /\$\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:usd|dollars?)\b|\d+(?:[.,]\d+)?\s?%/gi;
+const amountKey = (value: string) => (value.includes("%") ? `${value.replace(/[^\d.,]/g, "").replace(",", ".")}%` : value.replace(/[^\d.]/g, "").replace(/\.0+$/, ""));
+export function unsourcedAmounts(answer: string, sources: string[]) {
+  const known = new Set(sources.flatMap((text) => [...text.matchAll(AMOUNT)].map((match) => amountKey(match[0]))));
+  return [...answer.matchAll(AMOUNT)].map((match) => amountKey(match[0])).filter((key) => key && key !== "%" && !known.has(key));
+}
+
 export function mentionsPrice(text: string) {
   return /[$€£¥₫]\s?\d|\d[\d.,]*\s?(?:usd|vnd|đ|dollars?)\b|\b(?:price|discount|offer|% off)\b|giá|giảm|ưu đãi|khuyến mãi|miễn phí|free ship/i.test(text);
 }
