@@ -11,6 +11,7 @@ import { generateWithAnthropic } from "./model/anthropic";
 import { hasProfile } from "../shared/prompt";
 import { executeTool } from "./tools";
 import { markFixesPublished, registerFixRoutes, runCase } from "./fixes";
+import { registerImageRoutes } from "./images";
 import { registerLeadRoutes } from "./leads";
 import { clearSessionCookies, createSession, requireAdmin, setSessionCookies, type AuthVariables } from "./security/auth";
 import { constantTimeEqual, decryptCredential, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
@@ -110,6 +111,7 @@ app.post("/api/auth/login", async (c) => {
 
 app.use("/api/admin/*", requireAdmin);
 registerFixRoutes(app);
+registerImageRoutes(app);
 registerLeadRoutes(app);
 
 app.get("/api/admin/session", (c) => c.json({ authenticated: true, csrfToken: c.get("csrfToken") }));

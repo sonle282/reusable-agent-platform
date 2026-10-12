@@ -263,6 +263,7 @@ function TablePage({
   const shown = allFields.filter((field) => field !== title && field.key !== "id" && !hiddenTypes.has(field.type) && !scheduleColumns.has(field.key) && field.key !== upsertKey(allFields));
   const detailField = shown.find((field) => field.type === "long_text") ?? shown.find((field) => field.type === "text");
   const extraField = shown.find((field) => field !== detailField);
+  const imageField = allFields.find((field) => field.type === "image_url");
   const counts = { all: records?.length ?? 0, active: 0, scheduled: 0, off: 0 } as Record<RowFilter, number>;
   for (const record of records ?? []) counts[rowState(record)] += 1;
   const visible = (records ?? []).filter((record) => (filter === "all" || rowState(record) === filter) && (!query || record.data_json.toLowerCase().includes(query.toLowerCase())));
@@ -303,7 +304,7 @@ function TablePage({
             size="md"
             items={[
               { label: importing ? "Importing…" : "Import CSV", icon: "upload", onSelect: () => fileInput.current?.click() },
-              { label: "Rename", icon: "edit", onSelect: () => setRenaming(true) },
+              { label: "Edit table", icon: "edit", onSelect: () => setRenaming(true) },
               { separator: true },
               collection.archived_at ? { label: "Show table", icon: "eye", onSelect: () => void setHidden(false) } : { label: "Hide table", icon: "eye-off", onSelect: () => void setHidden(true) },
             ]}
@@ -381,8 +382,11 @@ function TablePage({
                 return (
                   <tr key={record.id} onClick={() => onSelect(collection.id, record.id)}>
                     <td>
-                      <button type="button" className="row-open medium truncate" style={{ display: "block", maxWidth: "100%" }} onClick={(event) => (event.stopPropagation(), onSelect(collection.id, record.id))}>
-                        <CellText value={name} />
+                      <button type="button" className="row-open medium row-flex" style={{ maxWidth: "100%", gap: 10 }} onClick={(event) => (event.stopPropagation(), onSelect(collection.id, record.id))}>
+                        {imageField && <Thumb src={String(data[imageField.key] ?? "")} />}
+                        <span className="truncate">
+                          <CellText value={name} />
+                        </span>
                       </button>
                     </td>
                     {detailField && (
@@ -535,6 +539,8 @@ function RecordDrawer({
                     <TextArea rows={field.type === "long_text" ? 2 : 1} value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label} />
                   ) : field.type === "boolean" ? (
                     <Switch label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
+                  ) : field.type === "image_url" ? (
+                    <ImageInput label={field.label} value={String(value ?? "")} onChange={(next) => set(field.key, next)} />
                   ) : field.type === "enum" && field.options?.length ? (
                     <Select value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label}>
                       <option value="">None</option>
@@ -584,6 +590,7 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
   const fields = fieldsOf(collection);
   const [name, setName] = useState(collection.name);
   const [labels, setLabels] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field.key, field.label])));
+  const [added, setAdded] = useState<Array<{ label: string; type: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
@@ -591,7 +598,16 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
     setBusy(true);
     setError("");
     try {
-      await patch(`/api/admin/collections/${collection.id}`, { name, labels });
+      const taken = new Set(fields.map((field) => field.key));
+      const addFields = added
+        .filter((field) => field.label.trim())
+        .map((field) => {
+          let key = identifier(field.label);
+          while (taken.has(key)) key = `${key}_2`;
+          taken.add(key);
+          return { key, label: field.label.trim(), type: field.type };
+        });
+      await patch(`/api/admin/collections/${collection.id}`, { name, labels, addFields });
       onDone();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -601,7 +617,7 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
   }
   return (
     <Sheet
-      title="Rename"
+      title="Edit table"
       subtitle={collection.name}
       onClose={onClose}
       footer={
@@ -626,10 +642,101 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
             </Field>
           ))}
         </Card>
+        <Card
+          title="New columns"
+          action={
+            <Button type="button" variant="ghost" size="sm" icon="plus" onClick={() => setAdded((current) => [...current, { label: "", type: "image_url" }])}>
+              Add column
+            </Button>
+          }
+          footer="New columns start empty on every row. Existing columns and rows don't change."
+        >
+          {added.length === 0 && <p className="help" style={{ padding: "12px 16px", margin: 0 }}>Add a column, for example Image to attach a photo to each row.</p>}
+          {added.map((field, index) => (
+            <div className="row compact column-editor" key={index}>
+              <TextInput aria-label={`New column ${index + 1} name`} value={field.label} placeholder="Column name" onChange={(event) => setAdded((current) => current.map((item, i) => (i === index ? { ...item, label: event.target.value } : item)))} data-autofocus />
+              <Select block={false} aria-label={`New column ${index + 1} type`} value={field.type} onChange={(event) => setAdded((current) => current.map((item, i) => (i === index ? { ...item, type: event.target.value } : item)))}>
+                {fieldTypes.filter(([value]) => value !== "relation").map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+              <Button type="button" variant="ghost" size="sm" icon="x" aria-label={`Remove new column ${index + 1}`} onClick={() => setAdded((current) => current.filter((_, i) => i !== index))} />
+            </div>
+          ))}
+        </Card>
         {error && <Alert tone="danger" title="Couldn't rename" text={error} />}
       </form>
     </Sheet>
   );
+}
+
+// Photos for a row: choose a file (uploaded and given a link customers' apps can open) or paste a link.
+const MAX_IMAGE_MB = 5;
+
+function ImageInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
+  async function upload(file: File) {
+    setError("");
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) return setError("Use a JPG, PNG, WebP or GIF image.");
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) return setError(`The image is over ${MAX_IMAGE_MB} MB. Choose a smaller one.`);
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const result = await api<{ url: string }>("/api/admin/images", { method: "POST", body: form });
+      onChange(result.url);
+    } catch (caught) {
+      setError(errorMessage(caught, "Couldn't upload the image"));
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = "";
+    }
+  }
+  return (
+    <div
+      className={`image-input${dragging ? " is-dragging" : ""}`}
+      onDragOver={(event) => (event.preventDefault(), setDragging(true))}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        const file = event.dataTransfer.files[0];
+        if (file) void upload(file);
+      }}
+    >
+      {value ? <img className="image-preview" src={value} alt={`${label} preview`} /> : (
+        <span className="image-preview is-empty" aria-hidden="true">
+          <Icon name="upload" />
+        </span>
+      )}
+      <div className="stack" style={{ gap: 8, flex: 1, minWidth: 0 }}>
+        <div className="row-flex" style={{ flexWrap: "wrap" }}>
+          <Button type="button" variant="outline" size="sm" icon="upload" busy={busy} onClick={() => input.current?.click()}>
+            {busy ? "Uploading…" : value ? "Replace image" : "Choose image"}
+          </Button>
+          {value && !busy && (
+            <Button type="button" variant="ghost" size="sm" onClick={() => onChange("")}>
+              Remove
+            </Button>
+          )}
+        </div>
+        <TextInput type="url" value={value} placeholder="or paste an image link (https://…)" onChange={(event) => onChange(event.target.value)} aria-label={`${label} link`} />
+        {error ? <span className="help text-danger">{error}</span> : <span className="help">JPG, PNG, WebP or GIF, up to {MAX_IMAGE_MB} MB. You can also drop a file here.</span>}
+      </div>
+      <input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => event.target.files?.[0] && void upload(event.target.files[0])} />
+    </div>
+  );
+}
+
+function Thumb({ src }: { src: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) return <span className="row-thumb is-empty" aria-hidden="true" />;
+  return <img className="row-thumb" src={src} alt="" loading="lazy" onError={() => setBroken(true)} />;
 }
 
 const fieldTypes: Array<[string, string]> = [
@@ -642,7 +749,7 @@ const fieldTypes: Array<[string, string]> = [
   ["enum", "Choice"],
   ["multi_enum", "Multiple choice"],
   ["url", "Link"],
-  ["image_url", "Image link"],
+  ["image_url", "Image"],
   ["relation", "Relation"],
 ];
 
