@@ -209,7 +209,7 @@ Owner request: send the photo whenever an answer is about something that has one
 | `48b33e5` | Fix: the Data row panel (and the lead panel) kept the previous row's values when moving straight to another row by link or back button, so Save could overwrite the second row. Found while replacing photos; nothing was saved wrong. |
 | `347c724`, `70f901f`, `16f7402` | Reply language: a message with Vietnamese letters or common English words gets a strict LANGUAGE rule (whole reply in that language, facts translated); the business default language is only the fallback. "Dạ" opens Vietnamese replies only. |
 
-Mr Spa: both offer photos (OF-010, OF-011) were re-uploaded as JPEG. Product photos still link to WebP files on mrspainc.com; if Messenger refuses one, the customer gets the link instead. Not yet verified on a real Messenger chat: needs a customer message on the Freedom Business page.
+Mr Spa: both offer photos (OF-010, OF-011) were re-uploaded as JPEG. Product photos still link to WebP files on mrspainc.com; if Messenger refuses one, the customer gets the link instead. Verified on Messenger 2026-10-12 10:41 UTC (Freedom Business, owner's test chat, v9): "Ghế MS1 giá bao nhiêu?" went out as 3 messages, all accepted first try: the price with one add-on per line, the question back on its own, then the MS1 JPEG photo, which the owner saw inline in the chat (not as a link). Not yet verified: a WebP product photo from mrspainc.com on Messenger.
 
 ## Production data and AI state (2026-10-10)
 
