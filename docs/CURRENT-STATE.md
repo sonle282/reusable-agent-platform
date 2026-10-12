@@ -186,6 +186,19 @@ Mr Spa (owner decision 2026-10-12: Data only for what changes often; English ins
 
 **Chats follow the live version (owner decision 2026-10-12).** The original rule "a conversation keeps its agentVersionId; rollback only moves the pointer for new conversations" is replaced: every message, follow-up and seen/typing acknowledgement uses the agent's live version, so Publish and Restore reach all chats, including ones in progress, at the customer's next message. Each reply's runtime event and the conversation row record the version that answered. The per-chat "Use the live version" action and `POST /api/admin/conversations/:id/use-live` were removed. Moving a channel to another assistant still starts fresh chats (conversation ids include the agent id).
 
+Verified on production 2026-10-12 (`2dee320`), all in one test chat on the "Generic API smoke test" channel (`smoke-1791617919875`, started on v1 on 2026-10-10), reading `runtime_events.version_id` per reply:
+
+| Time (UTC) | Live | Answered by |
+| --- | --- | --- |
+| 2026-10-10 07:38 | v1 | v1 |
+| 09:19:28 | v9 (published 08:58) | v9 — an older chat follows Publish |
+| 09:22:26 | Restore v8 at 09:22:19 | v8 — Restore reaches a chat in progress |
+| 09:23:34 | Restore v8 at 09:23:19 | v8 |
+| 09:24:06 | Restore v9 at 09:23:52 | v9 |
+
+- Every Restore is in `audit_logs` (`agent.rollback`). Production was on v8 twice, for 19 s (09:22:19–09:22:38) and 33 s (09:23:19–09:23:52); no customer messages arrived in those windows. The first cycle ran from a browser script that Chrome paused in a background tab and that resumed later, so test scripts that touch the live version are now run one short step at a time.
+- The smoke-test channel's API key was rotated for the test and not kept, so it has no usable key; make one with Channels › New key when needed. Live is v9.
+
 ## Production data and AI state (2026-10-10)
 
 Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
