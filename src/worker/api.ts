@@ -225,11 +225,6 @@ async function validatePublish(env: Env, agentId: string, draft: ReturnType<type
   }
   for (const binding of draft.collectionBindings) if (!(await env.DB.prepare("SELECT id FROM data_collections WHERE id=?").bind(binding.collectionId).first())) errors.push(`Collection ${binding.collectionId} is missing`);
   for (const tool of draft.toolBindings) if (!(await env.DB.prepare("SELECT id FROM tool_definitions WHERE agent_id=? AND name=? AND status='active'").bind(agentId, tool).first())) errors.push(`Tool ${tool} is missing`);
-  const criticalCount = (await env.DB.prepare("SELECT COUNT(*) AS count FROM eval_cases WHERE agent_id=? AND critical=1").bind(agentId).first<{ count: number }>())?.count ?? 0;
-  if (criticalCount > 0) {
-    const last = await env.DB.prepare("SELECT status FROM eval_runs WHERE agent_id=? ORDER BY created_at DESC LIMIT 1").bind(agentId).first<{ status: string }>();
-    if (last?.status !== "passed") errors.push("Critical evaluations must pass before publishing");
-  }
   return errors;
 }
 
@@ -285,54 +280,6 @@ app.post("/api/admin/agents/:id/preview", async (c) => {
   const input: NormalizedMessage = { eventId: id("preview"), connectionId: "preview", agentId: agent.id, conversationId, externalUserId: "admin", content: { text: body.text }, customer: { locale: agent.primary_language }, receivedAt: now() };
   const result = await new CloudflareAgentRuntime(c.env).handleMessage(input, { versionId: "draft", snapshotOverride: agentDraftSchema.parse(JSON.parse(agent.draft_json)) });
   return c.json(result);
-});
-
-app.post("/api/admin/agents/:id/evaluate", async (c) => {
-  const agent = await getAgent(c.env.DB, c.req.param("id"));
-  if (!agent) return c.json({ error: "Agent not found" }, 404);
-  // Publish checks only the required answers (fixes and must-haves); "?scope=all" runs every check (Settings › Answer checks).
-  const scope = c.req.query("scope") === "all" ? "all" : "required";
-  const cases = (await c.env.DB.prepare(`SELECT * FROM eval_cases WHERE agent_id=?${scope === "required" ? " AND critical=1" : ""}`).bind(agent.id).all<{ id: string; input: string; assertions_json: string; critical: number }>()).results;
-  const draft = agentDraftSchema.parse(JSON.parse(agent.draft_json));
-  // A few at a time: about 1-2 minutes instead of one long sequential run. Each case is its own short conversation.
-  const results: Array<{ caseId: string; passed: boolean; failures: string[]; output: AgentResult }> = new Array(cases.length);
-  let next = 0;
-  await Promise.all(Array.from({ length: Math.min(4, cases.length) }, async () => {
-    while (next < cases.length) {
-      const index = next++;
-      const { caseId, passed, failures, output } = await runCase(c.env, agent.id, draft, cases[index]);
-      results[index] = { caseId, passed, failures, output };
-    }
-  }));
-  // Publish needs every required check to pass; others are reported but don't block.
-  const passed = results.every((result, index) => result.passed || !cases[index].critical);
-  const runId = id("eval");
-  await c.env.DB.prepare("INSERT INTO eval_runs(id,agent_id,status,result_json,completed_at) VALUES(?,?,?,?,datetime('now'))").bind(runId, agent.id, passed ? "passed" : "failed", JSON.stringify(results)).run();
-  return c.json({ id: runId, passed, scope, results });
-});
-
-// What a check expects from a reply. addedBy marks checks the owner added in Assistant › Checks.
-const checkAssertions = z.object({ mustInclude: z.array(z.string()).optional(), mustNotInclude: z.array(z.string()).optional(), maxLength: z.number().int().positive().optional(), expectedTool: z.string().optional(), fromFix: z.string().optional(), criteria: z.string().trim().max(500).optional(), addedBy: z.literal("owner").optional() });
-
-app.post("/api/admin/agents/:id/eval-cases", async (c) => {
-  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: checkAssertions, critical: z.boolean().default(false) }).parse(await c.req.json());
-  const caseId = id("case");
-  await c.env.DB.prepare("INSERT INTO eval_cases(id,agent_id,name,input,assertions_json,critical) VALUES(?,?,?,?,?,?)")
-    .bind(caseId, c.req.param("id"), body.name, body.input, JSON.stringify(body.assertions), body.critical ? 1 : 0).run();
-  return c.json({ id: caseId, ...body }, 201);
-});
-
-app.patch("/api/admin/eval-cases/:caseId", async (c) => {
-  const body = z.object({ name: z.string().min(1), input: z.string().min(1), assertions: checkAssertions, critical: z.boolean() }).parse(await c.req.json());
-  const result = await c.env.DB.prepare("UPDATE eval_cases SET name=?,input=?,assertions_json=?,critical=? WHERE id=?").bind(body.name, body.input, JSON.stringify(body.assertions), body.critical ? 1 : 0, c.req.param("caseId")).run();
-  if (!result.meta.changes) return c.json({ error: "Scenario not found" }, 404);
-  return c.json({ id: c.req.param("caseId"), ...body });
-});
-
-app.delete("/api/admin/eval-cases/:caseId", async (c) => {
-  await c.env.DB.prepare("DELETE FROM eval_cases WHERE id=?").bind(c.req.param("caseId")).run();
-  await writeAudit(c.env.DB, "eval_case.delete", "eval_case", c.req.param("caseId"), c.get("adminId"));
-  return c.json({ ok: true });
 });
 
 app.post("/api/admin/agents/:id/knowledge/text", async (c) => {

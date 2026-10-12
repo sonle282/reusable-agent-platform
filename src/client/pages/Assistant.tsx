@@ -10,7 +10,7 @@ import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
 import { AgentAvatar, agentStatus, Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Row, Chips, Segmented, Select, SettingRow, Sheet, Skeleton, SkeletonLine, Spinner, Switch, Tabs, TextArea, TextInput, Tile, TypingDots, useToast, When } from "../ui";
 
-export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "checks" | "versions";
+export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "versions";
 type EditorTab = Exclude<AssistantTab, "test">;
 type Navigate = (page: "home" | "data" | "conversations" | "channels" | "settings", ...params: string[]) => void;
 
@@ -19,7 +19,6 @@ const editorTabs: Array<{ value: EditorTab; label: string }> = [
   { value: "sources", label: "Sources" },
   { value: "followups", label: "Follow-ups" },
   { value: "behavior", label: "Behavior" },
-  { value: "checks", label: "Checks" },
   { value: "versions", label: "Versions" },
 ];
 type Mutate = (fn: (draft: AgentDraft) => AgentDraft) => void;
@@ -65,12 +64,9 @@ export function AssistantPage({
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving">("saved");
   const [saveFailed, setSaveFailed] = useState(false);
-  const [publishing, setPublishing] = useState<"" | "evaluating" | "publishing">("");
+  const [publishing, setPublishing] = useState(false);
   const [injected, setInjected] = useState<{ text: string; step: number; at: number } | null>(null);
-  const [publishFailure, setPublishFailure] = useState<{ fromFix: boolean; input: string; reply: string; problem: string; count: number } | null>(null);
-  const [checkRun, setCheckRun] = useState<EvalRun | null>(null);
   const [discarding, setDiscarding] = useState<"ask" | "busy" | null>(null);
-  const { startFix: startPublishFix, fixSheet: publishFixSheet } = useFixAnswer({ agentId, onChanged: () => load(), onOpenSettings: () => navigate("settings") });
   const [editedSinceLoad, setEditedSinceLoad] = useState(false);
   const [error, setError] = useState("");
   const latest = useRef<AgentDetail | null>(null);
@@ -118,29 +114,12 @@ export function AssistantPage({
     setEditedSinceLoad(true);
   }
 
-  // One action: save, run the test scenarios, then publish when the required ones pass.
+  // One action: save, then publish the draft.
   async function publish() {
     if (!agent || !(await flush())) return;
     setError("");
-    setPublishFailure(null);
     try {
-      if (agent.evalCases.some((item) => item.critical)) {
-        setPublishing("evaluating");
-        const run = await post<EvalRun>(`/api/admin/agents/${agentId}/evaluate`);
-        setCheckRun(run);
-        if (!run.passed) {
-          const failing = agent.evalCases.filter((item) => item.critical && run.results.some((result) => result.caseId === item.id && !result.passed));
-          // A broken fix is the most important one to show: it passed once and regressed.
-          const failed = failing.find((item) => (JSON.parse(item.assertions_json || "{}") as Assertions).fromFix) ?? failing[0];
-          const result = run.results.find((item) => item.caseId === failed?.id);
-          const reply = result?.output?.messages?.map((message) => message.text).join("\n") ?? "";
-          setPublishFailure({ fromFix: Boolean(failed && (JSON.parse(failed.assertions_json || "{}") as Assertions).fromFix), input: failed?.input ?? "", reply, problem: plainProblem(result?.failures ?? []), count: failing.length });
-          // On a phone the Test pane hides the editor; show the failures where they can be seen.
-          if (tab === "test") onTab("checks");
-          return;
-        }
-      }
-      setPublishing("publishing");
+      setPublishing(true);
       const result = await post<{ version: number }>(`/api/admin/agents/${agentId}/publish`);
       await load();
       await refresh();
@@ -148,7 +127,7 @@ export function AssistantPage({
     } catch (caught) {
       setError(errorMessage(caught, "Couldn't publish"));
     } finally {
-      setPublishing("");
+      setPublishing(false);
     }
   }
 
@@ -205,7 +184,7 @@ export function AssistantPage({
         </span>
         {publishing ? (
           <Button busy disabled>
-            {publishing === "evaluating" ? `Checking ${agent.evalCases.filter((item) => item.critical).length}…` : "Publishing…"}
+            Publishing…
           </Button>
         ) : upToDate ? (
           <span className="status medium text-success">
@@ -227,35 +206,6 @@ export function AssistantPage({
           </div>
           <div className="editor-scroll">
             <div className="editor-inner">
-              {publishFailure && (
-                <Alert
-                  tone="danger"
-                  title={`${publishFailure.count === 1 ? "1 check failed" : `${publishFailure.count} checks failed`} — Publish stopped`}
-                  text={`${publishFailure.fromFix ? "An answer you fixed is wrong again. " : ""}“${publishFailure.input}”: ${publishFailure.problem}. ${live ? `Customers still see version ${live.version}.` : "Nothing is live yet."}`}
-                  actions={
-                    <>
-                      {publishFailure.input && (
-                        <Button variant="outline" size="sm" onClick={() => startPublishFix({ origin: "test", customerMessage: publishFailure.input, badReply: readable(publishFailure.reply) })}>
-                          Fix this answer
-                        </Button>
-                      )}
-                      {editorTab !== "checks" && (
-                        <Button variant="ghost" size="sm" onClick={() => onTab("checks")}>
-                          See failed checks
-                        </Button>
-                      )}
-                      {live && !agent.draftMatchesLive && (
-                        <Button variant="danger-ghost" size="sm" onClick={() => setDiscarding("ask")}>
-                          Discard unpublished changes
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => setPublishFailure(null)}>
-                        Dismiss
-                      </Button>
-                    </>
-                  }
-                />
-              )}
               {saveFailed && (
                 <Alert
                   tone="warning"
@@ -293,9 +243,9 @@ export function AssistantPage({
               )}
               {editorTab === "followups" && <FollowUpsTab agentId={agent.id} draft={agent.draft} mutate={mutate} onPreview={(text, step) => setInjected({ text, step, at: Date.now() })} />}
               {editorTab === "behavior" && <BehaviorTab draft={agent.draft} mutate={mutate} hasZernio={hasZernio} />}
-              {editorTab === "checks" && <ChecksTab agent={agent} flush={flush} reload={load} run={checkRun} setRun={setCheckRun} />}
-              {editorTab === "versions" && (
+                            {editorTab === "versions" && (
                 <VersionsTab
+                  onDiscard={live && !agent.draftMatchesLive ? () => setDiscarding("ask") : undefined}
                   agent={agent}
                   unpublished={!upToDate}
                   saving={saveState === "saving"}
@@ -323,7 +273,6 @@ export function AssistantPage({
             setDiscarding("busy");
             try {
               await post(`/api/admin/agents/${agentId}/discard`);
-              setPublishFailure(null);
               await load();
               toast(`Back to version ${live.version}`);
             } catch (caught) {
@@ -334,23 +283,8 @@ export function AssistantPage({
           }}
         />
       )}
-      {publishFixSheet}
     </div>
   );
-}
-
-// What a failed check means, in the owner's words.
-function plainProblem(failures: string[]) {
-  const first = failures[0] ?? "";
-  const quoted = (prefix: string) => first.slice(prefix.length).trim();
-  if (first.startsWith("Missing: ")) return `the reply no longer says “${quoted("Missing: ")}”`;
-  if (first.startsWith("Forbidden: ")) return `the reply says “${quoted("Forbidden: ")}”, which it shouldn't`;
-  if (first.startsWith("Longer than")) return `the reply is too long (${first.replace(/^Longer than (\d+) sentences \((\d+)\)$/, "$2 sentences, limit $1")})`;
-  if (first.startsWith("Tool not called")) return "the reply didn't check your Data first";
-  if (first.startsWith("Didn't meet: ")) return quoted("Didn't meet: ");
-  if (first.startsWith("Not checked")) return "the answer couldn't be checked this time; try Publish again";
-  if (first === "The assistant couldn't answer") return "the assistant couldn't answer";
-  return first || "the reply doesn't match what you set";
 }
 
 function AssistantSkeleton() {
@@ -742,7 +676,7 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
                   </div>
                 ))}
               </div>
-              <p className="help">Removing one also removes it from the draft; its answer check stays until you delete it.</p>
+              <p className="help">Removing one takes it out of the draft; publish to remove it for customers.</p>
             </>
           )}
         </Sheet>
@@ -910,7 +844,7 @@ function AddToolSheet({ agentId, onClose, onDone }: { agentId: string; onClose: 
 
 // ---------- Versions ----------
 
-function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetail; unpublished: boolean; saving: boolean; reload: () => Promise<void> }) {
+function VersionsTab({ agent, unpublished, saving, reload, onDiscard }: { agent: AgentDetail; unpublished: boolean; saving: boolean; reload: () => Promise<void>; onDiscard?: () => void }) {
   const toast = useToast();
   const [confirm, setConfirm] = useState<AgentDetail["versions"][number] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -921,7 +855,16 @@ function VersionsTab({ agent, unpublished, saving, reload }: { agent: AgentDetai
           <EmptyState icon="history" title="No versions yet" text="Publish the draft to make it live. Every publish is saved here so you can go back." />
         ) : (
           <>
-            {unpublished && <Row icon="edit" tone="warning" title="Draft" subtitle={saving ? "Unpublished changes · saving…" : "Unpublished changes · saved"} accessory={<Badge>Not published</Badge>} />}
+            {unpublished && <Row icon="edit" tone="warning" title="Draft" subtitle={saving ? "Unpublished changes · saving…" : "Unpublished changes · saved"} accessory={
+                  <span className="row-flex">
+                    <Badge>Not published</Badge>
+                    {onDiscard && (
+                      <Button variant="danger-ghost" size="sm" onClick={onDiscard}>
+                        Discard
+                      </Button>
+                    )}
+                  </span>
+                } />}
             {agent.versions.map((version) => {
               const live = version.id === agent.active_version_id;
               return (
@@ -1319,311 +1262,6 @@ function ReplyDetails({
           ))}
           {trace.error && <p className="xs text-danger" style={{ margin: 0 }}>{trace.error}</p>}
         </DetailsCard>
-      )}
-    </>
-  );
-}
-
-// ---------- Checks ----------
-
-type Assertions = { criteria?: string; expectedTool?: string; mustInclude?: string[]; mustNotInclude?: string[]; maxLength?: number; fromFix?: string; addedBy?: "owner" };
-
-// Where a check came from, so the owner knows why it is there.
-function checkSource(assertions: Assertions) {
-  if (assertions.fromFix) return <Badge tone="info">From Fix this answer</Badge>;
-  if (assertions.addedBy === "owner") return <Badge>Added by you</Badge>;
-  return <Badge tone="outline">Added at setup</Badge>;
-}
-
-// Assistant › Checks: sample questions with what a right answer must contain. Required ones gate Publish.
-function ChecksTab({ agent, flush, reload, run, setRun }: { agent: AgentDetail; flush: () => Promise<boolean>; reload: () => Promise<void>; run: EvalRun | null; setRun: (run: EvalRun | null) => void }) {
-  const toast = useToast();
-  const [filter, setFilter] = useState<"all" | "required" | "failed">("all");
-  const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState<EvalCase | "new" | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
-  const cases = agent.evalCases;
-  const required = cases.filter((item) => item.critical).length;
-  const resultFor = (id: string) => run?.results.find((item) => item.caseId === id);
-  const failing = run ? run.results.filter((item) => !item.passed).length : 0;
-  const failed = (id: string) => resultFor(id)?.passed === false;
-  const shown = cases.filter((item) => (filter === "required" ? item.critical : filter === "failed" ? failed(item.id) : true));
-
-  async function testAll() {
-    if (!(await flush())) return;
-    setBusy(true);
-    try {
-      const result = await post<EvalRun>(`/api/admin/agents/${agent.id}/evaluate?scope=all`);
-      setRun(result);
-      const failed = result.results.filter((item) => !item.passed).length;
-      toast(failed ? `${plural(failed, "check")} failing` : `All ${plural(result.results.length, "check")} pass`, failed ? "error" : "default");
-    } catch (caught) {
-      toast(errorMessage(caught, "Couldn't test the checks"), "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function setRequired(testCase: EvalCase, critical: boolean) {
-    setSaving(testCase.id);
-    try {
-      await patch(`/api/admin/eval-cases/${testCase.id}`, { name: testCase.name, input: testCase.input, assertions: JSON.parse(testCase.assertions_json || "{}"), critical });
-      await reload();
-    } catch (caught) {
-      toast(errorMessage(caught, "Couldn't change it"), "error");
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  return (
-    <>
-      <Card
-        title="Checks"
-        sub="Questions it must answer right before you publish"
-        action={
-          <div className="row-flex">
-            <Button variant="ghost" size="sm" icon="plus" onClick={() => setEditing("new")}>
-              Add check
-            </Button>
-            {cases.length > 0 && (
-              <Button variant="outline" size="sm" icon="play" busy={busy} disabled={busy} onClick={() => void testAll()}>
-                {busy ? `Testing ${cases.length}…` : "Test all"}
-              </Button>
-            )}
-          </div>
-        }
-        footer="Publish tests the required checks and stops if one fails. Fix this answer adds a required check each time you fix a reply, so it stays fixed."
-      >
-        {run && (
-          <div className="card-body">
-            <Alert
-              tone={failing ? "danger" : "success"}
-              title={failing ? `${plural(failing, "check")} failing on the draft` : `All ${plural(run.results.length, "check")} pass on the draft`}
-              text={failing ? "Open a failing check to see what the reply missed, or fix the answer in Preview." : undefined}
-              onClose={() => setRun(null)}
-            />
-          </div>
-        )}
-        {cases.length > 0 && (
-          <div className="card-body" style={{ paddingBottom: 12 }}>
-            <Chips
-              label="Show"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All", count: cases.length },
-                { value: "required", label: "Required", count: required },
-                ...(run ? [{ value: "failed" as const, label: "Failed", count: failing }] : []),
-              ]}
-            />
-          </div>
-        )}
-        {cases.length > 0 && shown.length === 0 && <EmptyState icon="check-circle" title={filter === "failed" ? "Nothing failed" : "No checks here"} text={filter === "failed" ? "Every check passed on the draft." : "Mark a check Required to see it here."} />}
-        {cases.length === 0 ? (
-          <EmptyState icon="check-dashed" title="No checks yet" text="Add a question customers ask and what a right answer must say. Fix this answer adds one for you each time you fix a reply." action={<Button onClick={() => setEditing("new")}>Add check</Button>} />
-        ) : (
-          shown.map((testCase) => {
-            const result = resultFor(testCase.id);
-            const assertions = JSON.parse(testCase.assertions_json || "{}") as Assertions;
-            const rules = [
-              assertions.criteria && `passes when ${assertions.criteria}`,
-              assertions.expectedTool && "checks Data",
-              assertions.mustInclude?.length && `says “${assertions.mustInclude.join("”, “")}”`,
-              assertions.mustNotInclude?.length && `never says “${assertions.mustNotInclude.join("”, “")}”`,
-            ].filter(Boolean);
-            const notChecked = result && !result.passed && result.failures.length > 0 && result.failures.every((item) => item.startsWith("Not checked"));
-            return (
-              <div className="row top" key={testCase.id}>
-                <button type="button" className="row-text row-open" onClick={() => setEditing(testCase)}>
-                  <span className="row-flex" style={{ flexWrap: "wrap", gap: 6 }}>
-                    {result && <span className={`dot ${result.passed ? "dot-green" : notChecked ? "dot-gray" : "dot-red"}`} aria-hidden="true" />}
-                    <span className="row-title">{testCase.name}</span>
-                    {checkSource(assertions)}
-                    {result && (result.passed ? <Badge tone="success">Passed</Badge> : notChecked ? <Badge>Not checked</Badge> : <Badge tone="danger">Failed</Badge>)}
-                  </span>
-                  <span className="row-sub xs clamp-2">{[`“${testCase.input}”`, ...rules].join(" · ")}</span>
-                  {result && !result.passed && !notChecked && <span className="xs text-danger">{result.failures.join(", ") || "Didn't pass"}</span>}
-                </button>
-                <label className="row-flex xs t2" style={{ flex: "none", gap: 8 }}>
-                  Required
-                  <Switch label={`${testCase.name} required to publish`} checked={Boolean(testCase.critical)} disabled={saving === testCase.id} onChange={(on) => void setRequired(testCase, on)} />
-                </label>
-              </div>
-            );
-          })
-        )}
-      </Card>
-      {editing && (
-        <ScenarioSheet
-          agentId={agent.id}
-          existing={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
-          onDone={async () => {
-            setEditing(null);
-            setRun(null);
-            await reload();
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-function ScenarioSheet({ agentId, existing, onClose, onDone }: { agentId: string; existing: EvalCase | null; onClose: () => void; onDone: () => void }) {
-  const [form, setForm] = useState(() => {
-    const assertions = JSON.parse(existing?.assertions_json || "{}") as Assertions;
-    return {
-      name: existing?.name ?? "",
-      input: existing?.input ?? "",
-      criteria: assertions.criteria ?? "",
-      expectedTool: assertions.expectedTool ?? "",
-      mustInclude: (assertions.mustInclude ?? []).join(", "),
-      mustNotInclude: (assertions.mustNotInclude ?? []).join(", "),
-      maxLength: assertions.maxLength ? String(assertions.maxLength) : "",
-      critical: existing ? Boolean(existing.critical) : true,
-      fromFix: assertions.fromFix,
-      addedBy: existing ? assertions.addedBy : ("owner" as const),
-    };
-  });
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [fix, setFix] = useState<{ undoable: boolean; target_kind: string | null } | null>(null);
-  const [undo, setUndo] = useState<{ reason: string; busy: boolean } | null>(null);
-  const toast = useToast();
-  useEffect(() => {
-    if (form.fromFix) void api<{ undoable: boolean; target_kind: string | null }>(`/api/admin/fixes/${form.fromFix}`).then(setFix, () => setFix(null));
-  }, [form.fromFix]);
-  async function undoFix() {
-    if (!undo || !form.fromFix) return;
-    setUndo({ ...undo, busy: true });
-    try {
-      const result = await post<{ live: boolean }>(`/api/admin/fixes/${form.fromFix}/undo`, { reason: undo.reason });
-      toast(result.live ? "Fix undone — customers see the old value again" : "Fix undone — publish to remove it for customers");
-      onDone();
-    } catch (caught) {
-      setUndo(null);
-      setError(errorMessage(caught, "Couldn't undo the fix"));
-    }
-  }
-  const list = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const body = {
-        name: form.name,
-        input: form.input,
-        critical: form.critical,
-        assertions: {
-          criteria: form.criteria.trim() || undefined,
-          expectedTool: form.expectedTool || undefined,
-          mustInclude: list(form.mustInclude).length ? list(form.mustInclude) : undefined,
-          mustNotInclude: list(form.mustNotInclude).length ? list(form.mustNotInclude) : undefined,
-          maxLength: form.maxLength ? Number(form.maxLength) : undefined,
-          fromFix: form.fromFix,
-          addedBy: form.addedBy,
-        },
-      };
-      await (existing ? patch(`/api/admin/eval-cases/${existing.id}`, body) : post(`/api/admin/agents/${agentId}/eval-cases`, body));
-      onDone();
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <>
-      <Sheet
-        title={existing ? existing.name : "Add an answer check"}
-        subtitle="Publish runs the required ones first; they must pass"
-        onClose={onClose}
-        footer={
-          <>
-            {existing && fix?.undoable ? (
-              <Button variant="danger-ghost" onClick={() => setUndo({ reason: "", busy: false })}>
-                Undo fix
-              </Button>
-            ) : (
-              existing && (
-                <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
-                  Delete
-                </Button>
-              )
-            )}
-            <span className="spacer" />
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" form="scenario" busy={busy} disabled={!form.name || !form.input}>
-              {existing ? "Save" : "Add"}
-            </Button>
-          </>
-        }
-      >
-        <form id="scenario" className="sheet-form" onSubmit={submit}>
-          <Field label="Name">
-            <TextInput value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Never invent a price" required data-autofocus={existing ? undefined : true} />
-          </Field>
-          <Field label="Customer message">
-            <TextArea rows={1} value={form.input} onChange={(event) => setForm({ ...form, input: event.target.value })} required />
-          </Field>
-          <Field label="Passes when" hint="Write it the way you'd tell a new hire. The AI checks each reply against it, so wording can differ.">
-            <TextArea rows={2} value={form.criteria} onChange={(event) => setForm({ ...form, criteria: event.target.value })} placeholder="Says returns cost 20% and asks for the order number" />
-          </Field>
-          <SettingRow title="Required to publish" sub="Publish checks the required ones first">
-            <Switch label="Required to publish" checked={form.critical} onChange={(critical) => setForm({ ...form, critical })} />
-          </SettingRow>
-          <section className="card">
-            <Disclosure title={<>Exact words and lookups <span className="t3" style={{ fontWeight: 400 }}>· advanced</span></>} defaultOpen={Boolean(form.mustInclude || form.mustNotInclude || form.expectedTool || form.maxLength) && !form.criteria}>
-              <p className="help">Exact checks. Separate several phrases with commas.</p>
-              <Field label="Says">
-                <TextInput value={form.mustInclude} onChange={(event) => setForm({ ...form, mustInclude: event.target.value })} />
-              </Field>
-              <Field label="Never says">
-                <TextInput value={form.mustNotInclude} onChange={(event) => setForm({ ...form, mustNotInclude: event.target.value })} />
-              </Field>
-              <Field label="Checks Data" hint="Lookup name">
-                <TextInput value={form.expectedTool} placeholder="search_products" onChange={(event) => setForm({ ...form, expectedTool: event.target.value })} />
-              </Field>
-              <Field label="Max length" hint="Characters">
-                <TextInput className="tabular" type="number" min={1} value={form.maxLength} onChange={(event) => setForm({ ...form, maxLength: event.target.value })} />
-              </Field>
-            </Disclosure>
-          </section>
-          {error && <Alert tone="error" title="Couldn't save it" text={error} />}
-        </form>
-      </Sheet>
-      {undo && (
-        <Dialog
-          title="Undo this fix?"
-          text={
-            <>
-              {fix?.target_kind === "data" ? "The data row goes back to its old value right away." : "The added answer or rule is removed from your changes."} This check is removed too.
-              <TextInput aria-label="Why (optional)" placeholder="Why (optional)" value={undo.reason} onChange={(event) => setUndo({ ...undo, reason: event.target.value })} style={{ marginTop: 12 }} />
-            </>
-          }
-          confirmLabel="Undo fix"
-          destructive
-          busy={undo.busy}
-          onCancel={() => setUndo(null)}
-          onConfirm={() => void undoFix()}
-        />
-      )}
-      {confirmDelete && existing && (
-        <Dialog
-          title="Delete this check?"
-          text="Publish will no longer check it."
-          confirmLabel="Delete"
-          destructive
-          onCancel={() => setConfirmDelete(false)}
-          onConfirm={async () => {
-            await del(`/api/admin/eval-cases/${existing.id}`);
-            onDone();
-          }}
-        />
       )}
     </>
   );

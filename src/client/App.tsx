@@ -32,7 +32,7 @@ const tabs: Array<{ id: Page; short: string; icon: string }> = [
   { id: "channels", short: "Channels", icon: "link" },
   { id: "settings", short: "Settings", icon: "settings" },
 ];
-const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "followups", "behavior", "checks", "versions"];
+const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "followups", "behavior", "versions"];
 
 const defaultBrand: Brand = { name: "Assistant", logoUrl: "", primaryColor: "#007aff", supportUrl: "" };
 

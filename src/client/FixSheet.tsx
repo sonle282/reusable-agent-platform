@@ -1,7 +1,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { post } from "./api";
 import { maskContact } from "../shared/mask";
-import { publishWithChecks } from "./publish";
+import { publishDraft } from "./publish";
 import { parseRichMessage } from "./RichMessage";
 import { Alert, Badge, Button, Dialog, Diff, errorMessage, Field, Icon, Segmented, Sheet, Spinner, Steps, TextArea, Tile, useToast, type TileTone } from "./ui";
 
@@ -331,29 +331,17 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
               <span className="result-icon tile-success" aria-hidden="true">
                 <Icon name="check" />
               </span>
-              <h3 className="result-title">Fixed and protected</h3>
+              <h3 className="result-title">Fixed</h3>
               <p className="t2" style={{ margin: 0, maxWidth: 400 }}>
                 {kind === "data"
-                  ? "The draft now gives the right answer, and customers get it right away. We saved an answer check so it stays fixed."
-                  : "The draft now gives the right answer. We saved an answer check so it stays fixed. Publish to make it live."}
+                  ? "The draft now gives the right answer, and customers get it right away."
+                  : "The draft now gives the right answer. Publish to make it live."}
               </p>
             </div>
             <div className="stack" style={{ gap: 8 }}>
               <span className="mini-label">New reply</span>
               <div className="msg-ai-text" style={{ font: "var(--text-sm)" }}>
                 <p className="msg-text">{outcome.reply}</p>
-              </div>
-            </div>
-            <div className="card">
-              <div className="row compact">
-                <Tile icon="check-circle" tone="success" />
-                <span className="row-text">
-                  <span className="row-title">Saved as an answer check</span>
-                  <span className="row-sub xs truncate">
-                    {outcome.scenario} · “{question}”
-                  </span>
-                </span>
-                <Badge tone="outline">Required</Badge>
               </div>
             </div>
           </>
@@ -364,7 +352,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
               <span className="result-icon tile-danger" aria-hidden="true">
                 <Icon name="x" />
               </span>
-              <h3 className="result-title">Not applied — the check still fails</h3>
+              <h3 className="result-title">Not applied — the draft still answers it wrong</h3>
               <p className="t2" style={{ margin: 0, maxWidth: 400 }}>
                 {friendlyFailure(outcome.failures)} Nothing was changed for customers.
               </p>
@@ -383,7 +371,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
       {confirmKeep && (
         <Dialog
           title="Keep a fix that still fails?"
-          text={kind === "data" ? "Customers see the new value right away. It stays in Needs attention until its check passes." : "It goes into the draft anyway and stays in Needs attention until its check passes."}
+          text={kind === "data" ? "Customers see the new value right away. It stays in Needs attention until the draft answers it right." : "It goes into the draft anyway and stays in Needs attention until the draft answers it right."}
           confirmLabel="Keep it"
           destructive
           busy={busy}
@@ -401,9 +389,8 @@ export function useFixAnswer({ agentId, onChanged, onOpenSettings }: { agentId: 
   const [input, setInput] = useState<FixInput | null>(null);
   const publish = useCallback(async () => {
     try {
-      const result = await publishWithChecks(agentId);
-      if (result.ok) toast(`Version ${result.version} is live`);
-      else toast(`Not published — “${result.failed}” failed. Open Assistant to see it.`, "error");
+      const result = await publishDraft(agentId);
+      toast(`Version ${result.version} is live`);
       await onChanged?.();
     } catch (caught) {
       toast(errorMessage(caught, "Couldn't publish"), "error");

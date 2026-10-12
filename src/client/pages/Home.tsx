@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, del, post } from "../api";
 import { useFixAnswer } from "../FixSheet";
 import { displayName, formatDate, parseDate, previewSnippet } from "../format";
-import { publishWithChecks } from "../publish";
+import { publishDraft } from "../publish";
 import { parseRichMessage } from "../RichMessage";
 import { platformOf } from "../platform";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
@@ -112,9 +112,8 @@ export function HomePage({
   async function publish(item: AttentionItem) {
     setBusy(item.key);
     try {
-      const result = await publishWithChecks(agent.id);
-      if (result.ok) toast(`Version ${result.version} is live`);
-      else toast(`Not published — “${result.failed}” failed. Open Assistant to see it.`, "error");
+      const result = await publishDraft(agent.id);
+      toast(`Version ${result.version} is live`);
       await changed();
     } catch (caught) {
       toast(errorMessage(caught, "Couldn't publish"), "error");
@@ -166,7 +165,7 @@ export function HomePage({
       case "fix_pending":
         return { tone: "info", icon: "wrench", title: "Fix not live yet", sub: `“${item.message}” · not published yet`, label: "Publish", variant: "primary", act: () => void publish(item) };
       default:
-        return { tone: "danger", icon: "error", title: "Fix kept but failing", sub: `“${item.message}” still fails its test scenario`, label: "Try again", variant: "soft", act: () => void retryFix(item) };
+        return { tone: "danger", icon: "error", title: "Fix kept but failing", sub: `“${item.message}” is still answered wrong by the draft`, label: "Try again", variant: "soft", act: () => void retryFix(item) };
     }
   };
 
