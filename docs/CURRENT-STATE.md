@@ -109,8 +109,8 @@ Source: `docs/product/design-v2/PORT-MASTER-PROMPT.md`, `design-v2/HANDOFF.md`, 
 
 Things to know:
 
-- **Kept as the owner decided (2026-10-11):** the Preview has no Test scenarios bar. Answer checks live in **Assistant › Checks** (`60a1b16`): each shows its source (Added at setup / Added by you via `assertions.addedBy`, From Fix this answer via `fromFix`), a Required switch, Add check and Test all. Publish still runs the required checks. Settings no longer lists them.
-- One assistant: the sidebar lists it under "Assistants" and its route stays `#/assistant`; there is no Assistants page, sign-up, billing, SMS or onboarding. "Answered by" on channels is read-only for the same reason.
+- **Superseded on 2026-10-12:** answer checks were removed entirely and the app now allows more than one assistant. See "Checks removed, more than one assistant (2026-10-12)" below.
+- There is no sign-up, billing, SMS or onboarding.
 - Data is reachable from Home (Assistant card › Data) and from the builder (Sources › Manage in Data); the phone tab bar has no Data tab.
 - Not built because there is no data for it yet: conversation starters, the "Needs reply" chip, business-hours row in Behavior, Import CSV on the tables list (it lives on each table). The Conversations chips (All, Leads, Your team) filter the loaded list.
 - Contrast deviations from the design file: `--color-text-3` is `#6B6B6B` light / `#9B9B9B` dark, and count badges use `--color-count` `#C8450C`, so small text passes AA on every surface.
@@ -140,6 +140,31 @@ Skipped or changed, and why:
 - **4, phone format:** the formatter already formats US numbers and keeps others as entered; "0900000000" (a Vietnamese number) stays as entered by design. Added tabular figures and "Call (215) 772-1111".
 
 Verified locally (Playwright, mocked API) at 1440×900, 1080×800 and 390×844, light and dark: no target under 44 px with a coarse pointer, no horizontal scroll at 390, AA contrast in both themes (the Follow-ups gradient block is light in both themes; the scanner reads its dark page behind it), and the empty, loading and error states (Leads 0 / filtered 0 / skeleton / error, Conversations 0 / skeleton / error / thread error, Checks 0 / running / after a run, Data table 0 rows / no match / error, Home all caught up / skeleton / error, Channels deliveries error).
+
+## Checks removed, more than one assistant (2026-10-12)
+
+Owner decisions (2026-10-12): drop answer checks completely, keep **Fix this answer** (it is how the assistant learns), add the Assistants screen from the design so a business can run several assistants, and fix fields that showed a square focus ring inside rounded fields.
+
+| Commit | What |
+| --- | --- |
+| `d45acc0` | Checks removed: no Checks tab, no scenario sheet, no eval gate in publish; the evaluate and eval-case endpoints are gone. **Publish publishes the draft right away.** Fix this answer still re-runs the customer's question on the draft to show the new reply (`runCase` in `fixes.ts`). Existing `eval_cases`/`eval_runs` rows are left in D1 untouched (no migration). Undo of a fix had its button on the removed check sheet, so it is not reachable from the UI now. Discard draft moved to the Versions draft row. |
+| `72c690e` | Focus rings: the Preview composer and search fields show the ring on the rounded wrapper (`:focus-within`), inputs/textarea/select use a 1 px ring that follows their radius instead of a square outline. |
+| `1d49431` | More than one assistant (below). |
+
+More than one assistant:
+
+- **Assistants page** `#/assistants`: one card per assistant (avatar, name, description, status line, its channel logos), a dashed New assistant card, and a ••• menu with Edit, Duplicate, Delete…. **New assistant** sheet: start from Sales consultant / Customer support / Blank templates or "Copy of X"; name and "What should it do?". It starts as a private draft and opens in the builder.
+- **Duplicate** (`POST /api/admin/agents/:id/duplicate`) copies the draft (instructions, behavior, Data lookups) but not knowledge sources or live lookups, which belong to one assistant. Audit `agent.duplicate`.
+- **Delete** (`DELETE /api/admin/agents/:id`) is refused (409) while the assistant has channels or customer chats, because deleting cascades its versions, knowledge, conversations and fixes. Audit `agent.delete`.
+- **Builder route** `#/assistants/<id>/<tab>`; old `#/assistant/<tab>` links open the first assistant. The sidebar lists every assistant with its status dot and a + button.
+- **Channels:** "Answered by" is a picker in the channel panel and in Add channel (a plain label when there is one assistant). Moving asks for confirmation; open chats on that channel start fresh with the new assistant (conversation ids include the agent id), their history stays in Conversations. A channel that is on can only move to a live assistant (picker and server, 422). Audit `connection.agent_changed`. The "can't reply yet" warning is per assistant.
+- **Home** merges Needs attention from every assistant (rows say which assistant when there are several; items never group across assistants) and lists up to four assistants. **Data** shows which assistants use each table. **Conversations** and Fix this answer use the chat's own assistant.
+- Bootstrap returns `live_version` and `unpublished` per assistant.
+- **Not built:** pausing an assistant (needs a runtime change; turn its channels off instead), per-assistant Data permissions (tables are shared; each assistant picks which ones it looks up), moving knowledge between assistants.
+
+Cloudflare Durable Objects: the free daily quota that blocked opening chats on 2026-10-11 reset at 00:00 UTC; on 2026-10-12 the Conversations list and three threads opened normally in about 2 seconds.
+
+Verified locally (Playwright, mocked API with two assistants) at 1440×900 and 390×844, light and dark; `npm run ci` passes (64 tests).
 
 ## Production data and AI state (2026-10-10)
 
@@ -201,7 +226,7 @@ Owner direction (2026-10-10): finish the agent builder first; plug in channels (
 
 ## Known v1 boundaries
 
-- One deployment per customer, one admin, one assistant in the UI (API remains agent-generic).
+- One deployment per customer and one admin; several assistants per deployment share the Data tables.
 - No multi-tenant SaaS billing or team RBAC.
 - No audio, PDF, DOCX, crawler, visual workflow builder, marketplace, or multi-agent orchestration.
 - No external side-effect actions such as booking, ordering, payment, POST/PUT/PATCH/DELETE tools.
