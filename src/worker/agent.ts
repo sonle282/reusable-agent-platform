@@ -7,6 +7,7 @@ import { generateWithAnthropic, type ModelMessage } from "./model/anthropic";
 import { mentionsPrice } from "../shared/checks";
 import { LEAD_LINE_RULE, findContact, mentionsNotice, takeLeadLine } from "../shared/contact";
 import { IMAGE_RULE, hasImageField, lookupLinks, takeImageLines, withImages } from "../shared/media";
+import { rememberSentImages } from "./images";
 import { channelActions, sendOutbound } from "./connectors";
 import type { ConnectionRow } from "./db";
 import { OPT_OUT, asksAboutPrice, decideFollowUp, dueAt, emptyFollowUpState, followUpKey, type FollowUpState } from "../shared/followups";
@@ -325,6 +326,7 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
       const lead = takeLeadLine(model.text);
       const media = takeImageLines(lead.text, lookupLinks(traces.map((trace) => trace.output)));
       const answer = withImages((media.text || snapshot.responsePolicy.fallbackMessage).slice(0, snapshot.responsePolicy.maxLength), media.images);
+      if (media.images.length && !["preview", "eval"].includes(input.connectionId)) await rememberSentImages(this.env, media.images).catch(() => undefined);
       const now = new Date().toISOString();
       // "You're chatting with AI" goes out once, as its own message before the first reply.
       const firstReply = !this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM conversation_messages WHERE role = 'assistant'`[0]?.count;

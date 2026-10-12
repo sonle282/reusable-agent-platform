@@ -2,6 +2,7 @@ import type { QueueJob } from "../shared/contracts";
 import { app } from "./api";
 import { sendOutbound } from "./connectors";
 import { id, type ConnectionRow } from "./db";
+import { sweepUnusedImages } from "./images";
 import { ingestKnowledgeSource } from "./knowledge";
 import { CloudflareAgentRuntime } from "./runtime";
 
@@ -53,6 +54,9 @@ app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default {
   fetch: app.fetch,
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(sweepUnusedImages(env).then((deleted) => console.log(JSON.stringify({ event: "image_sweep", deleted: deleted.length }))));
+  },
   async queue(batch: MessageBatch<QueueJob>, env: Env) {
     await Promise.all(batch.messages.map(async (message) => {
       try {

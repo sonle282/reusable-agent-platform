@@ -11,6 +11,8 @@
     "region": "aws:us-east-1"
   },
   "preview_urls": false,
+  // Daily: delete photos no Data row links to and no customer received (see src/worker/images.ts).
+  "triggers": { "crons": ["17 7 * * *"] },
   "routes": [
     { "pattern": "agent.mrspainc.com", "custom_domain": true }
   ],

@@ -34,19 +34,47 @@ export function ownImageNames(value: unknown): Set<string> {
   return names;
 }
 
-// A photo is deleted only when no Data row links to it any more (rows can share a photo).
-// Chats that already showed it keep their text; the photo itself is gone.
+// A photo stays while a Data row links to it, a customer has received it (chat history), or a fix that can
+// still be undone would put it back. Everything else is deleted.
+export async function imageInUse(env: Env, name: string) {
+  const used = await env.DB.prepare(
+    `SELECT 1 AS used WHERE EXISTS (SELECT 1 FROM data_records WHERE instr(data_json, ?1) > 0)
+      OR EXISTS (SELECT 1 FROM sent_images WHERE name = ?1)
+      OR EXISTS (SELECT 1 FROM answer_fixes WHERE target_kind = 'data' AND status IN ('verified','kept_failing','published') AND julianday(applied_at) >= julianday('now','-7 day') AND instr(change_json, ?1) > 0)`,
+  ).bind(name).first();
+  return Boolean(used);
+}
+
 export async function deleteUnusedImages(env: Env, names: Iterable<string>, actorId?: string) {
   const deleted: string[] = [];
   for (const name of names) {
     if (!NAME.test(name)) continue;
-    const used = await env.DB.prepare("SELECT 1 AS used FROM data_records WHERE instr(data_json, ?) > 0 LIMIT 1").bind(name).first();
-    if (used) continue;
+    if (await imageInUse(env, name)) continue;
     await env.FILES.delete(`images/${name}`);
     deleted.push(name);
   }
   if (deleted.length) await writeAudit(env.DB, "image.delete", "image", deleted.join(","), actorId, { count: deleted.length });
   return deleted;
+}
+
+// Remember photos a customer received so they are never deleted from under the chat history.
+export async function rememberSentImages(env: Env, links: string[]) {
+  const names = [...ownImageNames(links)];
+  if (names.length) await env.DB.batch(names.map((name) => env.DB.prepare("INSERT OR IGNORE INTO sent_images(name) VALUES(?)").bind(name)));
+}
+
+// Daily sweep for photos left behind by paths that don't clean up on the spot (CSV import, Fix this answer after
+// its 7-day undo window, a closed browser tab). Photos younger than a day are skipped: they may be in an open panel.
+export async function sweepUnusedImages(env: Env) {
+  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const candidates: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await env.FILES.list({ prefix: "images/", cursor, limit: 1000 });
+    for (const object of page.objects) if (object.uploaded.getTime() < dayAgo) candidates.push(object.key.slice("images/".length));
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return deleteUnusedImages(env, candidates, "system:sweep");
 }
 
 export function registerImageRoutes(app: Hono<AppEnv>) {

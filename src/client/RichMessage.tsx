@@ -1,3 +1,4 @@
+import { useState } from "react";
 // Agents may answer with a structured channel payload ({version:"v2",content:{messages:[...]}}).
 // Render it as the customer would see it; fall back to plain text for anything else.
 type RichPart = {
@@ -39,7 +40,7 @@ export function RichBubbles({ text, side }: { text: string; side: "customer" | "
         const image = part.type === "image" ? safeUrl(part.url) : undefined;
         return (
           <div className={`${side === "customer" ? "msg-user" : "msg-ai-text"}${image ? " has-media" : ""}`} key={index}>
-            {image && <img className="msg-image" src={image} alt="" loading="lazy" />}
+            {image && <ChatImage src={image} />}
             {part.text && <p className="msg-text">{part.text}</p>}
             {buttons.length > 0 && (
               <div className="row-flex" style={{ flexWrap: "wrap" }}>
@@ -55,4 +56,11 @@ export function RichBubbles({ text, side }: { text: string; side: "customer" | "
       })}
     </>
   );
+}
+
+// Links from other sites can stop working; show a quiet placeholder instead of a broken image.
+function ChatImage({ src }: { src: string }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <span className="msg-image is-missing">Photo no longer available</span>;
+  return <img className="msg-image" src={src} alt="" loading="lazy" onError={() => setBroken(true)} />;
 }

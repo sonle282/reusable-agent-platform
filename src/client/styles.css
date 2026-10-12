@@ -753,6 +753,7 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .msg-user.has-media { padding: 6px; }
 .msg-image { display: block; width: 100%; max-width: 260px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-xl); background: var(--color-surface-3); }
 .msg-ai-text .msg-image { margin-bottom: 6px; }
+.msg-image.is-missing { display: grid; place-items: center; padding: 12px; color: var(--color-text-3); font: var(--text-xs); text-align: center; border: 1px dashed var(--color-border); }
 .app a.msg-chip { color: var(--color-text); text-decoration: none; }
 .app a.msg-chip:hover { background: var(--color-fill); }
 .hero-tile { background: rgba(255, 255, 255, 0.7); color: #0D0D0D; }
