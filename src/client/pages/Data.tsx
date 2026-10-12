@@ -693,12 +693,16 @@ function ImageInput({ label, value, onChange, onUploaded }: { label: string; val
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
-  async function upload(file: File) {
+  async function upload(chosen: File) {
     setError("");
-    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) return setError("Use a JPG, PNG, WebP or GIF image.");
-    if (file.size > MAX_IMAGE_MB * 1024 * 1024) return setError(`The image is over ${MAX_IMAGE_MB} MB. Choose a smaller one or shrink it first.`);
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(chosen.type)) return setError("Use a JPG, PNG, WebP or GIF image.");
     setBusy(true);
     try {
+      const file = await asJpeg(chosen);
+      if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+        setError(`The image is over ${MAX_IMAGE_MB} MB even after shrinking. Choose a smaller one.`);
+        return;
+      }
       const form = new FormData();
       form.append("file", file);
       const result = await api<{ url: string }>("/api/admin/images", { method: "POST", body: form });
@@ -740,11 +744,34 @@ function ImageInput({ label, value, onChange, onUploaded }: { label: string; val
           )}
         </div>
         <TextInput type="url" value={value} placeholder="or paste an image link (https://…)" onChange={(event) => onChange(event.target.value)} aria-label={`${label} link`} />
-        {error ? <span className="help text-danger">{error}</span> : <span className="help">JPG, PNG, WebP or GIF, up to {MAX_IMAGE_MB} MB. You can also drop a file here.</span>}
+        {error ? <span className="help text-danger">{error}</span> : <span className="help">JPG, PNG, WebP or GIF. Saved as JPG so every channel can show it. You can also drop a file here.</span>}
       </div>
       <input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => event.target.files?.[0] && void upload(event.target.files[0])} />
     </div>
   );
+}
+
+// Messenger and other channels reliably show JPEG; WebP and PNG are turned into JPEG (at most 1600 px wide) before
+// upload. GIFs stay as they are so they keep moving.
+async function asJpeg(file: File): Promise<File> {
+  if (file.type === "image/gif" || typeof createImageBitmap !== "function") return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.fillStyle = "#fff"; // transparent areas become white instead of black
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
 }
 
 function Thumb({ src }: { src: string }) {

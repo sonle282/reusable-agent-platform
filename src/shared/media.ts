@@ -2,7 +2,7 @@
 // this turn's lookups are kept, so a reply can never carry an address the model made up.
 
 export const IMAGE_RULE =
-  'To show a photo from a looked-up row (an offer you present, or a product the customer asked to see), add a line "IMAGE: " followed by that row\'s image link. Only use links from lookup results, at most 2.';
+  'PHOTOS: whenever your reply is about a specific product or offer from this turn\'s lookup results and that row has an image link, show its photo without being asked: add a line "IMAGE: " followed by that link. Only use links from lookup results, at most 2 per reply.';
 
 const IMAGE_LINE = /^[ \t]*IMAGE:[ \t]*(\S+)[ \t]*$/gim;
 

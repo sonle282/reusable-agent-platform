@@ -144,12 +144,20 @@ export async function sendOutbound(env: Env, connection: ConnectionRow, result: 
         if (delivery?.typing) await zernioAction(token, conversation, accountId, "typing");
         await new Promise((resolve) => setTimeout(resolve, wait));
       }
-      const body = part.kind === "image" ? { accountId, attachmentUrl: part.url, attachmentType: "image", messagingType: "RESPONSE" } : { accountId, message: part.text.slice(0, 9999), messagingType: "RESPONSE" };
-      const response = await fetch(`${ZERNIO_API}/inbox/conversations/${conversation}/messages`, {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "idempotency-key": `${result.requestId}:${index}` },
-        body: JSON.stringify(body),
-      });
+      const send = (body: Record<string, unknown>, key: string) =>
+        fetch(`${ZERNIO_API}/inbox/conversations/${conversation}/messages`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}`, "idempotency-key": key },
+          body: JSON.stringify(body),
+        });
+      let response = part.kind === "image"
+        ? await send({ accountId, attachmentUrl: part.url, attachmentType: "image", messagingType: "RESPONSE" }, `${result.requestId}:${index}`)
+        : await send({ accountId, message: part.text.slice(0, 9999), messagingType: "RESPONSE" }, `${result.requestId}:${index}`);
+      // A photo the platform refuses (format, size) is sent as its link so the customer can still open it.
+      if (!response.ok && part.kind === "image") {
+        console.log(JSON.stringify({ event: "photo_not_delivered", requestId: result.requestId, status: response.status, detail: (await response.text()).slice(0, 200) }));
+        response = await send({ accountId, message: part.url, messagingType: "RESPONSE" }, `${result.requestId}:${index}:link`);
+      }
       if (!response.ok) throw new Error(`Zernio delivery returned ${response.status}: ${(await response.text()).slice(0, 200)}`);
       statuses.push(response.status);
     }
