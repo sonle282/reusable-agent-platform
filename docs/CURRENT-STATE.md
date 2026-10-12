@@ -66,7 +66,7 @@ Runbook and confirmed data live outside this repo in `../mrspa-agent-data/` (`GO
 - Data tables now use **English keys** (`Mr Spa Products/Offers/Policies`, slugs `mr-spa-*`); the old Vietnamese-key tables are archived as "… (old keys)".
 - Last run on v8's draft: 16/16 required pass, 16/17 optional (the "Bớt thêm" wording check).
 - **Testing order (owner, 2026-10-11):** Sơn tests v8 on the **Freedom Business** page first (Zernio channel `Freedom Business`, webhook active), then chị Quý and test customers there, then the Mr Spa Fanpage goes live. Sơn's own test thread was moved to v8 with Conversations › ••• › "Use the live version" (audited `conversation.version_moved`); other chats keep their version.
-- **Go-live date: not yet.** Remaining: connect the Mr Spa Fanpage in Zernio (only Freedom Business is connected today), turn off ManyChat's auto replies on that page first, then add the channel in Channels; owner test by chị Quý; offer pictures (`image_url` on OF-010/OF-011) when the files exist.
+- **Go-live date: not yet.** Remaining: connect the Mr Spa Fanpage in Zernio (only Freedom Business is connected today), turn off ManyChat's auto replies on that page first, then add the channel in Channels; the owner upgrades Cloudflare to Workers Paid at go-live (decided 2026-10-12; the free Durable Objects quota stops chats for the rest of the UTC day when it runs out); owner test by chị Quý; offer pictures (`image_url` on OF-010/OF-011) when the files exist.
 
 ## Admin v2.1 (2026-10-11)
 
