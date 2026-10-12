@@ -199,6 +199,18 @@ Verified on production 2026-10-12 (`2dee320`), all in one test chat on the "Gene
 - Every Restore is in `audit_logs` (`agent.rollback`). Production was on v8 twice, for 19 s (09:22:19–09:22:38) and 33 s (09:23:19–09:23:52); no customer messages arrived in those windows. The first cycle ran from a browser script that Chrome paused in a background tab and that resumed later, so test scripts that touch the live version are now run one short step at a time.
 - The smoke-test channel's API key was rotated for the test and not kept, so it has no usable key; make one with Channels › New key when needed. Live is v9.
 
+## Photos, layout and reply language (2026-10-12)
+
+Owner request: send the photo whenever an answer is about something that has one (Messenger too), and lay replies out with line breaks.
+
+| Commit | What |
+| --- | --- |
+| `c241ee8` | **PHOTOS** rule: when a reply is about a product or offer from this turn's lookups and the row has an image link, the photo is attached without being asked (lookup links only, at most 2). **FORMAT** rule: plain text for a phone screen, each price/item/add-on/condition on its own line, the question back after a blank line (a blank line starts a new message when "Split long replies" is on). Zernio delivery: a photo the platform refuses is sent as its link and the reply carries on. Data photo uploads are converted to JPEG (max 1600 px) in the browser, because Meta and Zernio document JPG/PNG/GIF but not WebP. |
+| `48b33e5` | Fix: the Data row panel (and the lead panel) kept the previous row's values when moving straight to another row by link or back button, so Save could overwrite the second row. Found while replacing photos; nothing was saved wrong. |
+| `347c724`, `70f901f`, `16f7402` | Reply language: a message with Vietnamese letters or common English words gets a strict LANGUAGE rule (whole reply in that language, facts translated); the business default language is only the fallback. "Dạ" opens Vietnamese replies only. |
+
+Mr Spa: both offer photos (OF-010, OF-011) were re-uploaded as JPEG. Product photos still link to WebP files on mrspainc.com; if Messenger refuses one, the customer gets the link instead. Not yet verified on a real Messenger chat: needs a customer message on the Freedom Business page.
+
 ## Production data and AI state (2026-10-10)
 
 Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
