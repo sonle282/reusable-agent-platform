@@ -4,7 +4,7 @@ import { modelSupportsTemperature, type AnthropicModel } from "../../shared/mode
 import { emptyProfile, hasProfile, type AssistantProfile } from "../../shared/prompt";
 import { formatDate, formatWhen, timeSeparator, titleField } from "../format";
 import { paceDelay, splitParts } from "../../shared/channel-parts";
-import { readable, useFixAnswer } from "../FixSheet";
+import { fixPlace, fixPlaceIcon, loadRecentFixes, readable, useFixAnswer, type RecentFix } from "../FixSheet";
 import { BehaviorTab, FollowUpsTab } from "./AssistantBehavior";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
@@ -907,6 +907,77 @@ function VersionsTab({ agent, unpublished, saving, reload, onDiscard }: { agent:
               toast(errorMessage(caught, "Couldn't restore"), "error");
             } finally {
               setBusy(false);
+            }
+          }}
+        />
+      )}
+      <RecentFixes agentId={agent.id} reload={reload} />
+    </>
+  );
+}
+
+// Fixes from Fix this answer can be undone for 7 days; Undo puts back what was there before.
+function RecentFixes({ agentId, reload }: { agentId: string; reload: () => Promise<void> }) {
+  const toast = useToast();
+  const [fixes, setFixes] = useState<RecentFix[] | null>(null);
+  const [undoing, setUndoing] = useState<RecentFix | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = () => loadRecentFixes(agentId).then(setFixes, () => setFixes([]));
+  useEffect(() => void load(), [agentId]);
+  if (!fixes?.length) return null;
+  return (
+    <>
+      <Card title="Answer fixes" footer="Fixes from the last 7 days. Undo puts back what was there before the fix.">
+        {fixes.map((fix) => (
+          <Row
+            key={fix.id}
+            icon={fixPlaceIcon(fix)}
+            title={<span className="truncate">“{fix.question}”</span>}
+            subtitle={
+              <>
+                {fixPlace(fix)} · {fix.live ? "customers get it" : "in the draft"} · <When value={fix.appliedAt} />
+              </>
+            }
+            accessory={
+              <Button variant="ghost" size="sm" icon="restore" onClick={() => setUndoing(fix)}>
+                Undo
+              </Button>
+            }
+          />
+        ))}
+      </Card>
+      {undoing && (
+        <Dialog
+          title="Undo this fix?"
+          text={
+            <>
+              {undoing.kind === "data"
+                ? "The row gets its old value back, and customers see it right away."
+                : undoing.live
+                  ? "It comes out of the draft. Customers keep getting the fixed answer until you publish."
+                  : "It comes out of the draft."}
+              <TextInput aria-label="Why (optional)" placeholder="Why (optional)" value={reason} onChange={(event) => setReason(event.target.value)} style={{ marginTop: 12 }} />
+            </>
+          }
+          confirmLabel="Undo fix"
+          busy={busy}
+          onCancel={() => {
+            setUndoing(null);
+            setReason("");
+          }}
+          onConfirm={async () => {
+            setBusy(true);
+            try {
+              const result = await post<{ live: boolean }>(`/api/admin/fixes/${undoing.id}/undo`, { reason });
+              toast(result.live ? "Fix undone · customers see the old value again" : "Fix undone · publish to remove it for customers");
+              await Promise.all([load(), reload()]);
+            } catch (caught) {
+              toast(errorMessage(caught, "Couldn't undo the fix"), "error");
+            } finally {
+              setBusy(false);
+              setUndoing(null);
+              setReason("");
             }
           }}
         />

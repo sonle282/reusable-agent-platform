@@ -353,6 +353,39 @@ export function registerFixRoutes(app: Hono<AppEnv>) {
     return c.json({ broughtBack: row?.count ?? 0, sent: sent?.count ?? 0 });
   });
 
+  // Fixes that can still be undone (applied in the last 7 days), with where they went and whether customers see them yet.
+  app.get("/api/admin/agents/:id/fixes", async (c) => {
+    const agent = await getAgent(c.env.DB, c.req.param("id"));
+    if (!agent) return c.json({ error: "Agent not found" }, 404);
+    const rows = await c.env.DB.prepare(`SELECT f.id,f.customer_message,f.correct_reply,f.target_kind,f.change_json,f.status,f.applied_at,d.name AS collection_name
+      FROM answer_fixes f LEFT JOIN data_collections d ON f.target_kind='data' AND d.id=json_extract(f.change_json,'$.collectionId')
+      WHERE f.agent_id=? AND f.status IN ('verified','kept_failing','published') AND f.applied_at IS NOT NULL AND julianday(f.applied_at) >= julianday('now','-7 day')
+      ORDER BY f.applied_at DESC LIMIT 50`).bind(agent.id).all<{ id: string; customer_message: string; correct_reply: string; target_kind: "data" | "knowledge" | "rule"; change_json: string | null; status: string; applied_at: string; collection_name: string | null }>();
+    const live = agent.active_version_id ? await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>() : null;
+    const liveSnapshot = live ? parseVersionSnapshot(JSON.parse(live.snapshot_json)) : null;
+    return c.json(
+      rows.results.map((row) => {
+        const change = parseJson(row.change_json ?? "{}", {} as Record<string, unknown>);
+        // Data rows change for customers at once; instructions and corrected answers once a published version contains them.
+        const isLive =
+          row.target_kind === "data" ||
+          (row.target_kind === "knowledge" && Boolean(liveSnapshot?.correctedAnswers.some((item) => item.fixId === row.id))) ||
+          (row.target_kind === "rule" && Boolean(liveSnapshot?.profile[change.section as RuleSection]?.includes(String(change.line))));
+        return {
+          id: row.id,
+          question: row.customer_message,
+          answer: row.correct_reply,
+          kind: row.target_kind,
+          collectionName: row.collection_name,
+          field: row.target_kind === "data" ? String(change.field ?? "") : undefined,
+          section: row.target_kind === "rule" ? change.section : undefined,
+          appliedAt: row.applied_at,
+          live: isLive,
+        };
+      }),
+    );
+  });
+
   app.get("/api/admin/fixes/:fixId", async (c) => {
     const fix = await c.env.DB.prepare("SELECT id,origin,conversation_id,customer_message,bad_reply,correct_reply,status,target_kind,applied_at FROM answer_fixes WHERE id=?").bind(c.req.param("fixId")).first<{ status: string; applied_at: string | null }>();
     return fix ? c.json({ ...fix, undoable: undoable(fix) }) : c.json({ error: "Fix not found" }, 404);

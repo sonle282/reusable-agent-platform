@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { post } from "./api";
+import { api, post } from "./api";
 import { maskContact } from "../shared/mask";
 import { publishDraft } from "./publish";
 import { parseRichMessage } from "./RichMessage";
@@ -31,7 +31,7 @@ type Suggestion = {
   aiError?: "no_key" | "failed";
 };
 type Outcome = { state: "running" } | { state: "pass"; reply: string; scenario: string } | { state: "fail"; reply: string; failures: string[] };
-export type FixFinished = { kind: Kind; kept?: boolean };
+export type FixFinished = { kind: Kind; kept?: boolean; undone?: { live: boolean } };
 
 const sectionLabel: Record<RuleSection, string> = { alwaysDo: "Always", neverDo: "Never", handoffWhen: "Hand off to a person when" };
 const places: Record<Kind, { title: string; tone: TileTone; icon: string; choice: string }> = {
@@ -146,6 +146,21 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
     }
   }
 
+  // Changed your mind right after a fix: put back what was there before.
+  async function undo() {
+    if (!fix) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await post<{ live: boolean }>(`/api/admin/fixes/${fix.id}/undo`, { reason: "Undone right after the fix" });
+      onFinished({ kind, undone: result });
+    } catch (caught) {
+      setError(errorMessage(caught, "Couldn't undo the fix"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const running = outcome?.state === "running";
   const suggestion = fix?.suggestion;
   const kinds: Kind[] = suggestion?.data ? ["data", "knowledge", "rule"] : ["knowledge", "rule"];
@@ -178,6 +193,9 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
       </>
     ) : outcome?.state === "pass" ? (
       <>
+        <Button variant="ghost" busy={busy} onClick={() => void undo()}>
+          Undo
+        </Button>
         <span className="spacer" />
         <Button onClick={() => onFinished({ kind })}>Done</Button>
       </>
@@ -329,6 +347,7 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
         )}
         {step === 3 && outcome?.state === "pass" && (
           <>
+            {error && <Alert tone="danger" title="Couldn't undo the fix" text={error} />}
             <div className="result" role="status">
               <span className="result-icon tile-success" aria-hidden="true">
                 <Icon name="check" />
@@ -337,7 +356,8 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
               <p className="t2" style={{ margin: 0, maxWidth: 400 }}>
                 {kind === "data"
                   ? "The draft now gives the right answer, and customers get it right away."
-                  : "The draft now gives the right answer. Publish to make it live."}
+                  : "The draft now gives the right answer. Publish to make it live."}{" "}
+                You can undo it for 7 days in the assistant's Versions.
               </p>
             </div>
             <div className="stack" style={{ gap: 8 }}>
@@ -410,7 +430,8 @@ export function useFixAnswer({ agentId: defaultAgent, onChanged, onOpenSettings 
       }}
       onFinished={(result) => {
         setInput(null);
-        if (result.kept && result.kind === "data") toast("Kept · customers see the new value; it stays in Needs attention");
+        if (result.undone) toast(result.undone.live ? "Fix undone · customers see the old value again" : "Fix undone · it's out of the draft");
+        else if (result.kept && result.kind === "data") toast("Kept · customers see the new value; it stays in Needs attention");
         else if (result.kept) toast("Kept in the draft · it stays in Needs attention", { actionLabel: "Publish", onAction: () => void publish() });
         else if (result.kind === "data") toast("Fixed · customers get it now");
         else toast("Fixed in the draft", { actionLabel: "Publish", onAction: () => void publish() });
@@ -419,4 +440,15 @@ export function useFixAnswer({ agentId: defaultAgent, onChanged, onOpenSettings 
     />
   ) : null;
   return { startFix: setInput, fixSheet: sheet };
+}
+
+export type RecentFix = { id: string; question: string; answer: string; kind: Kind; collectionName: string | null; field?: string; section?: RuleSection; appliedAt: string; live: boolean };
+
+// Where a fix went, in the words the rest of the app uses.
+export const fixPlace = (fix: RecentFix) =>
+  fix.kind === "data" ? `Data › ${fix.collectionName ?? "a table"}${fix.field ? ` › ${fix.field}` : ""}` : fix.kind === "rule" && fix.section ? `Instructions › ${sectionLabel[fix.section]}` : "Sources › Corrected answers";
+export const fixPlaceIcon = (fix: RecentFix) => places[fix.kind].icon;
+
+export async function loadRecentFixes(agentId: string) {
+  return api<RecentFix[]>(`/api/admin/agents/${agentId}/fixes`);
 }
