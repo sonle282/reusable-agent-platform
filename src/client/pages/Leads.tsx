@@ -3,7 +3,7 @@ import { api, del, patch } from "../api";
 import { formatPhone } from "../../shared/contact";
 import { displayName, formatDate, parseDate } from "../format";
 import { platformKey, platformName } from "../platform";
-import { AgentAvatar, Alert, AvatarWithChannel, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, LoadError, PageHeader, Segmented, Skeleton, Table, TextArea, useToast } from "../ui";
+import { AgentAvatar, Alert, AvatarWithChannel, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, LoadError, PageHeader, Segmented, Skeleton, Table, TextArea, usePaged, useToast } from "../ui";
 
 export type LeadStatus = "new" | "called" | "won" | "not_fit";
 type Lead = {
@@ -67,8 +67,9 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
     }
   }
   const rows = (data?.leads ?? []).filter((lead) => filter === "all" || lead.lead_status === filter);
+  const { rows: pageRows, pager } = usePaged(rows, filter);
   return (
-    <div className="page">
+    <div className="page page-fill">
       <PageHeader
         title="Leads"
         subtitle="People who left a phone number or email. Call the new ones first."
@@ -119,9 +120,9 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
               <span className={`metric-value${data.wonThisMonth ? "" : " is-zero"}`}>{data.wonThisMonth}</span>
             </div>
           </section>
-          <div className="stack" style={{ gap: 12 }}>
+          <div className="stack" style={{ gap: 12, flex: "0 1 auto", minHeight: 0 }}>
             <Chips label="Status" value={filter} onChange={setFilter} options={filters.map((item) => ({ ...item, count: data.counts[item.value] }))} />
-            <div className="card">
+            <div className="card table-card">
               <Table label="Leads">
                 <thead>
                   <tr>
@@ -136,7 +137,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((lead) => (
+                  {pageRows.map((lead) => (
                     <tr key={lead.id} onClick={() => onOpen(lead.id)}>
                       <td>
                         <button type="button" className="row-flex lead-who" onClick={(event) => (event.stopPropagation(), onOpen(lead.id))}>
@@ -170,6 +171,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
                   <p className="empty-text">No leads with this status.</p>
                 </div>
               )}
+              {pager}
             </div>
           </div>
         </>

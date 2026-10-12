@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, del, patch, post } from "../api";
 import { nextKey, titleField } from "../format";
 import type { AgentDetail, AgentSummary, Collection } from "../types";
-import { AgentAvatar, Alert, Badge, Button, Card, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, formatDate, Icon, LoadError, Menu, PageHeader, SearchField, Select, SettingRow, Sheet, Skeleton, Switch, Table, TextArea, TextInput, Tile, useToast, When } from "../ui";
+import { AgentAvatar, Alert, Badge, Button, Card, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, formatDate, Icon, LoadError, Menu, PageHeader, SearchField, Select, SettingRow, Sheet, Skeleton, Switch, Table, TextArea, TextInput, Tile, usePaged, useToast, When } from "../ui";
 
 type RecordRow = { id: string; data_json: string; status: string; valid_from?: string | null; valid_until?: string | null; external_key?: string | null };
 type FieldDef = { key: string; label: string; type: string; required?: boolean; unique?: boolean; options?: string[] };
@@ -267,9 +267,10 @@ function TablePage({
   for (const record of records ?? []) counts[rowState(record)] += 1;
   const visible = (records ?? []).filter((record) => (filter === "all" || rowState(record) === filter) && (!query || record.data_json.toLowerCase().includes(query.toLowerCase())));
   const opened = openRecordId && records ? records.find((row) => row.id === openRecordId) : undefined;
+  const { rows: pageRows, pager } = usePaged(visible, `${filter}|${query}`);
 
   return (
-    <div className="page" style={{ gap: 20 }}>
+    <div className="page page-fill" style={{ gap: 20 }}>
       <nav className="crumbs" aria-label="Breadcrumb">
         <button type="button" onClick={() => onSelect(undefined)}>
           Data
@@ -332,7 +333,7 @@ function TablePage({
         <Chips label="Filter rows" value={filter} onChange={setFilter} options={rowFilters.map((item) => ({ ...item, count: records ? counts[item.value] : undefined }))} />
       </div>
 
-      <div className="card">
+      <div className="card table-card">
         {!records ? (
           error?.retry ? <LoadError title={error.title} text="The assistant still uses the saved rows." onRetry={error.retry} /> : <Skeleton rows={3} card={false} />
         ) : records.length === 0 ? (
@@ -373,7 +374,7 @@ function TablePage({
               </tr>
             </thead>
             <tbody>
-              {visible.map((record) => {
+              {pageRows.map((record) => {
                 const data = JSON.parse(record.data_json || "{}") as Record<string, unknown>;
                 const badge = rowBadge(record);
                 const name = String((title && data[title.key]) || record.external_key || "Untitled row");
@@ -408,6 +409,7 @@ function TablePage({
             </tbody>
           </Table>
         )}
+        {visible.length > 0 && pager}
         {records && records.length > 0 && <div className="card-foot">Rows that are off, have ended or haven't started are never used by the assistant.</div>}
       </div>
 

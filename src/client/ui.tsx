@@ -949,6 +949,46 @@ export function MiniList({
 
 // ---------- Table ----------
 
+// Long lists in a card show the first few rows and a "Show N more" row.
+export function useShowMore<T>(items: T[], limit = 3) {
+  const [open, setOpen] = useState(false);
+  const hidden = items.length - limit;
+  const visible = open || hidden <= 0 ? items : items.slice(0, limit);
+  const more =
+    hidden > 0 ? (
+      <button type="button" className="show-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span>{open ? "Show less" : `Show ${hidden} more`}</span>
+        <Icon name="chevron-down" size={16} className={open ? "flip" : undefined} />
+      </button>
+    ) : null;
+  return { visible, more };
+}
+
+// Tables show one page of rows at a time; the page resets when the filter or search changes.
+export function usePaged<T>(items: T[], resetKey: string, size = 25) {
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [resetKey]);
+  const pages = Math.max(1, Math.ceil(items.length / size));
+  const current = Math.min(page, pages - 1);
+  const start = current * size;
+  const rows = items.slice(start, start + size);
+  const pager =
+    items.length > size ? (
+      <div className="pager" role="navigation" aria-label="Pages">
+        <span className="xs t2 tabular" aria-live="polite">
+          {start + 1}–{start + rows.length} of {items.length}
+        </span>
+        <span className="spacer" />
+        <Button variant="ghost" size="sm" icon="chevron-left" aria-label="Previous page" disabled={current === 0} onClick={() => setPage(current - 1)} />
+        <span className="xs t2 tabular">
+          Page {current + 1} of {pages}
+        </span>
+        <Button variant="ghost" size="sm" icon="chevron-right" aria-label="Next page" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} />
+      </div>
+    ) : null;
+  return { rows, pager, page: current };
+}
+
 export function Table({ children, label }: { children: ReactNode; label?: string }) {
   return (
     <div className="table-wrap">

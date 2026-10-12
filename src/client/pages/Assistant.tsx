@@ -8,7 +8,7 @@ import { fixPlace, fixPlaceIcon, loadRecentFixes, readable, useFixAnswer, type R
 import { BehaviorTab, FollowUpsTab } from "./AssistantBehavior";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
 import type { AgentDetail, AgentDraft, AgentResult, Collection, EvalCase, EvalRun, KnowledgeSource } from "../types";
-import { AgentAvatar, agentStatus, Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Row, Chips, Segmented, Select, SettingRow, Sheet, Skeleton, SkeletonLine, Spinner, Switch, Tabs, TextArea, TextInput, Tile, TypingDots, useToast, When } from "../ui";
+import { AgentAvatar, agentStatus, Alert, Badge, Button, Card, DetailsCard, Dialog, Disclosure, EmptyState, errorMessage, Field, Icon, MetaChip, MiniList, PageHeader, Row, Chips, Segmented, Select, SettingRow, Sheet, Skeleton, SkeletonLine, Spinner, Switch, Tabs, TextArea, TextInput, Tile, TypingDots, useShowMore, useToast, When } from "../ui";
 
 export type AssistantTab = "test" | "instructions" | "sources" | "followups" | "behavior" | "versions";
 type EditorTab = Exclude<AssistantTab, "test">;
@@ -533,6 +533,10 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
   const [editing, setEditing] = useState<KnowledgeSource | null>(null);
   const [showCorrected, setShowCorrected] = useState(false);
   const corrected = agent.draft.correctedAnswers ?? [];
+  // Long lists show three rows and "Show N more".
+  const sourceList = useShowMore(agent.sources);
+  const tableList = useShowMore(collections);
+  const toolList = useShowMore(agent.tools);
   const pending = agent.sources.some((source) => source.status === "pending" || source.status === "processing");
   useEffect(() => {
     if (!pending) return;
@@ -576,7 +580,7 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
             action={<Button onClick={() => setAdding(true)}>Add knowledge</Button>}
           />
         ) : (
-          agent.sources.map((source) => {
+          sourceList.visible.map((source) => {
             const failed = source.status === "failed";
             const processing = source.status === "pending" || source.status === "processing";
             return (
@@ -604,6 +608,7 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
             );
           })
         )}
+        {sourceList.more}
       </Card>
 
       <Card
@@ -618,7 +623,7 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
         {collections.length === 0 ? (
           <Row compact icon="table" title="No tables yet" subtitle="Add one in Data." />
         ) : (
-          collections.map((collection) => (
+          tableList.visible.map((collection) => (
             <div className="row compact" key={collection.id}>
               <Tile icon="table" />
               <span className="row-text">
@@ -629,6 +634,7 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
             </div>
           ))
         )}
+        {tableList.more}
       </Card>
 
       <section className="card">
@@ -641,7 +647,7 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
           detail={agent.tools.length ? String(agent.tools.length) : "None"}
         >
           <p className="help">Read-only checks against your own systems, such as live stock. The assistant can never change anything outside.</p>
-          {agent.tools.map((tool) => (
+          {toolList.visible.map((tool) => (
             <div className="row compact flush" key={tool.id}>
               <Tile icon={tool.kind === "http_get" ? "globe" : "bolt"} />
               <span className="row-text">
@@ -651,6 +657,7 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
               <Switch label={`Use ${tool.name}`} checked={agent.draft.toolBindings.includes(tool.name)} onChange={(on) => bindTool(tool.name, on)} />
             </div>
           ))}
+          {toolList.more}
           <Button variant="ghost" size="sm" icon="plus" style={{ alignSelf: "flex-start", marginLeft: -8 }} onClick={() => setAddingTool(true)}>
             Add a lookup
           </Button>
@@ -848,6 +855,7 @@ function VersionsTab({ agent, unpublished, saving, reload, onDiscard }: { agent:
   const toast = useToast();
   const [confirm, setConfirm] = useState<AgentDetail["versions"][number] | null>(null);
   const [busy, setBusy] = useState(false);
+  const versionList = useShowMore(agent.versions);
   return (
     <>
       <Card title="Versions" footer="Each version is a frozen copy. Chats in progress keep the version they started with; restoring affects new chats only.">
@@ -865,7 +873,7 @@ function VersionsTab({ agent, unpublished, saving, reload, onDiscard }: { agent:
                     )}
                   </span>
                 } />}
-            {agent.versions.map((version) => {
+            {versionList.visible.map((version) => {
               const live = version.id === agent.active_version_id;
               return (
                 <Row
@@ -886,6 +894,7 @@ function VersionsTab({ agent, unpublished, saving, reload, onDiscard }: { agent:
                 />
               );
             })}
+            {versionList.more}
           </>
         )}
       </Card>
@@ -925,11 +934,12 @@ function RecentFixes({ agentId, reload }: { agentId: string; reload: () => Promi
   const [busy, setBusy] = useState(false);
   const load = () => loadRecentFixes(agentId).then(setFixes, () => setFixes([]));
   useEffect(() => void load(), [agentId]);
+  const fixList = useShowMore(fixes ?? []);
   if (!fixes?.length) return null;
   return (
     <>
       <Card title="Answer fixes" footer="Fixes from the last 7 days. Undo puts back what was there before the fix.">
-        {fixes.map((fix) => (
+        {fixList.visible.map((fix) => (
           <Row
             key={fix.id}
             icon={fixPlaceIcon(fix)}
@@ -946,6 +956,7 @@ function RecentFixes({ agentId, reload }: { agentId: string; reload: () => Promi
             }
           />
         ))}
+        {fixList.more}
       </Card>
       {undoing && (
         <Dialog
