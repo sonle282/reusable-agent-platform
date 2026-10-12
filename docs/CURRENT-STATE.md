@@ -147,9 +147,11 @@ Owner decisions (2026-10-12): drop answer checks completely, keep **Fix this ans
 
 | Commit | What |
 | --- | --- |
-| `d45acc0` | Checks removed: no Checks tab, no scenario sheet, no eval gate in publish; the evaluate and eval-case endpoints are gone. **Publish publishes the draft right away.** Fix this answer still re-runs the customer's question on the draft to show the new reply (`runCase` in `fixes.ts`). Existing `eval_cases`/`eval_runs` rows are left in D1 untouched (no migration). Undo of a fix had its button on the removed check sheet, so it is not reachable from the UI now. Discard draft moved to the Versions draft row. |
+| `d45acc0` | Checks removed: no Checks tab, no scenario sheet, no eval gate in publish; the evaluate and eval-case endpoints are gone. **Publish publishes the draft right away.** Fix this answer still re-runs the customer's question on the draft to show the new reply (`runCase` in `fixes.ts`). Existing `eval_cases`/`eval_runs` rows are left in D1 untouched (no migration). Undo of a fix lost its button with the check sheet; it came back in `fbb8f07` (below). Discard draft moved to the Versions draft row. |
 | `72c690e` | Focus rings: the Preview composer and search fields show the ring on the rounded wrapper (`:focus-within`), inputs/textarea/select use a 1 px ring that follows their radius instead of a square outline. |
 | `1d49431` | More than one assistant (below). |
+| `fbb8f07` | Undo for Fix this answer: an Undo button on the "Fixed" result, and Versions › Answer fixes lists fixes from the last 7 days (where each went, whether customers get it yet) with Undo and an optional reason. New `GET /api/admin/agents/:id/fixes`; undo is the existing 7-day `POST /api/admin/fixes/:id/undo`. |
+| `cbc3fb1` | Long lists: Sources (Knowledge, Data it can look up, Live lookups), Versions and Answer fixes show three rows and "Show N more". Data table rows and Leads show 25 rows per page with a pager; the page header, search and filters stay put while rows scroll inside the card under a sticky column header. |
 
 More than one assistant:
 
