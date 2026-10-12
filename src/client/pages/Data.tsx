@@ -419,6 +419,8 @@ function TablePage({
 
       {(adding || opened) && (
         <RecordDrawer
+          // A fresh form per row: moving from one row to another (link, back button) must not carry the old row's values.
+          key={adding ? "new" : (opened?.id ?? "none")}
           collection={collection}
           existingKeys={(records ?? []).map((row) => row.external_key ?? "").filter(Boolean)}
           record={adding ? null : (opened ?? null)}

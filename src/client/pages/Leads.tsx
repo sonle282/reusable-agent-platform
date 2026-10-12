@@ -178,6 +178,8 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
       )}
       {openId && (
         <LeadDrawer
+          // A fresh panel per lead, so notes typed for one lead never show on another.
+          key={openId}
           id={openId}
           onClose={() => onOpen(undefined)}
           onOpenConversation={onOpenConversation}
