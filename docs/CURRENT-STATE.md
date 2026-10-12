@@ -169,6 +169,20 @@ Cloudflare Durable Objects: the free daily quota that blocked opening chats on 2
 
 Verified locally (Playwright, mocked API with two assistants) at 1440×900 and 390×844, light and dark; `npm run ci` passes (64 tests).
 
+## Token use and the Mr Spa data layout (2026-10-12)
+
+Builder (`63b06c2`):
+- **Prompt caching.** The system prompt is sent in two parts: the version's prompt (profile, corrected answers, playbook; identical for every chat on that version) and the per-turn part (runtime rules with the current time, retrieved Knowledge). Both end in a cache breakpoint, and so does the latest message, so the follow-up model call after a data lookup in the same turn reads tools + system + conversation from the cache. Claude Haiku 5.5 caches prefixes from 512 tokens. Each reply logs `tokens: {input, cacheRead, cacheWrite, output}` in its `runtime_events.metadata_json`.
+- **Prices from Knowledge.** The runtime rule now allows prices and offers from Knowledge as well as data tools and corrected answers; time-limited offers and stock still need a lookup. "Price given without checking" only flags amounts or percentages that no source contains (`unsourcedAmounts` in `src/shared/checks.ts`).
+- **Knowledge search** asks AI Search for 20 chunks, then keeps the best 5 from sources that are switched on (switched-off sources used to crowd them out).
+- Platform prompt text was already English.
+
+Mr Spa (owner decision 2026-10-12: Data only for what changes often; English instructions to save tokens, customer wording unchanged):
+- **Data:** Mr Spa Products (73) and Mr Spa Offers with only time-limited promotions (BIRKIN - MS1 $1,495 and BIRKIN - RELAXO $2,095 until 01/31/2027, with the owner's photos, original prices from the photos and the owner's post text). Ended OF-001/OF-002 and example rows U001–U003 were deleted.
+- **Knowledge (new):** "Mr Spa policies" (all 34 policies, customer wording) and "Mr Spa standing offers" (the 7 standing offers plus the 2 ended ones marked ended). Behaviour parts of policies and offers (don't state interest rates, service fees, discount thresholds, 3D minimums; ask about drain pump, colors, stock) moved to the playbook. The old short "Chính sách Mr Spa" source is switched off in the draft.
+- **Instructions in English** (profile and playbook); lines sent to customers stay Vietnamese. Instructions + profile went from about 3,000 to about 1,800 tokens per message (cl100k estimate).
+- In the draft, not live: the Policies table is no longer bound. **After the owner publishes v9:** delete the standing offers OF-003…OF-009 from the Offers table (they now live in Knowledge) and hide the Mr Spa Policies table.
+
 ## Production data and AI state (2026-10-10)
 
 Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
