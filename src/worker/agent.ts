@@ -131,7 +131,8 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     const conversationId = `${this.state.agentId}:${this.state.connectionId}:${this.state.externalConversationId}`;
     const key = followUpKey(conversationId, payload.step, payload.lastCustomerAt);
     if (this.sql<{ key: string }>`SELECT key FROM followups_sent WHERE key = ${key}`[0]) return;
-    const { snapshot } = await getRuntimeSnapshot(this.env.DB, this.state.agentId, this.state.agentVersionId);
+    const { snapshot, versionId } = await getRuntimeSnapshot(this.env.DB, this.state.agentId);
+    if (versionId !== this.state.agentVersionId) this.setState({ ...this.state, agentVersionId: versionId });
     const row = await this.env.DB.prepare("SELECT c.human_takeover, ct.lead_status, ct.phone, ct.email FROM conversations c LEFT JOIN contacts ct ON ct.id = c.contact_id WHERE c.id = ?")
       .bind(conversationId)
       .first<{ human_takeover: number; lead_status: string | null; phone: string | null; email: string | null }>();
@@ -234,14 +235,12 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
     const prior = this.sql<{ result_json: string }>`SELECT result_json FROM processed_events WHERE event_id = ${input.eventId} LIMIT 1`[0];
     if (prior) return { ...JSON.parse(prior.result_json) as AgentResult, status: "duplicate" };
 
-    // "Use the live version" (Conversations menu) records the new version on the conversation index; adopt it here.
-    const pinned = this.state.initialized && !options.snapshotOverride
-      ? (await this.env.DB.prepare("SELECT agent_version_id FROM conversations WHERE id = ?").bind(`${input.agentId}:${input.connectionId}:${input.conversationId}`).first<{ agent_version_id: string | null }>())?.agent_version_id
-      : null;
-    if (pinned && pinned !== this.state.agentVersionId) this.setState({ ...this.state, agentVersionId: pinned });
+    // Every message is answered by the live version, also in chats that started on an older one (owner decision
+    // 2026-10-12: publish and restore reach all chats at the customer's next message). Each reply's runtime event
+    // and the conversation record which version answered.
     const runtime = options.snapshotOverride
       ? { snapshot: options.snapshotOverride, versionId: options.versionId ?? "draft" }
-      : await getRuntimeSnapshot(this.env.DB, input.agentId, this.state.initialized ? this.state.agentVersionId : options.versionId);
+      : await getRuntimeSnapshot(this.env.DB, input.agentId, options.versionId);
     const snapshot = runtime.snapshot;
     const versionId = runtime.versionId;
     const conversationId = `${input.agentId}:${input.connectionId}:${input.conversationId}`;
@@ -367,7 +366,7 @@ export class ConversationAgent extends Agent<Env, ConversationState> {
       this.sql`INSERT INTO conversation_messages(id, role, content, created_at) VALUES(${id("msg")}, ${"assistant"}, ${answer}, ${now})`;
       this.setState(nextState);
       await this.env.DB.prepare(`INSERT INTO conversations(id, agent_id, connection_id, external_conversation_id, external_user_id, contact_id, agent_version_id, stage, last_message_preview, last_activity_at)
-        VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET contact_id = excluded.contact_id, stage = excluded.stage, last_message_preview = excluded.last_message_preview, last_activity_at = excluded.last_activity_at`)
+        VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET contact_id = excluded.contact_id, agent_version_id = excluded.agent_version_id, stage = excluded.stage, last_message_preview = excluded.last_message_preview, last_activity_at = excluded.last_activity_at`)
         .bind(conversationId, input.agentId, input.connectionId, input.conversationId, input.externalUserId, contact.contactId, versionId, nextState.stage, answer.slice(0, 220), now).run();
       const result: AgentResult = {
         requestId: input.eventId,

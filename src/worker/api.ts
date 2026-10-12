@@ -680,21 +680,6 @@ app.post("/api/admin/conversations/:id/erase", async (c) => {
   return c.json({ erased: ids.length });
 });
 
-// Conversations keep the version they started on; this moves one chosen chat to the live version, on purpose and audited.
-app.post("/api/admin/conversations/:id/use-live", async (c) => {
-  const conversation = await c.env.DB.prepare("SELECT id,agent_id,connection_id,external_conversation_id,agent_version_id FROM conversations WHERE id=?").bind(c.req.param("id"))
-    .first<{ id: string; agent_id: string; connection_id: string; external_conversation_id: string; agent_version_id: string | null }>();
-  if (!conversation) return c.json({ error: "Conversation not found" }, 404);
-  const agent = await getAgent(c.env.DB, conversation.agent_id);
-  if (!agent?.active_version_id) return c.json({ error: "Nothing is live yet" }, 409);
-  const versions = await c.env.DB.prepare("SELECT id,version FROM agent_versions WHERE id IN (?,?)").bind(agent.active_version_id, conversation.agent_version_id ?? "").all<{ id: string; version: number }>();
-  const number = (versionId: string | null) => versions.results.find((row) => row.id === versionId)?.version ?? null;
-  // The conversation adopts the version recorded here on its next customer message. Safe to repeat.
-  await c.env.DB.prepare("UPDATE conversations SET agent_version_id=? WHERE id=?").bind(agent.active_version_id, conversation.id).run();
-  await writeAudit(c.env.DB, "conversation.version_moved", "conversation", conversation.id, c.get("adminId"), { from: number(conversation.agent_version_id), to: number(agent.active_version_id) });
-  return c.json({ from: number(conversation.agent_version_id), version: number(agent.active_version_id) });
-});
-
 app.post("/api/admin/conversations/:id/takeover", async (c) => {
   const body = z.object({ enabled: z.boolean() }).parse(await c.req.json());
   const conversation = await c.env.DB.prepare("SELECT * FROM conversations WHERE id=?").bind(c.req.param("id")).first<{ id: string; agent_id: string; connection_id: string; external_conversation_id: string }>();
@@ -805,11 +790,11 @@ app.post("/api/v1/webhooks/:adapter/:token", async (c) => {
 
 // Skipped when the team has taken over (the assistant won't answer, so it must not look like it's typing).
 async function acknowledgeOnChannel(env: Env, connection: ConnectionRow, input: NormalizedMessage) {
-  const row = await env.DB.prepare("SELECT human_takeover, agent_version_id FROM conversations WHERE id = ?")
+  const row = await env.DB.prepare("SELECT human_takeover FROM conversations WHERE id = ?")
     .bind(`${connection.agent_id}:${connection.id}:${input.conversationId}`)
-    .first<{ human_takeover: number; agent_version_id: string | null }>();
+    .first<{ human_takeover: number }>();
   if (row?.human_takeover === 1) return;
-  const versionId = row?.agent_version_id ?? (await getAgent(env.DB, connection.agent_id))?.active_version_id;
+  const versionId = (await getAgent(env.DB, connection.agent_id))?.active_version_id;
   const behavior = versionId ? (await getVersionSnapshot(env.DB, versionId))?.behavior : undefined;
   if (!behavior || (!behavior.markSeen && !behavior.typing)) return;
   const actions = await channelActions(env, connection.id, input.conversationId);

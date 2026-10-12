@@ -864,7 +864,7 @@ function VersionsTab({ agent, unpublished, saving, reload, onDiscard }: { agent:
   const versionList = useShowMore(agent.versions);
   return (
     <>
-      <Card title="Versions" footer="Each version is a frozen copy. Chats in progress keep the version they started with; restoring affects new chats only.">
+      <Card title="Versions" footer="Each version is a frozen copy. The live version answers every chat, including chats already in progress, from the customer's next message.">
         {agent.versions.length === 0 ? (
           <EmptyState icon="history" title="No versions yet" text="Publish the draft to make it live. Every publish is saved here so you can go back." />
         ) : (
@@ -907,7 +907,7 @@ function VersionsTab({ agent, unpublished, saving, reload, onDiscard }: { agent:
       {confirm && (
         <Dialog
           title={`Restore version ${confirm.version}?`}
-          text={`New chats use version ${confirm.version} right away. Chats already in progress keep their version, and your draft doesn't change.`}
+          text={`Every chat uses version ${confirm.version} from the customer's next message, including chats in progress. Your draft doesn't change.`}
           confirmLabel="Restore"
           busy={busy}
           onCancel={() => setConfirm(null)}

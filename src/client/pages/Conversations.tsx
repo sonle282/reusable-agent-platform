@@ -34,7 +34,6 @@ export function ConversationsPage({ agents, connections, openId, onOpen, onOpenS
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [switching, setSwitching] = useState(false);
   const [erasing, setErasing] = useState<"ask" | "busy" | null>(null);
-  const [moving, setMoving] = useState<"ask" | "busy" | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const selectedId = openId ?? items?.[0]?.id;
 
@@ -95,17 +94,6 @@ export function ConversationsPage({ agents, connections, openId, onOpen, onOpenS
       toast("Customer data downloaded");
     } catch (caught) {
       toast(errorMessage(caught, "Couldn't export the customer data"), "error");
-    }
-  }
-  async function useLiveVersion(conversation: Conversation) {
-    setMoving("busy");
-    try {
-      const result = await post<{ from: number | null; version: number | null }>(`/api/admin/conversations/${encodeURIComponent(conversation.id)}/use-live`);
-      toast(result.from === result.version ? `This chat already uses version ${result.version}` : `This chat now uses version ${result.version}`);
-    } catch (caught) {
-      toast(errorMessage(caught, "Couldn't switch the version"), "error");
-    } finally {
-      setMoving(null);
     }
   }
   async function eraseCustomer(conversation: Conversation) {
@@ -224,7 +212,6 @@ export function ConversationsPage({ agents, connections, openId, onOpen, onOpenS
                 size="md"
                 items={[
                   { group: "Assistant" },
-                  { label: "Use the live version…", icon: "reload", onSelect: () => setMoving("ask") },
                   { separator: true },
                   { group: "Customer data" },
                   { label: "Export", icon: "download", onSelect: () => void exportCustomer(selected) },
@@ -300,16 +287,6 @@ export function ConversationsPage({ agents, connections, openId, onOpen, onOpenS
               )}
             </div>
             {!detailError && <div className="thread-foot">{selected.human_takeover ? "Your team is replying in this chat. The assistant stays quiet until you hand it back." : "The assistant replies automatically. Turn on Your team replies to step in."}</div>}
-            {moving && (
-              <Dialog
-                title="Use the live version in this chat?"
-                text="Chats keep the version they started on. This one switches to the version customers see now; the chat history stays. Other chats are not affected."
-                confirmLabel="Switch"
-                busy={moving === "busy"}
-                onCancel={() => setMoving(null)}
-                onConfirm={() => void useLiveVersion(selected)}
-              />
-            )}
             {erasing && (
               <Dialog
                 title="Erase this customer's data?"
