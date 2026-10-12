@@ -794,6 +794,8 @@ code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .agent-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); color: inherit; text-align: left; cursor: pointer; min-height: 188px; transition: border-color var(--dur-basic) ease, box-shadow var(--dur-basic) ease; }
 .agent-card:hover { border-color: var(--color-border-strong); box-shadow: var(--shadow-200); }
 .agent-card.new { align-items: center; justify-content: center; border-style: dashed; color: var(--color-text-2); }
+/* Help text that reports a problem keeps the danger colour (.help is declared after .text-danger). */
+.help.text-danger { color: var(--color-danger); }
 /* Data photos: a preview next to Choose image; drop a file anywhere on it. */
 .image-input { display: flex; gap: 12px; align-items: flex-start; padding: 8px; margin: -8px; border-radius: var(--radius-lg); border: 1px dashed transparent; }
 .image-input.is-dragging { border-color: var(--color-ring); background: var(--color-surface-2); }
