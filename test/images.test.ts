@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sniffImage } from "../src/worker/images";
+import { ownImageNames, sniffImage } from "../src/worker/images";
 
 const bytes = (...values: number[]) => new Uint8Array([...values, ...new Array(16).fill(0)]);
 
@@ -16,5 +16,16 @@ describe("image uploads trust the file's first bytes", () => {
     expect(sniffImage(new TextEncoder().encode("<html><script>alert(1)</script>"))).toBeNull();
     expect(sniffImage(bytes(0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4, 0x41, 0x56, 0x49, 0x20))).toBeNull();
     expect(sniffImage(new Uint8Array())).toBeNull();
+  });
+});
+
+describe("photos a row links to", () => {
+  const name = "0123456789abcdef0123456789abcdef.png";
+  it("finds our own photo links in any column", () => {
+    const names = ownImageNames({ title: "Offer", image_url: `https://agent.example.com/media/images/${name}`, gallery: [`https://x.test/media/images/${name.replace("0", "f")}`] });
+    expect([...names].sort()).toEqual([name, name.replace("0", "f")].sort());
+  });
+  it("ignores other links and look-alikes", () => {
+    expect(ownImageNames({ image_url: "https://cdn.example.com/photo.png", note: "/media/images/not-a-photo.png", other: `/media/images/${name}.html` }).size).toBe(0);
   });
 });

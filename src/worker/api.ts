@@ -11,7 +11,7 @@ import { generateWithAnthropic } from "./model/anthropic";
 import { hasProfile } from "../shared/prompt";
 import { executeTool } from "./tools";
 import { markFixesPublished, registerFixRoutes, runCase } from "./fixes";
-import { registerImageRoutes } from "./images";
+import { deleteUnusedImages, ownImageNames, registerImageRoutes } from "./images";
 import { registerLeadRoutes } from "./leads";
 import { clearSessionCookies, createSession, requireAdmin, setSessionCookies, type AuthVariables } from "./security/auth";
 import { constantTimeEqual, decryptCredential, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
@@ -426,18 +426,22 @@ app.patch("/api/admin/collections/:id/records/:recordId", async (c) => {
   await c.env.DB.prepare("UPDATE data_records SET data_json=?,search_text=?,status=?,valid_from=?,valid_until=?,updated_at=datetime('now') WHERE id=?")
     .bind(JSON.stringify(validated.data), Object.values(validated.data).join(" ").toLowerCase(), body.status ?? record.status, body.validFrom === undefined ? record.valid_from : body.validFrom || null, body.validUntil === undefined ? record.valid_until : body.validUntil || null, c.req.param("recordId")).run();
   await writeAudit(c.env.DB, "record.update", "data_record", c.req.param("recordId"), c.get("adminId"));
+  // A replaced or removed photo is deleted once no row links to it.
+  const kept = ownImageNames(validated.data);
+  await deleteUnusedImages(c.env, [...ownImageNames(JSON.parse(record.data_json))].filter((name) => !kept.has(name)), c.get("adminId"));
   return c.json({ id: c.req.param("recordId"), data: validated.data });
 });
 
 // Rows are plain facts the assistant looks up; deleting one only stops future lookups (conversations keep their text).
 app.delete("/api/admin/collections/:id/records/:recordId", async (c) => {
-  const record = await c.env.DB.prepare("SELECT id FROM data_records WHERE id=? AND collection_id=?").bind(c.req.param("recordId"), c.req.param("id")).first<{ id: string }>();
+  const record = await c.env.DB.prepare("SELECT id,data_json FROM data_records WHERE id=? AND collection_id=?").bind(c.req.param("recordId"), c.req.param("id")).first<{ id: string; data_json: string }>();
   if (!record) return c.json({ error: "Record not found" }, 404);
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM data_record_values WHERE record_id=?").bind(record.id),
     c.env.DB.prepare("DELETE FROM data_records WHERE id=?").bind(record.id),
   ]);
   await writeAudit(c.env.DB, "record.delete", "data_record", record.id, c.get("adminId"));
+  await deleteUnusedImages(c.env, ownImageNames(JSON.parse(record.data_json || "{}")), c.get("adminId"));
   return c.json({ deleted: true });
 });
 

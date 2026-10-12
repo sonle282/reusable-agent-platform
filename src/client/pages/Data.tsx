@@ -478,6 +478,17 @@ function RecordDrawer({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const set = (field: string, value: unknown) => setData((current) => ({ ...current, [field]: value }));
+  // Photos uploaded here but not kept (Cancel, or replaced before saving) are deleted; the server refuses if a row uses them.
+  const uploads = useRef(new Set<string>());
+  const dropUploads = (keep: Record<string, unknown>) => {
+    const kept = JSON.stringify(keep);
+    for (const url of uploads.current) if (!kept.includes(url)) void del(`/api/admin/images/${encodeURIComponent(url.split("/").pop() ?? "")}`).catch(() => undefined);
+    uploads.current.clear();
+  };
+  const close = () => {
+    dropUploads(record ? (JSON.parse(record.data_json || "{}") as Record<string, unknown>) : {});
+    onClose();
+  };
   const initialName = record ? String((title && (JSON.parse(record.data_json || "{}") as Record<string, unknown>)[title.key]) || record.external_key || "Row") : `New row`;
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -487,6 +498,7 @@ function RecordDrawer({
     try {
       if (record) await patch(`/api/admin/collections/${collection.id}/records/${record.id}`, body);
       else await post(`/api/admin/collections/${collection.id}/records`, { ...body, externalKey: key && data[key] ? String(data[key]) : undefined });
+      dropUploads(data);
       onDone(record ? "Saved · the assistant uses it now" : "Added · the assistant uses it now");
     } catch (caught) {
       setError(errorMessage(caught));
@@ -499,7 +511,7 @@ function RecordDrawer({
       <Drawer
         title={/^[a-z][a-z0-9_]{0,23}$/.test(initialName) ? (initialName.charAt(0).toUpperCase() + initialName.slice(1)).replaceAll("_", " ") : initialName}
         subtitle={collection.name}
-        onClose={onClose}
+        onClose={close}
         footer={
           <>
             {record && (
@@ -508,7 +520,7 @@ function RecordDrawer({
               </Button>
             )}
             <span className="spacer" />
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={close}>
               Cancel
             </Button>
             <Button type="submit" form="record-form" busy={busy}>
@@ -540,7 +552,7 @@ function RecordDrawer({
                   ) : field.type === "boolean" ? (
                     <Switch label={field.label} checked={value === true || value === "true" || value === 1 || value === "1"} onChange={(on) => set(field.key, on)} />
                   ) : field.type === "image_url" ? (
-                    <ImageInput label={field.label} value={String(value ?? "")} onChange={(next) => set(field.key, next)} />
+                    <ImageInput label={field.label} value={String(value ?? "")} onChange={(next) => set(field.key, next)} onUploaded={(url) => uploads.current.add(url)} />
                   ) : field.type === "enum" && field.options?.length ? (
                     <Select value={String(value ?? "")} onChange={(event) => set(field.key, event.target.value)} required={field.required} aria-label={field.label}>
                       <option value="">None</option>
@@ -574,6 +586,7 @@ function RecordDrawer({
           onConfirm={async () => {
             try {
               await del(`/api/admin/collections/${collection.id}/records/${record.id}`);
+              dropUploads({});
               onDone("Row deleted");
             } catch (caught) {
               setConfirmDelete(false);
@@ -675,7 +688,7 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
 // Photos for a row: choose a file (uploaded and given a link customers' apps can open) or paste a link.
 const MAX_IMAGE_MB = 1;
 
-function ImageInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function ImageInput({ label, value, onChange, onUploaded }: { label: string; value: string; onChange: (value: string) => void; onUploaded: (url: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -689,6 +702,7 @@ function ImageInput({ label, value, onChange }: { label: string; value: string; 
       const form = new FormData();
       form.append("file", file);
       const result = await api<{ url: string }>("/api/admin/images", { method: "POST", body: form });
+      onUploaded(result.url);
       onChange(result.url);
     } catch (caught) {
       setError(errorMessage(caught, "Couldn't upload the image"));

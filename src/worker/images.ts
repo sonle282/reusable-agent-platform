@@ -21,7 +21,41 @@ export function sniffImage(bytes: Uint8Array): keyof typeof types | null {
   return null;
 }
 
+// Our own photo names inside a row's values (links look like https://<host>/media/images/<name>).
+const OWN_LINK = /\/media\/images\/([a-f0-9]{32}\.(?:jpg|png|webp|gif))(?![\w./-])/g;
+export function ownImageNames(value: unknown): Set<string> {
+  const names = new Set<string>();
+  const walk = (item: unknown) => {
+    if (typeof item === "string") for (const match of item.matchAll(OWN_LINK)) names.add(match[1]);
+    else if (Array.isArray(item)) item.forEach(walk);
+    else if (item && typeof item === "object") Object.values(item).forEach(walk);
+  };
+  walk(value);
+  return names;
+}
+
+// A photo is deleted only when no Data row links to it any more (rows can share a photo).
+// Chats that already showed it keep their text; the photo itself is gone.
+export async function deleteUnusedImages(env: Env, names: Iterable<string>, actorId?: string) {
+  const deleted: string[] = [];
+  for (const name of names) {
+    if (!NAME.test(name)) continue;
+    const used = await env.DB.prepare("SELECT 1 AS used FROM data_records WHERE instr(data_json, ?) > 0 LIMIT 1").bind(name).first();
+    if (used) continue;
+    await env.FILES.delete(`images/${name}`);
+    deleted.push(name);
+  }
+  if (deleted.length) await writeAudit(env.DB, "image.delete", "image", deleted.join(","), actorId, { count: deleted.length });
+  return deleted;
+}
+
 export function registerImageRoutes(app: Hono<AppEnv>) {
+  // Photos uploaded in the row panel but not kept (Cancel, or replaced before Save).
+  app.delete("/api/admin/images/:name", async (c) => {
+    const deleted = await deleteUnusedImages(c.env, [c.req.param("name")], c.get("adminId"));
+    return c.json({ deleted: deleted.length > 0 });
+  });
+
   app.post("/api/admin/images", async (c) => {
     const form = await c.req.formData().catch(() => null);
     const file = form?.get("file");
