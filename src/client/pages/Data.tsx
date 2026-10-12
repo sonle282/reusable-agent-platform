@@ -673,7 +673,7 @@ function RenameSheet({ collection, onClose, onDone }: { collection: Collection; 
 }
 
 // Photos for a row: choose a file (uploaded and given a link customers' apps can open) or paste a link.
-const MAX_IMAGE_MB = 5;
+const MAX_IMAGE_MB = 1;
 
 function ImageInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
@@ -683,7 +683,7 @@ function ImageInput({ label, value, onChange }: { label: string; value: string; 
   async function upload(file: File) {
     setError("");
     if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) return setError("Use a JPG, PNG, WebP or GIF image.");
-    if (file.size > MAX_IMAGE_MB * 1024 * 1024) return setError(`The image is over ${MAX_IMAGE_MB} MB. Choose a smaller one.`);
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) return setError(`The image is over ${MAX_IMAGE_MB} MB. Choose a smaller one or shrink it first.`);
     setBusy(true);
     try {
       const form = new FormData();

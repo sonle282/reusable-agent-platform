@@ -6,7 +6,8 @@ type AppEnv = { Bindings: Env; Variables: AuthVariables };
 
 // Photos for Data rows (offers, products). Channels such as Messenger fetch them by link,
 // so they are served without sign-in from an unguessable address.
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// 1 MB keeps photos quick to load on a phone and in Messenger (owner's limit, 2026-10-12).
+export const MAX_IMAGE_BYTES = 1024 * 1024;
 const NAME = /^[a-f0-9]{32}\.(jpg|png|webp|gif)$/;
 const types = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" } as const;
 
@@ -25,7 +26,7 @@ export function registerImageRoutes(app: Hono<AppEnv>) {
     const form = await c.req.formData().catch(() => null);
     const file = form?.get("file");
     if (!file || typeof file === "string") return c.json({ error: "Choose an image file" }, 400);
-    if (file.size > MAX_IMAGE_BYTES) return c.json({ error: "The image is over 5 MB. Choose a smaller one." }, 413);
+    if (file.size > MAX_IMAGE_BYTES) return c.json({ error: "The image is over 1 MB. Choose a smaller one or shrink it first." }, 413);
     const bytes = new Uint8Array(await file.arrayBuffer());
     const ext = sniffImage(bytes);
     if (!ext) return c.json({ error: "Use a JPG, PNG, WebP or GIF image." }, 415);
