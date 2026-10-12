@@ -65,6 +65,9 @@ export type AgentSummary = {
   status: string;
   active_version_id?: string | null;
   updated_at?: string;
+  // From bootstrap: the live version number and whether the draft has changes that aren't published.
+  live_version?: number | null;
+  unpublished?: boolean;
 };
 
 export type AgentDetail = AgentSummary & {

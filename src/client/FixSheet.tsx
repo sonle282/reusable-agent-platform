@@ -10,6 +10,8 @@ type RuleSection = "alwaysDo" | "neverDo" | "handoffWhen";
 
 export type FixInput = {
   origin: "test" | "conversation" | "attention";
+  // Which assistant answered; defaults to the hook's assistant.
+  agentId?: string;
   conversationId?: string;
   customerMessage: string;
   badReply: string;
@@ -384,9 +386,10 @@ export function FixSheet({ agentId, input, onClose, onFinished, onOpenSettings }
 }
 
 // One way to start a fix from anywhere, with the same toasts afterwards (Publish for draft-only fixes).
-export function useFixAnswer({ agentId, onChanged, onOpenSettings }: { agentId: string; onChanged?: () => void | Promise<void>; onOpenSettings?: () => void }) {
+export function useFixAnswer({ agentId: defaultAgent, onChanged, onOpenSettings }: { agentId?: string; onChanged?: () => void | Promise<void>; onOpenSettings?: () => void }) {
   const toast = useToast();
   const [input, setInput] = useState<FixInput | null>(null);
+  const agentId = input?.agentId ?? defaultAgent ?? "";
   const publish = useCallback(async () => {
     try {
       const result = await publishDraft(agentId);

@@ -3,7 +3,7 @@ import { api, patch, post } from "../api";
 import { formatDate, parseDate } from "../format";
 import { platformKey, platformName, platformOf } from "../platform";
 import type { AgentSummary, Connection, Delivery } from "../types";
-import { AgentAvatar, Alert, Badge, BrandLogo, Button, CopyField, Dialog, Disclosure, Drawer, errorMessage, Field, Icon, LoadError, PageHeader, Segmented, SettingRow, Sheet, TextInput, useToast, type TileTone } from "../ui";
+import { AgentAvatar, Alert, Badge, BrandLogo, Button, CopyField, Dialog, Disclosure, Drawer, errorMessage, Field, Icon, LoadError, PageHeader, Segmented, Select, SettingRow, Sheet, TextInput, useToast, type TileTone } from "../ui";
 
 type ConnectionType = "generic_api" | "generic_webhook" | "zernio";
 
@@ -77,7 +77,7 @@ const zernioPage = (connection: Connection) => {
 
 type Secrets = { apiKey?: string; webhookPath?: string; type: ConnectionType };
 
-export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }: { agent: AgentSummary; connections: Connection[]; reload: () => Promise<void>; onOpenAssistant: () => void }) {
+export function ConnectionsPage({ agents, connections, reload, onOpenAssistant }: { agents: AgentSummary[]; connections: Connection[]; reload: () => Promise<void>; onOpenAssistant: (id: string) => void }) {
   const toast = useToast();
   const [creating, setCreating] = useState<ConnectionType | null>(null);
   const [secrets, setSecrets] = useState<Secrets | null>(null);
@@ -97,6 +97,9 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
   const failed = (deliveries ?? []).filter((delivery) => delivery.status === "failed");
   const failedFor = (connectionId: string) => failed.filter((delivery) => delivery.connection_id === connectionId).length;
   const nameOf = (connectionId: string) => connections.find((connection) => connection.id === connectionId)?.name ?? "a channel";
+  // Each channel is answered by one assistant; it can be moved to another in the channel's panel.
+  const agentOf = (connection: Connection) => agents.find((agent) => agent.id === connection.agent_id) ?? agents[0];
+  const notLive = agents.filter((agent) => !agent.active_version_id && connections.some((connection) => connection.agent_id === agent.id));
 
   async function retry(ids: string[], key: string) {
     setRetrying(key);
@@ -122,18 +125,19 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
           </Button>
         }
       />
-      {!agent.active_version_id && connections.length > 0 && (
+      {notLive.map((agent) => (
         <Alert
+          key={agent.id}
           tone="warning"
-          title="Channels can't reply yet"
-          text="Publish the assistant first; channels always use the live version."
+          title={`${agent.name}'s channels can't reply yet`}
+          text="Publish it first; channels always use the live version."
           actions={
-            <Button variant="outline" size="sm" onClick={onOpenAssistant}>
-              Open Assistant
+            <Button variant="outline" size="sm" onClick={() => onOpenAssistant(agent.id)}>
+              Open {agent.name}
             </Button>
           }
         />
-      )}
+      ))}
       {error && (
         <div className="card">
           <LoadError title="Couldn't check deliveries" text="Customers are still being answered." error={error} onRetry={() => void loadDeliveries()} />
@@ -201,6 +205,7 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
             const failures = failedFor(connection.id);
             const off = connection.status !== "active";
             const platform = platformOf(connection);
+            const agent = agentOf(connection);
             return (
               <button type="button" className="row" key={connection.id} onClick={() => setOpened(connection)}>
                 <BrandLogo platform={platform} label={platformName[platform] ?? connection.name} />
@@ -245,13 +250,13 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
 
       {creating && (
         <CreateConnectionSheet
-          agent={agent}
+          agents={agents}
           initialType={creating}
           onClose={() => setCreating(null)}
-          onDone={async (value) => {
+          onDone={async (value, agent) => {
             setCreating(null);
             setSecrets(value);
-            if (!value) toast(agent.active_version_id ? "Connected · the assistant answers this page now" : "Connected · publish the assistant to turn it on");
+            if (!value) toast(agent.active_version_id ? `Connected · ${agent.name} answers this page now` : `Connected · publish ${agent.name} to turn it on`);
             await reload();
           }}
         />
@@ -259,9 +264,8 @@ export function ConnectionsPage({ agent, connections, reload, onOpenAssistant }:
       {secrets && <SecretsSheet secrets={secrets} onClose={() => setSecrets(null)} />}
       {opened && (
         <ConnectionSheet
-          agent={agent}
+          agents={agents}
           connection={connections.find((item) => item.id === opened.id) ?? opened}
-          canTurnOn={Boolean(agent.active_version_id)}
           onClose={() => setOpened(null)}
           onSecrets={(value) => {
             setOpened(null);
@@ -285,8 +289,10 @@ function plainError(value?: string | null) {
 
 type ZernioAccount = { id: string; platform: string; name: string; username: string | null; picture: string | null };
 
-function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent: AgentSummary; initialType: ConnectionType; onClose: () => void; onDone: (secrets: Secrets | null) => void }) {
+function CreateConnectionSheet({ agents, initialType, onClose, onDone }: { agents: AgentSummary[]; initialType: ConnectionType; onClose: () => void; onDone: (secrets: Secrets | null, agent: AgentSummary) => void }) {
   const [type, setType] = useState<ConnectionType>(initialType);
+  const [agentId, setAgentId] = useState((agents.find((agent) => agent.active_version_id) ?? agents[0]).id);
+  const agent = agents.find((item) => item.id === agentId) ?? agents[0];
   const [form, setForm] = useState({ name: "", callbackUrl: "", apiCredential: "", webhookSecret: "" });
   const [accounts, setAccounts] = useState<ZernioAccount[] | null>(null);
   const [accountId, setAccountId] = useState("");
@@ -327,7 +333,7 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
       });
       // Turn it on right away when the assistant is live; otherwise it waits for the first publish.
       if (agent.active_version_id) await post(`/api/admin/connections/${result.id}/activate`).catch(() => undefined);
-      onDone(type === "zernio" ? null : { type, apiKey: type === "generic_api" ? result.apiKey : undefined, webhookPath: type === "generic_api" ? undefined : result.webhookPath });
+      onDone(type === "zernio" ? null : { type, apiKey: type === "generic_api" ? result.apiKey : undefined, webhookPath: type === "generic_api" ? undefined : result.webhookPath }, agent);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
@@ -404,12 +410,8 @@ function CreateConnectionSheet({ agent, initialType, onClose, onDone }: { agent:
             <p className="help">{typeInfo[type].help}</p>
           </>
         )}
-        <SettingRow title="Answered by" sub="Uses the assistant's live version">
-          <span className="row-flex">
-            <AgentAvatar id={agent.id} name={agent.name} size="xs" />
-            <span className="medium truncate">{agent.name}</span>
-          </span>
-        </SettingRow>
+        <AnsweredBy agents={agents} value={agent.id} onChange={setAgentId} />
+        {!agent.active_version_id && <p className="help">{agent.name} isn't published yet, so this channel turns on after its first publish.</p>}
         {error && <Alert tone="danger" title="Couldn't add the channel" text={error} />}
       </form>
     </Sheet>
@@ -443,24 +445,25 @@ function SecretsSheet({ secrets, onClose }: { secrets: Secrets; onClose: () => v
 }
 
 function ConnectionSheet({
-  agent,
+  agents,
   connection,
-  canTurnOn,
   onClose,
   onSecrets,
   reload,
 }: {
-  agent: AgentSummary;
+  agents: AgentSummary[];
   connection: Connection;
-  canTurnOn: boolean;
   onClose: () => void;
   onSecrets: (secrets: Secrets) => void;
   reload: () => Promise<void>;
 }) {
   const toast = useToast();
   const [name, setName] = useState(connection.name);
-  const [busy, setBusy] = useState<"" | "save" | "status" | "rotate">("");
+  const [busy, setBusy] = useState<"" | "save" | "status" | "rotate" | "move">("");
   const [confirm, setConfirm] = useState<"off" | "rotate" | null>(null);
+  const [moveTo, setMoveTo] = useState<AgentSummary | null>(null);
+  const agent = agents.find((item) => item.id === connection.agent_id) ?? agents[0];
+  const canTurnOn = Boolean(agent.active_version_id);
   const [error, setError] = useState("");
   const type = (connection.type as ConnectionType) in typeInfo ? (connection.type as ConnectionType) : "generic_api";
   const origin = window.location.origin;
@@ -469,7 +472,7 @@ function ConnectionSheet({
   const added = parseDate(connection.created_at) ? `added ${formatDate(connection.created_at)}` : "";
   const platform = platformOf(connection);
 
-  async function run(kind: "save" | "status" | "rotate", fn: () => Promise<void>) {
+  async function run(kind: "save" | "status" | "rotate" | "move", fn: () => Promise<void>) {
     setBusy(kind);
     setError("");
     try {
@@ -479,6 +482,7 @@ function ConnectionSheet({
     } finally {
       setBusy("");
       setConfirm(null);
+      setMoveTo(null);
     }
   }
   const done = () =>
@@ -530,17 +534,12 @@ function ConnectionSheet({
           </>
         }
       >
-        {!active && !canTurnOn && <Alert tone="info" title="Publish the assistant to turn this on" text="Channels always use the live version." />}
+        {!active && !canTurnOn && <Alert tone="info" title={`Publish ${agent.name} to turn this on`} text="Channels always use the live version." />}
         {error && <Alert tone="danger" title="That didn't work" text={error} onClose={() => setError("")} />}
         <Field label="Name">
           <TextInput value={name} onChange={(event) => setName(event.target.value)} />
         </Field>
-        <SettingRow title="Answered by" sub="Uses the assistant's live version">
-          <span className="row-flex">
-            <AgentAvatar id={agent.id} name={agent.name} size="xs" />
-            <span className="medium truncate">{agent.name}</span>
-          </span>
-        </SettingRow>
+        <AnsweredBy agents={agents} value={agent.id} liveOnly={active} onChange={(id) => setMoveTo(agents.find((item) => item.id === id) ?? null)} />
         {type === "generic_api" ? (
           <>
             <div className="field">
@@ -613,6 +612,22 @@ Idempotency-Key: <unique id per message>
           }
         />
       )}
+      {moveTo && (
+        <Dialog
+          title={`Let ${moveTo.name} answer ${connection.name}?`}
+          text={`New messages are answered by ${moveTo.name}'s live version. Open chats on this channel start fresh with it; their history stays in Conversations.`}
+          confirmLabel="Change"
+          busy={busy === "move"}
+          onCancel={() => setMoveTo(null)}
+          onConfirm={() =>
+            void run("move", async () => {
+              await patch(`/api/admin/connections/${connection.id}`, { agentId: moveTo.id });
+              await reload();
+              toast(`${moveTo.name} answers ${connection.name} now`);
+            })
+          }
+        />
+      )}
       {confirm === "rotate" && (
         <Dialog
           title={type === "generic_api" ? "Make a new key?" : "Make a new webhook address?"}
@@ -641,6 +656,30 @@ Idempotency-Key: <unique id per message>
         />
       )}
     </>
+  );
+}
+
+// A channel that is on can only move to a live assistant; otherwise customers would stop getting replies.
+function AnsweredBy({ agents, value, onChange, liveOnly = false }: { agents: AgentSummary[]; value: string; onChange: (id: string) => void; liveOnly?: boolean }) {
+  const agent = agents.find((item) => item.id === value) ?? agents[0];
+  return (
+    <SettingRow title="Answered by" sub="Uses the assistant's live version">
+      {agents.length > 1 ? (
+        <Select block={false} aria-label="Answered by" value={value} onChange={(event) => event.target.value !== value && onChange(event.target.value)}>
+          {agents.map((item) => (
+            <option key={item.id} value={item.id} disabled={liveOnly && !item.active_version_id && item.id !== value}>
+              {item.name}
+              {item.active_version_id ? "" : " (not published)"}
+            </option>
+          ))}
+        </Select>
+      ) : (
+        <span className="row-flex">
+          <AgentAvatar id={agent.id} name={agent.name} size="xs" />
+          <span className="medium truncate">{agent.name}</span>
+        </span>
+      )}
+    </SettingRow>
   );
 }
 

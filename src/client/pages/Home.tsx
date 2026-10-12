@@ -8,7 +8,10 @@ import { platformOf } from "../platform";
 import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
 import { AgentAvatar, agentStatus, Alert, AvatarWithChannel, Badge, Button, Card, EmptyState, errorMessage, Icon, LoadError, Menu, PageHeader, Row, SkeletonLine, Tile, useToast, type TileTone } from "../ui";
 
-type Go = (page: "assistant" | "conversations" | "channels" | "settings" | "leads" | "data", ...params: string[]) => void;
+type Go = (page: "assistants" | "conversations" | "channels" | "settings" | "leads" | "data", ...params: string[]) => void;
+type Item = AttentionItem & { agentId: string };
+// Attention keys are unique per assistant; the page needs them unique across assistants.
+const uid = (item: Item) => `${item.agentId}:${item.key}`;
 
 const plainText = (value: string) =>
   parseRichMessage(value)
@@ -22,28 +25,26 @@ const reasons: Array<{ value: "answer_fine" | "handled" | "not_customer"; label:
   { value: "not_customer", label: "Not a real customer" },
 ];
 
-// The owner's morning view: is the assistant live, what needs a person, how the last day went, what customers asked.
+// The owner's morning view: are the assistants live, what needs a person, how the last day went, what customers asked.
 export function HomePage({
-  agent,
+  agents,
+  statusOf,
   connections,
-  liveVersion,
-  unpublished,
   tableCount,
   go,
   refresh,
 }: {
-  agent: AgentSummary;
+  agents: AgentSummary[];
+  statusOf: (agent: AgentSummary) => ReturnType<typeof agentStatus>;
   connections: Connection[];
   tableCount: number;
-  liveVersion: number | null;
-  unpublished: boolean;
   go: Go;
   refresh: () => Promise<void>;
 }) {
   const toast = useToast();
   const [summary, setSummary] = useState<Dashboard | null>(null);
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
-  const [attention, setAttention] = useState<AttentionItem[] | null>(null);
+  const [attention, setAttention] = useState<Item[] | null>(null);
   const [attentionError, setAttentionError] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState("");
@@ -51,12 +52,14 @@ export function HomePage({
 
   const loadAttention = useCallback(async () => {
     try {
-      setAttention(await api<AttentionItem[]>(`/api/admin/agents/${agent.id}/attention`));
+      // Needs attention covers every assistant; each item remembers which one it belongs to.
+      const lists = await Promise.all(agents.map(async (agent) => (await api<AttentionItem[]>(`/api/admin/agents/${agent.id}/attention`)).map((item) => ({ ...item, agentId: agent.id }))));
+      setAttention(lists.flat());
       setAttentionError(false);
     } catch {
       setAttentionError(true);
     }
-  }, [agent.id]);
+  }, [agents.map((agent) => agent.id).join(",")]);
   const load = useCallback(async () => {
     setBusy("load");
     try {
@@ -77,12 +80,13 @@ export function HomePage({
   const changed = useCallback(async () => {
     await Promise.all([loadAttention(), refresh()]);
   }, [loadAttention, refresh]);
-  const { startFix, fixSheet } = useFixAnswer({ agentId: agent.id, onChanged: changed, onOpenSettings: () => go("settings") });
+  const { startFix, fixSheet } = useFixAnswer({ onChanged: changed, onOpenSettings: () => go("settings") });
+  const agentOf = (id: string) => agents.find((agent) => agent.id === id);
 
   // An attention item points at a moment in a conversation; the reply is the last assistant message at that time.
-  async function fixFromConversation(item: AttentionItem) {
+  async function fixFromConversation(item: Item) {
     if (!item.conversationId) return;
-    setBusy(item.key);
+    setBusy(uid(item));
     try {
       const detail = await api<{ messages: TranscriptMessage[] }>(`/api/admin/conversations/${encodeURIComponent(item.conversationId)}`);
       const limit = (parseDate(item.at)?.getTime() ?? Date.now()) + 60_000;
@@ -90,29 +94,29 @@ export function HomePage({
       const replyIndex = messages.map((message) => message.role).lastIndexOf("assistant");
       if (replyIndex < 0) return go("conversations", item.conversationId);
       const question = [...messages.slice(0, replyIndex)].reverse().find((message) => message.role === "user");
-      startFix({ origin: "attention", conversationId: item.conversationId, customerMessage: plainText(question?.content ?? ""), badReply: plainText(messages[replyIndex].content) });
+      startFix({ origin: "attention", agentId: item.agentId, conversationId: item.conversationId, customerMessage: plainText(question?.content ?? ""), badReply: plainText(messages[replyIndex].content) });
     } catch (caught) {
       toast(errorMessage(caught, "Couldn't open that conversation"), "error");
     } finally {
       setBusy(null);
     }
   }
-  async function retryFix(item: AttentionItem) {
+  async function retryFix(item: Item) {
     if (!item.fixId) return;
-    setBusy(item.key);
+    setBusy(uid(item));
     try {
       const fix = await api<{ id: string; conversation_id: string | null; customer_message: string; bad_reply: string; correct_reply: string }>(`/api/admin/fixes/${item.fixId}`);
-      startFix({ origin: "attention", conversationId: fix.conversation_id ?? undefined, customerMessage: fix.customer_message, badReply: fix.bad_reply, correctReply: fix.correct_reply, fixId: fix.id });
+      startFix({ origin: "attention", agentId: item.agentId, conversationId: fix.conversation_id ?? undefined, customerMessage: fix.customer_message, badReply: fix.bad_reply, correctReply: fix.correct_reply, fixId: fix.id });
     } catch (caught) {
       toast(errorMessage(caught, "Couldn't open the fix"), "error");
     } finally {
       setBusy(null);
     }
   }
-  async function publish(item: AttentionItem) {
-    setBusy(item.key);
+  async function publish(item: Item) {
+    setBusy(uid(item));
     try {
-      const result = await publishDraft(agent.id);
+      const result = await publishDraft(item.agentId);
       toast(`Version ${result.version} is live`);
       await changed();
     } catch (caught) {
@@ -121,11 +125,11 @@ export function HomePage({
       setBusy(null);
     }
   }
-  async function dismiss(group: AttentionItem[], reason: (typeof reasons)[number]["value"]) {
+  async function dismiss(group: Item[], reason: (typeof reasons)[number]["value"]) {
     try {
       for (const item of group) await post("/api/admin/attention/dismiss", { key: item.key, reason });
-      const keys = new Set(group.map((item) => item.key));
-      setAttention((current) => current?.filter((entry) => !keys.has(entry.key)) ?? null);
+      const keys = new Set(group.map(uid));
+      setAttention((current) => current?.filter((entry) => !keys.has(uid(entry))) ?? null);
       toast("Dismissed", {
         actionLabel: "Undo",
         onAction: async () => {
@@ -140,14 +144,12 @@ export function HomePage({
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const loading = !summary && !conversations && !error;
-  const live = Boolean(agent.active_version_id);
-  const status = agentStatus(live ? liveVersion : null, unpublished);
   const recent = conversations?.slice(0, 5) ?? [];
   // The same problem in the same chat is one to-do: newest first, with how many times it happened.
   const groups = groupAttention(attention ?? []);
 
   // What each item says and which single action it offers.
-  const present = (item: AttentionItem): { tone: TileTone; icon: string; title: string; sub: string; label: string; variant: "outline" | "soft" | "primary"; act: () => void } => {
+  const present = (item: Item): { tone: TileTone; icon: string; title: string; sub: string; label: string; variant: "outline" | "soft" | "primary"; act: () => void } => {
     const name = item.person ? displayName(item.person) : "";
     const when = formatDate(item.at);
     const open = () => item.conversationId && go("conversations", item.conversationId);
@@ -209,14 +211,17 @@ export function HomePage({
                 const item = group[0];
                 const view = present(item);
                 return (
-                  <div className="row" key={item.key}>
+                  <div className="row" key={uid(item)}>
                     <Tile icon={view.icon} tone={view.tone} />
                     <div className="row-text">
                       <span className="row-title">
                         {view.title}
                         {group.length > 1 && <span className="t3"> · {group.length} times</span>}
                       </span>
-                      <span className="row-sub truncate">{view.sub}</span>
+                      <span className="row-sub truncate">
+                        {agents.length > 1 && `${agentOf(item.agentId)?.name ?? "Assistant"} · `}
+                        {view.sub}
+                      </span>
                     </div>
                     {item.waitingDays !== undefined && (
                       <Badge tone="warning">
@@ -224,7 +229,7 @@ export function HomePage({
                       </Badge>
                     )}
                     <div className="row-flex" style={{ flex: "none" }}>
-                      <Button variant={view.variant} size="sm" busy={busy === item.key} onClick={view.act}>
+                      <Button variant={view.variant} size="sm" busy={busy === uid(item)} onClick={view.act}>
                         {view.label}
                       </Button>
                       <Menu
@@ -255,18 +260,30 @@ export function HomePage({
           )}
 
           <div className="home-grid">
-            <Card title="Assistant">
-              <button type="button" className="row" onClick={() => go("assistant")}>
-                <AgentAvatar id={agent.id} name={agent.name} />
-                <span className="row-text">
-                  <span className="row-title truncate">{agent.name}</span>
-                  <span className="status xs">
-                    <span className={`dot ${status.dot}`} aria-hidden="true" />
-                    <span className="truncate">{status.text}</span>
-                  </span>
-                </span>
-                <Icon name="chevron-right" className="chev" size={16} />
-              </button>
+            <Card
+              title="Assistants"
+              action={
+                <Button variant="ghost" size="sm" onClick={() => go("assistants")}>
+                  View all
+                </Button>
+              }
+            >
+              {agents.slice(0, 4).map((agent) => {
+                const status = statusOf(agent);
+                return (
+                  <button type="button" className="row" key={agent.id} onClick={() => go("assistants", agent.id, "test")}>
+                    <AgentAvatar id={agent.id} name={agent.name} />
+                    <span className="row-text">
+                      <span className="row-title truncate">{agent.name}</span>
+                      <span className="status xs">
+                        <span className={`dot ${status.dot}`} aria-hidden="true" />
+                        <span className="truncate">{status.text}</span>
+                      </span>
+                    </span>
+                    <Icon name="chevron-right" className="chev" size={16} />
+                  </button>
+                );
+              })}
               <Row icon="table" title="Data" subtitle={`${tableCount} ${tableCount === 1 ? "table" : "tables"} · products, offers and prices it looks up`} onClick={() => go("data")} chevron />
             </Card>
 
@@ -351,11 +368,12 @@ function HomeSkeleton() {
   );
 }
 
-function groupAttention(items: AttentionItem[]) {
-  const groups = new Map<string, AttentionItem[]>();
-  const time = (item: AttentionItem) => parseDate(item.at)?.getTime() ?? 0;
+function groupAttention(items: Item[]) {
+  const groups = new Map<string, Item[]>();
+  const time = (item: Item) => parseDate(item.at)?.getTime() ?? 0;
   for (const item of [...items].sort((a, b) => time(b) - time(a))) {
-    const key = item.conversationId && ["price", "backup", "team", "contact_again"].includes(item.type) ? `${item.type}:${item.conversationId}` : item.key;
+    // Items never group across assistants: each group's actions (publish, fix) belong to one assistant.
+    const key = `${item.agentId}:${item.conversationId && ["price", "backup", "team", "contact_again"].includes(item.type) ? `${item.type}:${item.conversationId}` : item.key}`;
     groups.set(key, [...(groups.get(key) ?? []), item]);
   }
   return [...groups.values()];

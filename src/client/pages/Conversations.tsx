@@ -3,7 +3,7 @@ import { api, post } from "../api";
 import { displayName, formatDate, previewSnippet, timeSeparator } from "../format";
 import { useFixAnswer } from "../FixSheet";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
-import type { Connection, Conversation, TranscriptMessage } from "../types";
+import type { AgentSummary, Connection, Conversation, TranscriptMessage } from "../types";
 
 // "Messenger via Zernio", "API" — how this chat reaches the customer.
 const channelLabel = (connection?: Connection) => {
@@ -20,9 +20,11 @@ const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 type Detail = { conversation: Conversation & { custom_json?: string | null }; messages: TranscriptMessage[] };
 
 // Full-height split: chats on the left, the thread on the right (customer as a gray bubble on the right, the assistant as plain text).
-export function ConversationsPage({ agentId, agentName, connections, openId, onOpen, onOpenSettings }: { agentId: string; agentName: string; connections: Connection[]; openId?: string; onOpen: (id?: string) => void; onOpenSettings: () => void }) {
+export function ConversationsPage({ agents, connections, openId, onOpen, onOpenSettings }: { agents: AgentSummary[]; connections: Connection[]; openId?: string; onOpen: (id?: string) => void; onOpenSettings: () => void }) {
   const toast = useToast();
-  const { startFix, fixSheet } = useFixAnswer({ agentId, onOpenSettings });
+  const { startFix, fixSheet } = useFixAnswer({ onOpenSettings });
+  // Each chat is answered by the assistant its channel pointed to when the chat started.
+  const agentName = (id: string) => agents.find((agent) => agent.id === id)?.name ?? "Assistant";
   const [items, setItems] = useState<Conversation[] | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "leads" | "team">("all");
@@ -265,8 +267,8 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
                       <MessageGroup key={message.id} separator={separator}>
                         <div className="msg-ai">
                           <span className="row-flex xs t3" style={{ gap: 6 }}>
-                            <AgentAvatar id={agentId} name={agentName} size="xs" />
-                            {agentName} · {formatDate(message.created_at)}
+                            <AgentAvatar id={selected.agent_id} name={agentName(selected.agent_id)} size="xs" />
+                            {agentName(selected.agent_id)} · {formatDate(message.created_at)}
                           </span>
                           <RichBubbles side="assistant" text={message.content} />
                           <div className="msg-actions">
@@ -279,6 +281,7 @@ export function ConversationsPage({ agentId, agentName, connections, openId, onO
                               onClick={() =>
                                 startFix({
                                   origin: "conversation",
+                                  agentId: selected.agent_id,
                                   conversationId: selected.id,
                                   customerMessage: plainText([...detail.messages.slice(0, index)].reverse().find((item) => item.role === "user")?.content ?? ""),
                                   badReply: plainText(message.content),

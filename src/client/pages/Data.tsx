@@ -58,34 +58,40 @@ const columnSummary = (collection: Collection) =>
 
 // #/data lists the tables; #/data/<table> is one table's rows; #/data/<table>/<row> opens a row in the drawer.
 export function DataPage({
-  agent,
+  agents,
   collections,
   reload,
   openCollectionId,
   openRecordId,
   onSelect,
 }: {
-  agent: AgentSummary;
+  agents: AgentSummary[];
   collections: Collection[];
   reload: () => Promise<void>;
   openCollectionId?: string;
   openRecordId?: string;
   onSelect: (id?: string, recordId?: string) => void;
 }) {
-  const [usedBy, setUsedBy] = useState<Set<string>>(new Set());
-  // The assistant's draft says which tables it looks up ("Used by").
+  const [usedBy, setUsedBy] = useState<UsedBy>(new Map());
+  // Each assistant's draft says which tables it looks up ("Used by"). Tables are shared by all assistants.
   useEffect(() => {
-    void api<AgentDetail>(`/api/admin/agents/${agent.id}`).then(
-      (detail) => setUsedBy(new Set(detail.draft.collectionBindings.map((binding) => binding.collectionId))),
-      () => setUsedBy(new Set()),
-    );
-  }, [agent.id]);
+    void Promise.all(agents.map((agent) => api<AgentDetail>(`/api/admin/agents/${agent.id}`).then((detail) => ({ agent, detail }), () => null))).then((results) => {
+      const map: UsedBy = new Map();
+      for (const result of results) {
+        if (!result) continue;
+        for (const binding of result.detail.draft.collectionBindings) map.set(binding.collectionId, [...(map.get(binding.collectionId) ?? []), result.agent]);
+      }
+      setUsedBy(map);
+    });
+  }, [agents.map((agent) => agent.id).join(",")]);
   const selected = collections.find((collection) => collection.id === openCollectionId);
-  if (selected) return <TablePage key={selected.id} agent={agent} collection={selected} used={usedBy.has(selected.id)} reload={reload} openRecordId={openRecordId} onSelect={onSelect} />;
-  return <TablesList agent={agent} collections={collections} usedBy={usedBy} reload={reload} onSelect={onSelect} />;
+  if (selected) return <TablePage key={selected.id} users={usedBy.get(selected.id) ?? []} collection={selected} reload={reload} openRecordId={openRecordId} onSelect={onSelect} />;
+  return <TablesList collections={collections} usedBy={usedBy} reload={reload} onSelect={onSelect} />;
 }
 
-function TablesList({ agent, collections, usedBy, reload, onSelect }: { agent: AgentSummary; collections: Collection[]; usedBy: Set<string>; reload: () => Promise<void>; onSelect: (id?: string) => void }) {
+type UsedBy = Map<string, AgentSummary[]>;
+
+function TablesList({ collections, usedBy, reload, onSelect }: { collections: Collection[]; usedBy: UsedBy; reload: () => Promise<void>; onSelect: (id?: string) => void }) {
   const [creating, setCreating] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const hiddenCount = collections.filter((collection) => collection.archived_at).length;
@@ -145,10 +151,12 @@ function TablesList({ agent, collections, usedBy, reload, onSelect }: { agent: A
                   </td>
                   <td className="tabular">{collection.record_count ?? "—"}</td>
                   <td className="table-cols-optional">
-                    {usedBy.has(collection.id) ? (
+                    {usedBy.get(collection.id)?.length ? (
                       <span className="row-flex" style={{ gap: 6 }}>
-                        <AgentAvatar id={agent.id} name={agent.name} size="xs" />
-                        <span className="xs t3 truncate">{agent.name}</span>
+                        {usedBy.get(collection.id)!.slice(0, 3).map((agent) => (
+                          <AgentAvatar key={agent.id} id={agent.id} name={agent.name} size="xs" />
+                        ))}
+                        <span className="xs t3 truncate">{usedBy.get(collection.id)!.map((agent) => agent.name).join(", ")}</span>
                       </span>
                     ) : (
                       <span className="xs t3">Not used</span>
@@ -188,16 +196,14 @@ function TablesList({ agent, collections, usedBy, reload, onSelect }: { agent: A
 }
 
 function TablePage({
-  agent,
+  users,
   collection,
-  used,
   reload,
   openRecordId,
   onSelect,
 }: {
-  agent: AgentSummary;
+  users: AgentSummary[];
   collection: Collection;
-  used: boolean;
   reload: () => Promise<void>;
   openRecordId?: string;
   onSelect: (id?: string, recordId?: string) => void;
@@ -280,7 +286,7 @@ function TablePage({
             <span>
               {!records ? "Loading…" : counts.all === 0 ? "No rows yet" : `${plural(counts.all, "row")} · ${counts.active === counts.all ? "all in use" : `${counts.active} in use`}`}
               {" · "}
-              {collection.archived_at ? "hidden, the assistant can't look it up" : used ? `used by ${agent.name}` : "not used by the assistant yet (turn it on in Assistant › Sources)"}
+              {collection.archived_at ? "hidden, the assistant can't look it up" : users.length ? `used by ${users.map((agent) => agent.name).join(", ")}` : "not used by an assistant yet (turn it on in an assistant's Sources)"}
             </span>
           </p>
         </div>

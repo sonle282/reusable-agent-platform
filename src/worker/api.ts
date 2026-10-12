@@ -129,17 +129,16 @@ app.get("/api/admin/bootstrap", async (c) => {
     c.env.DB.prepare("SELECT d.id,d.name,d.slug,d.description,d.schema_json,d.updated_at,d.archived_at,(SELECT COUNT(*) FROM data_records r WHERE r.collection_id=d.id) AS record_count FROM data_collections d ORDER BY d.archived_at IS NOT NULL, d.updated_at DESC").all(),
     c.env.DB.prepare("SELECT id,agent_id,type,name,status,callback_url,config_json,created_at FROM connections ORDER BY created_at DESC").all(),
   ]);
-  // Sidebar signals: the draft differs from the live version (or nothing is live) and replies that failed to deliver.
-  const first = agents.results[0] as { id: string } | undefined;
+  // Sidebar signals per assistant: its live version and whether the draft differs from it; plus failed deliveries and new leads.
   const [drafts, failed, newLeads] = await Promise.all([
-    first
-      ? c.env.DB.prepare("SELECT a.draft_json, v.snapshot_json, v.version FROM agents a LEFT JOIN agent_versions v ON v.id=a.active_version_id WHERE a.id=?").bind(first.id).first<{ draft_json: string; snapshot_json: string | null; version: number | null }>()
-      : null,
+    c.env.DB.prepare("SELECT a.id, a.draft_json, v.snapshot_json, v.version FROM agents a LEFT JOIN agent_versions v ON v.id=a.active_version_id").all<{ id: string; draft_json: string; snapshot_json: string | null; version: number | null }>(),
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM deliveries WHERE status='failed'").first<{ count: number }>(),
     c.env.DB.prepare("SELECT COUNT(*) AS count FROM contacts WHERE lead_status='new' AND erased_at IS NULL").first<{ count: number }>(),
   ]);
-  const unpublished = Boolean(drafts) && (!drafts!.snapshot_json || JSON.stringify(parseVersionSnapshot(JSON.parse(drafts!.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(drafts!.draft_json))));
-  return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: agents.results, collections: collections.results, connections: connections.results, attention: { unpublished, liveVersion: drafts?.version ?? null, failedDeliveries: failed?.count ?? 0, newLeads: newLeads?.count ?? 0 } });
+  const state = new Map(drafts.results.map((row) => [row.id, { live_version: row.version, unpublished: !row.snapshot_json || JSON.stringify(parseVersionSnapshot(JSON.parse(row.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(row.draft_json))) }]));
+  const list = (agents.results as Array<{ id: string }>).map((agent) => ({ ...agent, ...(state.get(agent.id) ?? { live_version: null, unpublished: true }) }));
+  const first = list[0];
+  return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: list, collections: collections.results, connections: connections.results, attention: { unpublished: first?.unpublished ?? false, liveVersion: first?.live_version ?? null, failedDeliveries: failed?.count ?? 0, newLeads: newLeads?.count ?? 0 } });
 });
 
 app.patch("/api/admin/settings/brand", async (c) => {
@@ -187,6 +186,36 @@ app.post("/api/admin/agents", async (c) => {
   await c.env.DB.prepare("INSERT INTO agents(id,name,description,primary_language,draft_json) VALUES(?,?,?,?,?)").bind(agentId, body.name, body.description, body.primaryLanguage, JSON.stringify(draft)).run();
   await writeAudit(c.env.DB, "agent.create", "agent", agentId, c.get("adminId"));
   return c.json({ id: agentId, ...body, draft }, 201);
+});
+
+// A copy starts as a private draft. Knowledge and live lookups belong to one assistant, so they are not copied.
+app.post("/api/admin/agents/:id/duplicate", async (c) => {
+  const source = await getAgent(c.env.DB, c.req.param("id"));
+  if (!source) return c.json({ error: "Agent not found" }, 404);
+  const body = z.object({ name: z.string().trim().min(1).max(120), description: z.string().max(500).optional() }).parse(await c.req.json());
+  const draft = agentDraftSchema.parse(JSON.parse(source.draft_json));
+  draft.knowledgeSourceIds = [];
+  draft.toolBindings = [];
+  const agentId = id("agent");
+  await c.env.DB.prepare("INSERT INTO agents(id,name,description,primary_language,draft_json) VALUES(?,?,?,?,?)").bind(agentId, body.name, body.description ?? source.description, source.primary_language, JSON.stringify(draft)).run();
+  await writeAudit(c.env.DB, "agent.duplicate", "agent", agentId, c.get("adminId"), { from: source.id });
+  return c.json({ id: agentId }, 201);
+});
+
+// Deleting removes the assistant's versions, knowledge and chat history, so it is only allowed for assistants
+// without channels and without customer chats (drafts and test copies).
+app.delete("/api/admin/agents/:id", async (c) => {
+  const agent = await getAgent(c.env.DB, c.req.param("id"));
+  if (!agent) return c.json({ error: "Agent not found" }, 404);
+  const [channels, chats] = await Promise.all([
+    c.env.DB.prepare("SELECT COUNT(*) AS count FROM connections WHERE agent_id=?").bind(agent.id).first<{ count: number }>(),
+    c.env.DB.prepare("SELECT COUNT(*) AS count FROM conversations WHERE agent_id=? AND connection_id NOT IN ('preview','eval')").bind(agent.id).first<{ count: number }>(),
+  ]);
+  if ((channels?.count ?? 0) > 0) return c.json({ error: "Move its channels to another assistant first." }, 409);
+  if ((chats?.count ?? 0) > 0) return c.json({ error: "It has talked to customers, so its chat history is kept. Move or turn off its channels instead." }, 409);
+  await c.env.DB.prepare("DELETE FROM agents WHERE id=?").bind(agent.id).run();
+  await writeAudit(c.env.DB, "agent.delete", "agent", agent.id, c.get("adminId"), { name: agent.name });
+  return c.json({ ok: true });
 });
 
 app.get("/api/admin/agents/:id", async (c) => {
@@ -573,10 +602,17 @@ app.post("/api/admin/connections/:id/deactivate", async (c) => {
 });
 
 app.patch("/api/admin/connections/:id", async (c) => {
-  const body = z.object({ name: z.string().trim().min(1).max(100) }).parse(await c.req.json());
-  const result = await c.env.DB.prepare("UPDATE connections SET name=?,updated_at=datetime('now') WHERE id=?").bind(body.name, c.req.param("id")).run();
-  if (!result.meta.changes) return c.json({ error: "Connection not found" }, 404);
-  return c.json({ id: c.req.param("id"), name: body.name });
+  const body = z.object({ name: z.string().trim().min(1).max(100).optional(), agentId: z.string().min(1).optional() }).parse(await c.req.json());
+  const connection = await c.env.DB.prepare("SELECT id,name,agent_id,status FROM connections WHERE id=?").bind(c.req.param("id")).first<{ id: string; name: string; agent_id: string; status: string }>();
+  if (!connection) return c.json({ error: "Connection not found" }, 404);
+  if (body.agentId) {
+    const target = await getAgent(c.env.DB, body.agentId);
+    if (!target) return c.json({ error: "Agent not found" }, 404);
+    if (connection.status === "active" && !target.active_version_id) return c.json({ error: `Publish ${target.name} first; channels always use the live version.` }, 422);
+  }
+  await c.env.DB.prepare("UPDATE connections SET name=?,agent_id=?,updated_at=datetime('now') WHERE id=?").bind(body.name ?? connection.name, body.agentId ?? connection.agent_id, connection.id).run();
+  if (body.agentId && body.agentId !== connection.agent_id) await writeAudit(c.env.DB, "connection.agent_changed", "connection", connection.id, c.get("adminId"), { from: connection.agent_id, to: body.agentId });
+  return c.json({ id: connection.id, name: body.name ?? connection.name, agentId: body.agentId ?? connection.agent_id });
 });
 
 app.get("/api/admin/conversations", async (c) => {
