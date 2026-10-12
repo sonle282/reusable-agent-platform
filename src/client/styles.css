@@ -582,6 +582,11 @@ body { background: var(--color-bg); color: var(--color-text); }
 code, pre { font-family: var(--font-mono); font-size: 0.86em; }
 .toast .icon { flex: none; }
 /* Dialog containers take focus only so screen readers land inside; no ring on the whole panel. */
+/* Pill fields (composer, search): the ring follows the pill, not the bare input inside it. */
+.composer input:focus-visible, .search input:focus-visible { outline: none; }
+.composer:focus-within, .search:focus-within { border-color: var(--color-ring); box-shadow: 0 0 0 1px var(--color-ring); }
+/* Fields: one clear ring that follows their radius instead of an outline plus a shadow. */
+.input:focus-visible, .textarea:focus-visible, .select:focus-visible { outline: none; border-color: var(--color-ring); box-shadow: 0 0 0 1px var(--color-ring); }
 .sheet:focus, .drawer:focus, .dialog:focus { outline: none; }
 .input.mono { font: var(--text-mono); }
 .app .btn-link { color: var(--color-link); }
