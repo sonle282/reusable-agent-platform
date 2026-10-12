@@ -73,6 +73,8 @@ export type AgentSummary = {
 export type AgentDetail = AgentSummary & {
   draft: AgentDraft;
   draftMatchesLive?: boolean;
+  // Knowledge in use: read in full on every reply while it fits, searched per question past the limit.
+  knowledge?: { bytes: number; limit: number; inFull: boolean };
   versions: Array<{ id: string; version: number; published_at: string }>;
   sources: KnowledgeSource[];
   tools: Tool[];

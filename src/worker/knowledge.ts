@@ -112,6 +112,37 @@ export async function ingestKnowledgeSource(env: Env, sourceId: string) {
   }
 }
 
+// Small knowledge is read in full on every reply, in the cached part of the prompt, so nothing can be missed by
+// search (how Claude Projects work, and Anthropic's advice for knowledge that fits in the prompt). Past this size
+// the assistant switches to searching for each question, like Projects' RAG mode. About 35,000 tokens of Vietnamese.
+export const FULL_KNOWLEDGE_BYTES = 100_000;
+
+type SourceRow = { id: string; name: string; r2_key: string | null };
+
+async function readySources(env: Env, sourceIds: string[]) {
+  if (!sourceIds.length) return [];
+  // Sorted so the prompt bytes stay identical between replies (prompt caching is a prefix match).
+  return (await env.DB.prepare(`SELECT id,name,r2_key FROM knowledge_sources WHERE status='ready' AND r2_key IS NOT NULL AND id IN (${sourceIds.map(() => "?").join(",")}) ORDER BY id`)
+    .bind(...sourceIds).all<SourceRow>()).results;
+}
+
+// Total size of the sources in use, for the Sources page ("read in full" or "searched").
+export async function knowledgeSize(env: Env, sourceIds: string[]) {
+  const rows = await readySources(env, sourceIds);
+  const heads = await Promise.all(rows.map((row) => env.FILES.head(row.r2_key!)));
+  const bytes = heads.reduce((sum, head) => sum + (head?.size ?? 0), 0);
+  return { bytes, limit: FULL_KNOWLEDGE_BYTES, inFull: bytes <= FULL_KNOWLEDGE_BYTES };
+}
+
+// Every source in use, in full, or null when they are too large together and must be searched instead.
+export async function fullKnowledge(env: Env, sourceIds: string[]): Promise<Array<{ id: string; name: string; text: string }> | null> {
+  const rows = await readySources(env, sourceIds);
+  const heads = await Promise.all(rows.map((row) => env.FILES.head(row.r2_key!)));
+  if (heads.reduce((sum, head) => sum + (head?.size ?? 0), 0) > FULL_KNOWLEDGE_BYTES) return null;
+  const texts = await Promise.all(rows.map(async (row) => (await env.FILES.get(row.r2_key!))?.text() ?? ""));
+  return rows.map((row, index) => ({ id: row.id, name: row.name, text: texts[index].trim() })).filter((source) => source.text);
+}
+
 export async function retrieveKnowledge(env: Env, agentId: string, sourceIds: string[], query: string) {
   if (!query.trim() || sourceIds.length === 0) return [];
   const instance = await searchInstance(env);

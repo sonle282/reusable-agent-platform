@@ -569,7 +569,13 @@ function SourcesTab({ agent, collections, mutate, reload, onManageData }: { agen
             </Button>
           ) : undefined
         }
-        footer="For explanations that rarely change: policies, guides, FAQs. Answers you fix land in Corrected answers."
+        footer={
+          agent.knowledge && agent.knowledge.bytes > 0
+            ? agent.knowledge.inFull
+              ? `Read in full on every reply (${Math.max(1, Math.round((agent.knowledge.bytes / agent.knowledge.limit) * 100))}% of the room). For explanations that rarely change: policies, guides, FAQs.`
+              : `Too much to read in full (${Math.round(agent.knowledge.bytes / 1000)} KB of ${Math.round(agent.knowledge.limit / 1000)} KB), so it is searched for each question and a fact can be missed. Keep must-know facts short, or put them in Data.`
+            : "For explanations that rarely change: policies, guides, FAQs. Answers you fix land in Corrected answers."
+        }
       >
         {corrected.length > 0 && <Row compact icon="chat" tone="success" title="Corrected answers" subtitle={`${plural(corrected.length, "answer")} you fixed`} onClick={() => setShowCorrected(true)} chevron />}
         {agent.sources.length === 0 && corrected.length === 0 ? (

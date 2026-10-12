@@ -5,7 +5,7 @@ import { agentDraftSchema, anthropicModelSchema, collectionFieldSchema, parseVer
 import { channelActions, parseZernioEvent, verifyZernio, zernioRequest } from "./connectors";
 import { knownFailure } from "./errors";
 import { getAgent, getConnectionByApiKeyHash, getConnectionByTokenHash, getVersionSnapshot, id, parseJson, validateCollectionData, writeAudit, type ConnectionRow } from "./db";
-import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl } from "./knowledge";
+import { assertSafeHttpsUrl, createTextKnowledge, fetchKnowledgeUrl, knowledgeSize } from "./knowledge";
 import { CloudflareAgentRuntime, conversationName, withConversation } from "./runtime";
 import { generateWithAnthropic } from "./model/anthropic";
 import { hasProfile } from "../shared/prompt";
@@ -232,7 +232,8 @@ app.get("/api/admin/agents/:id", async (c) => {
   const draft = agentDraftSchema.parse(JSON.parse(agent.draft_json));
   const live = agent.active_version_id ? await c.env.DB.prepare("SELECT snapshot_json FROM agent_versions WHERE id=?").bind(agent.active_version_id).first<{ snapshot_json: string }>() : null;
   const draftMatchesLive = Boolean(live) && JSON.stringify(parseVersionSnapshot(JSON.parse(live!.snapshot_json))) === JSON.stringify(draft);
-  return c.json({ ...agent, draft, draftMatchesLive, versions: versions.results, sources: sources.results, tools: tools.results, evalCases: evalCases.results });
+  const knowledge = await knowledgeSize(c.env, draft.knowledgeSourceIds);
+  return c.json({ ...agent, draft, draftMatchesLive, knowledge, versions: versions.results, sources: sources.results, tools: tools.results, evalCases: evalCases.results });
 });
 
 app.patch("/api/admin/agents/:id", async (c) => {
