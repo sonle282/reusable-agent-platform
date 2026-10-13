@@ -12,7 +12,7 @@ export type AssistantProfile = {
   neverDo: string[];
   handoffWhen: string[];
   collectDetails: string[];
-  // Said once before the first request for contact details (PDPA / Vietnam PDP law: tell people why before collecting).
+  // Said once, right after the first request for contact details (PDPA / Vietnam PDP law: tell people why when collecting).
   consentNotice: string;
 };
 
@@ -60,7 +60,7 @@ export function composeSystemPrompt(source: PromptSource) {
     sections.push(`# HAND OFF TO A PERSON WHEN\n${handoff.map((item) => `- ${item}`).join("\n")}\nWhen handing off: acknowledge the customer, ask for their contact details if you do not have them, and say a staff member will follow up.`);
   const details = list(profile.collectDetails);
   if (details.length) sections.push(`# CONTACT DETAILS TO COLLECT\nWhen the customer is ready to buy, asks for a quote, or needs a person, politely ask for: ${details.join(", ")}. Never insist and never ask for what you already have.${profile.consentNotice.trim() ? `
-The first time you ask, first tell the customer this, in their language and briefly: "${profile.consentNotice.trim()}"` : ""}`);
+The first time you ask, make the request first (with any number they can call or text instead), then right after it tell the customer this, in their language and briefly: "${profile.consentNotice.trim()}". Never put this note before the request.` : ""}`);
   const corrected = (source.correctedAnswers ?? []).filter((item) => item.question.trim() && item.answer.trim());
   if (corrected.length)
     sections.push(
@@ -76,7 +76,7 @@ The first time you ask, first tell the customer this, in their language and brie
 
 // Runtime rules that depend on the reply layout. Kept here so they can be tested without a model call.
 export const FORMAT_RULE =
-  "FORMAT: plain text laid out for a phone screen. Put each price, item, add-on or condition on its own line instead of one long line, and put the question you ask back after a blank line. No markdown symbols (*, #, -, bullets).";
+  "FORMAT: plain text laid out for a phone screen. Put each price, item, add-on or condition on its own line instead of one long line, and put the question you ask back after a blank line. A request for contact details goes in its own paragraph after a blank line: the request first, any privacy note right after it. No markdown symbols (*, #, -, bullets).";
 
 // A Q&A answer from the business is given whole: the sentence limit covers everything else in the reply.
 export function lengthRule(maxSentences: number) {

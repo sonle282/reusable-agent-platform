@@ -44,10 +44,20 @@ describe("corrected answers", () => {
 });
 
 describe("privacy notice", () => {
-  it("is said before the first request for contact details, only when set", () => {
+  it("comes right after the first request for contact details, only when set", () => {
     const withNotice = composeSystemPrompt({ profile: { collectDetails: ["Phone number"], consentNotice: "We only use your number for this quote." } });
-    expect(withNotice).toContain('first tell the customer this, in their language and briefly: "We only use your number for this quote."');
-    expect(composeSystemPrompt({ profile: { collectDetails: ["Phone number"] } })).not.toContain("first tell the customer");
+    expect(withNotice).toContain('make the request first (with any number they can call or text instead), then right after it tell the customer this, in their language and briefly: "We only use your number for this quote."');
+    expect(withNotice).toContain("Never put this note before the request.");
+    expect(withNotice).not.toContain("first tell the customer");
+    expect(composeSystemPrompt({ profile: { collectDetails: ["Phone number"] } })).not.toContain("tell the customer this");
+  });
+});
+
+describe("reply layout", () => {
+  it("puts a contact request in its own paragraph, request before the privacy note", () => {
+    expect(FORMAT_RULE).toContain("put the question you ask back after a blank line");
+    expect(FORMAT_RULE).toContain("A request for contact details goes in its own paragraph after a blank line: the request first, any privacy note right after it.");
+    expect(FORMAT_RULE).not.toMatch(/spa|nail|salon|215/i);
   });
 });
 
