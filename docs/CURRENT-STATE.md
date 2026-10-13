@@ -211,6 +211,22 @@ Owner request: send the photo whenever an answer is about something that has one
 
 Mr Spa: both offer photos (OF-010, OF-011) were re-uploaded as JPEG. Product photos still link to WebP files on mrspainc.com; if Messenger refuses one, the customer gets the link instead. Verified on Messenger 2026-10-12 10:41 UTC (Freedom Business, owner's test chat, v9): "Ghế MS1 giá bao nhiêu?" went out as 3 messages, all accepted first try: the price with one add-on per line, the question back on its own, then the MS1 JPEG photo, which the owner saw inline in the chat (not as a link). A WebP product photo also works: at 10:46 UTC "Cho anh xem ghế Birkin M4" went out as 3 messages (description, question, `birkin-m4.webp` from mrspainc.com), all accepted first try, and the owner saw the photo inline. So Messenger takes WebP through Zernio; JPEG conversion on upload stays because it also keeps photos small.
 
+## Q&A answers in full, phone request order (2026-10-13, not deployed)
+
+Chị Quý's Messenger test (13/10): a Q&A answer lost its last clause, the privacy note came before the phone request, and 5 new Q&A rows were missing.
+
+Branch `fix/qa-full-answers-2026-10-13` (not merged, not deployed):
+
+| Commit | What |
+| --- | --- |
+| `6ce5834` | LENGTH rule: a question that matches a Q&A/FAQ entry in Knowledge keeps every point of that answer, worded as in the Q&A; the sentence limit covers everything else. LENGTH and FORMAT move to `src/shared/prompt.ts` (`lengthRule`, `FORMAT_RULE`) with tests. |
+| `54366f6` | Contact details: the request (with any number to call or text) comes first, the privacy note right after it (the contact section used to say "first tell the customer this"). FORMAT puts a contact request in its own paragraph after a blank line. |
+
+Mr Spa draft (admin, draft only; live stays v9):
+- New source "Hỏi đáp thường gặp (13/10)" (`ks_adb5c968…`): the old Q&A text with the acetone answer in full wording plus 5 new rows (price range, showroom, offers, chair size, years open). Switched on in the draft; the old "Hỏi đáp thường gặp" (`…d6de98`) is switched off in the draft and its text is unchanged, so v9 still reads it.
+- Profile: phone rule (request first in its own paragraph, note after), new rule "give a Q&A answer in full"; voice and playbook allow a full Q&A answer past 3 sentences. Playbook: offers question shows running promotions then asks for a phone; chair size from product `dimensions` when a model is named, otherwise ask which model or for a phone; word-for-word line for "far away, how to see products"; price range "from $1,700 to over $4,000".
+- Open: the Q&A sheet's chair-size file has no link yet.
+
 ## Production data and AI state (2026-10-10)
 
 Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
