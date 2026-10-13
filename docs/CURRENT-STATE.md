@@ -234,6 +234,15 @@ On Messenger (v10) the owner's long-running chat still got a shortened acetone a
 - Branch `fix/qa-repeat-full-2026-10-13` (not merged): `QA_RULE` in `src/shared/prompt.ts`, always in the runtime rules, says a matching Q&A entry is given whole in its wording every time it is asked, also on a repeat; earlier replies are not a template. LENGTH points to it.
 - Draft (live stays v10): new source "Hỏi đáp thường gặp (nguyên văn 13/10)" (`ks_b96d6ee1…`), the Drive sheet "Q&A" rows 10–44 word for word as `Q:`/`A:` pairs, except three rows aligned with chị Quý's confirmed rules (service fee: no amounts in chat; custom furniture 10–15 weeks after drawings; chair size: no file link yet). It replaces "Hỏi đáp thường gặp (13/10)" (`ks_adb5c968…`) in the draft only. Voice and the Q&A rule in the profile say to give the full Q&A answer again on a repeat.
 
+### Chair size drawing (2026-10-13, draft only)
+
+v11 (`ver_d9564299…`, 02:09 UTC) is live with the word-for-word Q&A and `QA_RULE`. Chị Quý confirmed one size drawing (IONE, inches) for all chairs; the owner wants it sent as a photo.
+
+- Image uploaded byte for byte through `POST /api/admin/images`: `/media/images/d93995d0ea69adcb9a485e4ac9aea1b8.jpg` (184,840 bytes).
+- New Data table **Mr Spa Size Chart** (`col_7b3c5f86…`, slug `mr-spa-size-chart`), one row `SZ-001` with the drawing in `image_url`. Bound in the draft only as `search_size_chart`; v11 does not read it. The row keeps the photo in use, so the daily unused-photo cleanup leaves it alone.
+- Draft: Q&A source "Hỏi đáp thường gặp (nguyên văn 13/10 b)" (`ks_c5262be7…`) replaces `ks_b96d6ee1…` (row 43: send the size drawing). Playbook: size questions look up the size chart and send a one-line intro plus the drawing, without asking which model first; a named model may add its product `dimensions`.
+- No code change: photos already go out from any Data lookup row with an image link (IMAGE_RULE).
+
 ## Production data and AI state (2026-10-10)
 
 Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
