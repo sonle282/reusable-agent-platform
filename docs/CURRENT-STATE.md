@@ -211,11 +211,11 @@ Owner request: send the photo whenever an answer is about something that has one
 
 Mr Spa: both offer photos (OF-010, OF-011) were re-uploaded as JPEG. Product photos still link to WebP files on mrspainc.com; if Messenger refuses one, the customer gets the link instead. Verified on Messenger 2026-10-12 10:41 UTC (Freedom Business, owner's test chat, v9): "Ghế MS1 giá bao nhiêu?" went out as 3 messages, all accepted first try: the price with one add-on per line, the question back on its own, then the MS1 JPEG photo, which the owner saw inline in the chat (not as a link). A WebP product photo also works: at 10:46 UTC "Cho anh xem ghế Birkin M4" went out as 3 messages (description, question, `birkin-m4.webp` from mrspainc.com), all accepted first try, and the owner saw the photo inline. So Messenger takes WebP through Zernio; JPEG conversion on upload stays because it also keeps photos small.
 
-## Q&A answers in full, phone request order (2026-10-13, not deployed)
+## Q&A answers in full, phone request order (2026-10-13)
 
 Chị Quý's Messenger test (13/10): a Q&A answer lost its last clause, the privacy note came before the phone request, and 5 new Q&A rows were missing.
 
-Branch `fix/qa-full-answers-2026-10-13` (not merged, not deployed):
+Branch `fix/qa-full-answers-2026-10-13`, fast-forwarded to `main` (`1974adc`) and deployed; the draft below was published as **v10** (`ver_74eee20ff0ca45639d45c65cbad92c87`, 2026-10-13 01:52 UTC).
 
 | Commit | What |
 | --- | --- |
@@ -226,6 +226,13 @@ Mr Spa draft (admin, draft only; live stays v9):
 - New source "Hỏi đáp thường gặp (13/10)" (`ks_adb5c968…`): the old Q&A text with the acetone answer in full wording plus 5 new rows (price range, showroom, offers, chair size, years open). Switched on in the draft; the old "Hỏi đáp thường gặp" (`…d6de98`) is switched off in the draft and its text is unchanged, so v9 still reads it.
 - Profile: phone rule (request first in its own paragraph, note after), new rule "give a Q&A answer in full"; voice and playbook allow a full Q&A answer past 3 sentences. Playbook: offers question shows running promotions then asks for a phone; chair size from product `dimensions` when a model is named, otherwise ask which model or for a phone; word-for-word line for "far away, how to see products"; price range "from $1,700 to over $4,000".
 - Open: the Q&A sheet's chair-size file has no link yet.
+
+### Follow-up: Q&A answer shortened in a chat with history (2026-10-13, not deployed)
+
+On Messenger (v10) the owner's long-running chat still got a shortened acetone answer; fresh Preview chats passed. Reproduced in Preview 3/3 by asking a similar acetone question first: the repeat got a shorter paraphrase of the earlier reply. Causes: the Q&A source was a condensed "topic: answer" list rather than question/answer pairs, so the model did not treat the line as a fixed answer, and the voice rule "don't repeat a policy already given" plus the earlier reply in history pushed it to shorten.
+
+- Branch `fix/qa-repeat-full-2026-10-13` (not merged): `QA_RULE` in `src/shared/prompt.ts`, always in the runtime rules, says a matching Q&A entry is given whole in its wording every time it is asked, also on a repeat; earlier replies are not a template. LENGTH points to it.
+- Draft (live stays v10): new source "Hỏi đáp thường gặp (nguyên văn 13/10)" (`ks_b96d6ee1…`), the Drive sheet "Q&A" rows 10–44 word for word as `Q:`/`A:` pairs, except three rows aligned with chị Quý's confirmed rules (service fee: no amounts in chat; custom furniture 10–15 weeks after drawings; chair size: no file link yet). It replaces "Hỏi đáp thường gặp (13/10)" (`ks_adb5c968…`) in the draft only. Voice and the Q&A rule in the profile say to give the full Q&A answer again on a repeat.
 
 ## Production data and AI state (2026-10-10)
 
