@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FORMAT_RULE, composeSystemPrompt, hasProfile, lengthRule } from "../src/shared/prompt";
+import { FORMAT_RULE, QA_RULE, composeSystemPrompt, hasProfile, lengthRule } from "../src/shared/prompt";
 import { agentDraftSchema, starterDraft } from "../src/shared/contracts";
 
 describe("composeSystemPrompt", () => {
@@ -69,8 +69,7 @@ describe("reply length", () => {
   it("keeps the sentence limit for everything except a matching Q&A answer", () => {
     const rule = lengthRule(3);
     expect(rule).toContain("at most 3 short sentences");
-    expect(rule).toContain("matches a Q&A or FAQ entry in KNOWLEDGE, give every point of that entry's answer");
-    expect(rule).toContain("worded as in the Q&A (adapt only the pronouns and the language)");
+    expect(rule).toContain("a Q&A answer (see Q&A ANSWERS) is given whole even when it is longer");
     expect(rule).toContain("never shorten it or drop a clause");
     expect(rule).toContain("keep anything you add to it within the limit");
     // The old "Cut extras rather than go over" made the model drop the last clause of a long Q&A answer.
@@ -80,5 +79,24 @@ describe("reply length", () => {
 
   it("stays industry-neutral", () => {
     expect(lengthRule(3)).not.toMatch(/spa|nail|salon|acetone|215/i);
+    expect(QA_RULE).not.toMatch(/spa|nail|salon|acetone|215/i);
+  });
+});
+
+describe("Q&A answers", () => {
+  it("are given whole and in the entry's wording", () => {
+    expect(QA_RULE).toContain("reply with every point of that entry's answer, worded as in the entry (adapt only the pronouns and the language)");
+  });
+
+  it("are given whole again when the question comes back later in the chat", () => {
+    // In a chat with history, a repeat question got a shorter paraphrase of the earlier reply.
+    expect(QA_RULE).toContain("every time it is asked, also when you answered the same or a similar question earlier in this chat");
+    expect(QA_RULE).toContain("never a shorter or reworded version of an earlier reply");
+    expect(QA_RULE).toContain("Your earlier replies are not a template for wording.");
+  });
+
+  it("apply without a sentence limit too", () => {
+    expect(lengthRule(0)).toBe("");
+    expect(QA_RULE.startsWith("Q&A ANSWERS (strict):")).toBe(true);
   });
 });
