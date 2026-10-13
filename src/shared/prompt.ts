@@ -73,3 +73,13 @@ The first time you ask, first tell the customer this, in their language and brie
   }
   return sections.join("\n\n");
 }
+
+// Runtime rules that depend on the reply layout. Kept here so they can be tested without a model call.
+export const FORMAT_RULE =
+  "FORMAT: plain text laid out for a phone screen. Put each price, item, add-on or condition on its own line instead of one long line, and put the question you ask back after a blank line. No markdown symbols (*, #, -, bullets).";
+
+// A Q&A answer from the business is given whole: the sentence limit covers everything else in the reply.
+export function lengthRule(maxSentences: number) {
+  if (maxSentences <= 0) return "";
+  return `LENGTH (strict): the whole reply is at most ${maxSentences} short sentences, counting everything the customer reads (a privacy notice too). Exception: when the customer's question matches a Q&A or FAQ entry in KNOWLEDGE, give every point of that entry's answer, worded as in the Q&A (adapt only the pronouns and the language); never shorten it or drop a clause, and keep anything you add to it within the limit. In Vietnamese, open with "Dạ" inside the first sentence, not as a sentence of its own; in other languages use that language's natural opening, never "Dạ". Keep only what answers this message; put the phone number inside a sentence, not as an extra one. Cut your own extras rather than go over, never part of a Q&A answer.`;
+}

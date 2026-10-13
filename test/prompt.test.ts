@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeSystemPrompt, hasProfile } from "../src/shared/prompt";
+import { FORMAT_RULE, composeSystemPrompt, hasProfile, lengthRule } from "../src/shared/prompt";
 import { agentDraftSchema, starterDraft } from "../src/shared/contracts";
 
 describe("composeSystemPrompt", () => {
@@ -48,5 +48,27 @@ describe("privacy notice", () => {
     const withNotice = composeSystemPrompt({ profile: { collectDetails: ["Phone number"], consentNotice: "We only use your number for this quote." } });
     expect(withNotice).toContain('first tell the customer this, in their language and briefly: "We only use your number for this quote."');
     expect(composeSystemPrompt({ profile: { collectDetails: ["Phone number"] } })).not.toContain("first tell the customer");
+  });
+});
+
+describe("reply length", () => {
+  it("is off when the limit is 0", () => {
+    expect(lengthRule(0)).toBe("");
+  });
+
+  it("keeps the sentence limit for everything except a matching Q&A answer", () => {
+    const rule = lengthRule(3);
+    expect(rule).toContain("at most 3 short sentences");
+    expect(rule).toContain("matches a Q&A or FAQ entry in KNOWLEDGE, give every point of that entry's answer");
+    expect(rule).toContain("worded as in the Q&A (adapt only the pronouns and the language)");
+    expect(rule).toContain("never shorten it or drop a clause");
+    expect(rule).toContain("keep anything you add to it within the limit");
+    // The old "Cut extras rather than go over" made the model drop the last clause of a long Q&A answer.
+    expect(rule).not.toMatch(/Cut extras rather than go over\.$/);
+    expect(rule).toContain("never part of a Q&A answer");
+  });
+
+  it("stays industry-neutral", () => {
+    expect(lengthRule(3)).not.toMatch(/spa|nail|salon|acetone|215/i);
   });
 });
