@@ -160,7 +160,7 @@ Do not place the password directly into a committed script or shell history. Aft
 
 There are two independent rollback concepts:
 
-- **Agent rollback** changes the active agent-version pointer. Existing conversations remain pinned to their original version.
+- **Agent rollback** (Restore) changes the active agent-version pointer. Every chat, including chats in progress, uses the live version from the customer's next message (since 2026-10-12).
 - **Worker rollback** restores a prior code version in Cloudflare. It does not roll back D1, R2, Queue, Durable Object, or other resource data.
 
 Before Worker rollback, determine whether the prior code is compatible with all migrations already applied. Never assume a code rollback reverses schema or data changes.
@@ -172,7 +172,9 @@ $env:EXPECTED_CF_ACCOUNT_ID='759105f65ba94c85759b0b2a03f1c39a'
 npm run admin:reset -- --confirm
 ```
 
-Complete setup immediately afterwards: until it is done, anyone holding the new bootstrap token can claim the instance. Re-enter the brand values in the setup wizard. Do not directly replace password fields with ad hoc SQL and do not expose password hashes.
+It resets only the sign-in, not the data: the assistant, versions, Data, knowledge, channels, conversations, contacts and saved keys stay, and customers keep getting replies.
+
+Complete setup immediately afterwards: until it is done, anyone holding the new bootstrap token can claim the instance. Paste the code (Ctrl+V) into Setup code before copying anything else or taking a screenshot, because either replaces the clipboard; "Invalid bootstrap token" usually means the clipboard no longer held the code, and re-running the command makes a new one. The wizard sets only name, logo and color and clears the support link, so afterwards restore the brand in Settings (Mr Spa: logo `https://mrspainc.com/assets/homepage/mrspa-logo.png`, color `#172126`, support link `https://mrspainc.com`). Do not directly replace password fields with ad hoc SQL and do not expose password hashes.
 
 Before destructive migrations or bulk imports, create appropriate D1/R2 backups or exports according to the customer's recovery requirement. Exported agent configuration must omit credentials and raw secrets.
 
