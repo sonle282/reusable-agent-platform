@@ -36,7 +36,7 @@ export function AccountSection({ me, reload, logout }: { me: Me; reload: () => P
         <div className="card-pad stack" style={{ gap: 16 }}>
           <Field label="Name" hint="Shown to your team instead of your email.">
             <div className="row-flex">
-              <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Quý" autoComplete="name" />
+              <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" autoComplete="name" />
               <Button variant="outline" busy={busy} disabled={name.trim() === me.name.trim()} onClick={() => void saveName()}>
                 Save
               </Button>
