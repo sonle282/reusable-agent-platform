@@ -2,13 +2,15 @@ import { useId, useState, type ReactNode } from "react";
 import { patch, post } from "../api";
 import { formatWhen } from "../format";
 import type { ThemeChoice } from "../theme";
-import type { Brand } from "../types";
+import type { Brand, Me } from "../types";
+import { AccountSection, PeopleSection } from "./People";
 import { Alert, Badge, Button, Disclosure, errorMessage, Field, Icon, initialsOf, PageHeader, Segmented, SettingRow, TextInput, Tile, useToast } from "../ui";
 import { modelLabel } from "./Assistant";
 
 type Check = { state: "idle" | "checking" | "ok" | "failed"; detail?: string; at?: string };
 
 export function SettingsPage({
+  me,
   zernio,
   onManageChannels,
   brand,
@@ -18,6 +20,7 @@ export function SettingsPage({
   themeChoice,
   setThemeChoice,
 }: {
+  me: Me;
   zernio: boolean;
   onManageChannels: () => void;
   brand: Brand;
@@ -86,7 +89,7 @@ export function SettingsPage({
     <div className="page">
       <PageHeader title="Settings" />
       <div className="form-col">
-        {check.state === "failed" && (
+        {me.role === "owner" && check.state === "failed" && (
           <Alert
             tone="danger"
             title="The AI isn't accepting your key"
@@ -98,7 +101,7 @@ export function SettingsPage({
             }
           />
         )}
-        {!hasKey && <Alert tone="info" icon="key" title="Add your AI key to start" text="Your assistant needs it to answer customers. It takes a minute." />}
+        {me.role === "owner" && !hasKey && <Alert tone="info" icon="key" title="Add your AI key to start" text="Your assistant needs it to answer customers. It takes a minute." />}
         {error && <Alert tone="danger" title={error.title} text={error.text} onClose={() => setError(null)} />}
 
         <Group title="Appearance">
@@ -118,6 +121,12 @@ export function SettingsPage({
           </div>
         </Group>
 
+        <AccountSection me={me} reload={reload} logout={logout} />
+
+        {me.role === "owner" && <PeopleSection me={me} />}
+
+        {me.role === "owner" && (
+        <>
         <Group title="Workspace" help="Customers see your brand on the sign-in screen and in the website chat. This admin keeps its own colors so status stays readable.">
           <div className="card card-pad stack" style={{ gap: 16 }}>
             <Field label="Name">
@@ -267,17 +276,8 @@ export function SettingsPage({
           </div>
         </Group>
 
-        <section aria-label="Account" className="card">
-          <div className="row compact">
-            <span className="row-text">
-              <span className="row-title">Signed in as owner</span>
-              <span className="row-sub xs">{brand.name} workspace</span>
-            </span>
-            <Button variant="danger-ghost" size="sm" icon="logout" onClick={logout}>
-              Sign out
-            </Button>
-          </div>
-        </section>
+        </>
+        )}
       </div>
     </div>
   );

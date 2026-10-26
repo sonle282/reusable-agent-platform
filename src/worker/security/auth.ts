@@ -2,7 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { constantTimeEqual, hmacHex, sha256 } from "./crypto";
 
-export type AuthVariables = { adminId: string; csrfToken: string; requestId: string };
+export type AuthVariables = { adminId: string; role: "owner" | "manager" | "staff"; csrfToken: string; requestId: string };
 
 export async function createSession(db: D1Database, adminId: string, ttlSeconds: number, signingKey: string) {
   const rawToken = crypto.randomUUID() + crypto.randomUUID();
@@ -31,8 +31,8 @@ export const requireAdmin: MiddlewareHandler<{ Bindings: Env; Variables: AuthVar
   if (separator < 1 || !await constantTimeEqual(token.slice(separator + 1), await hmacHex(c.env.SESSION_SIGNING_KEY, token.slice(0, separator)))) {
     return c.json({ error: "Unauthorized" }, 401);
   }
-  const row = await c.env.DB.prepare("SELECT admin_id, csrf_hash FROM sessions WHERE id_hash = ? AND expires_at > datetime('now')")
-    .bind(await sha256(token)).first<{ admin_id: string; csrf_hash: string }>();
+  const row = await c.env.DB.prepare("SELECT s.admin_id, s.csrf_hash, a.role FROM sessions s JOIN admins a ON a.id = s.admin_id WHERE s.id_hash = ? AND s.expires_at > datetime('now')")
+    .bind(await sha256(token)).first<{ admin_id: string; csrf_hash: string; role: AuthVariables["role"] }>();
   if (!row) return c.json({ error: "Unauthorized" }, 401);
   const csrfToken = getCookie(c, "agent_csrf") ?? "";
   if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
@@ -42,6 +42,7 @@ export const requireAdmin: MiddlewareHandler<{ Bindings: Env; Variables: AuthVar
     if (origin && new URL(origin).origin !== new URL(c.req.url).origin) return c.json({ error: "Invalid origin" }, 403);
   }
   c.set("adminId", row.admin_id);
+  c.set("role", row.role);
   c.set("csrfToken", csrfToken);
   await c.env.DB.prepare("UPDATE sessions SET last_seen_at = datetime('now') WHERE id_hash = ?").bind(await sha256(token)).run();
   await next();

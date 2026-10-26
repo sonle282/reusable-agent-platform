@@ -5,7 +5,7 @@ import { displayName, formatDate, parseDate, previewSnippet } from "../format";
 import { publishDraft } from "../publish";
 import { parseRichMessage } from "../RichMessage";
 import { platformOf } from "../platform";
-import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage } from "../types";
+import type { AgentSummary, AttentionItem, Connection, Conversation, Dashboard, TranscriptMessage, Role } from "../types";
 import { AgentAvatar, agentStatus, Alert, AvatarWithChannel, Badge, Button, Card, EmptyState, errorMessage, Icon, LoadError, Menu, PageHeader, Row, SkeletonLine, Tile, useToast, type TileTone } from "../ui";
 
 type Go = (page: "assistants" | "conversations" | "channels" | "settings" | "leads" | "data", ...params: string[]) => void;
@@ -33,7 +33,9 @@ export function HomePage({
   tableCount,
   go,
   refresh,
+  role = "owner",
 }: {
+  role?: Role;
   agents: AgentSummary[];
   statusOf: (agent: AgentSummary) => ReturnType<typeof agentStatus>;
   connections: Connection[];
@@ -229,9 +231,12 @@ export function HomePage({
                       </Badge>
                     )}
                     <div className="row-flex" style={{ flex: "none" }}>
-                      <Button variant={view.variant} size="sm" busy={busy === uid(item)} onClick={view.act}>
-                        {view.label}
-                      </Button>
+                      {/* Fixing answers and publishing need a manager; staff still see the item and can dismiss it. */}
+                      {!(role === "staff" && ["price", "fix_pending", "fix_failing"].includes(item.type)) && (
+                        <Button variant={view.variant} size="sm" busy={busy === uid(item)} onClick={view.act}>
+                          {view.label}
+                        </Button>
+                      )}
                       <Menu
                         label={`More actions for ${view.title}`}
                         items={[
@@ -260,6 +265,7 @@ export function HomePage({
           )}
 
           <div className="home-grid">
+            {role !== "staff" && (
             <Card
               title="Assistants"
               action={
@@ -286,6 +292,7 @@ export function HomePage({
               })}
               <Row icon="table" title="Data" subtitle={`${tableCount} ${tableCount === 1 ? "table" : "tables"} · products, offers and prices it looks up`} onClick={() => go("data")} chevron />
             </Card>
+            )}
 
             <Card
               title="Recent conversations"
@@ -302,7 +309,7 @@ export function HomePage({
                   icon="chats"
                   title="No conversations yet"
                   text="When customers message you on a connected channel, their chats show up here."
-                  action={<Button onClick={() => go("channels")}>Add a channel</Button>}
+                  action={role === "owner" ? <Button onClick={() => go("channels")}>Add a channel</Button> : undefined}
                 />
               ) : (
                 recent.map((conversation) => {

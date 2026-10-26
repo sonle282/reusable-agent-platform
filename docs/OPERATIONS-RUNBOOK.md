@@ -165,7 +165,7 @@ There are two independent rollback concepts:
 
 Before Worker rollback, determine whether the prior code is compatible with all migrations already applied. Never assume a code rollback reverses schema or data changes.
 
-For lost admin access, use the supported recovery command. It verifies the Wrangler account, rotates `BOOTSTRAP_TOKEN` (the new value is copied to the clipboard, never printed), removes the admin, sessions and login lockouts, and reopens first-run setup. Agents, data, knowledge, credentials, connections and conversations are kept.
+A person who forgot their password gets a new one from an owner: Settings › People › ••• › Password link (one-time, 7 days). When no owner can sign in, use the supported recovery command. It verifies the Wrangler account, rotates `BOOTSTRAP_TOKEN` (the new value is copied to the clipboard, never printed), removes the owners (managers and staff keep their accounts), every session and the login lockouts, and reopens first-run setup. Agents, data, knowledge, credentials, connections and conversations are kept.
 
 ```powershell
 $env:EXPECTED_CF_ACCOUNT_ID='759105f65ba94c85759b0b2a03f1c39a'

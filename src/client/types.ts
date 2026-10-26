@@ -103,7 +103,12 @@ export type Connection = {
   created_at?: string;
 };
 
+export type Role = "owner" | "manager" | "staff";
+// The person signed in.
+export type Me = { id: string; email: string; name: string; role: Role };
+
 export type Bootstrap = {
+  me: Me;
   attention?: { unpublished: boolean; liveVersion: number | null; failedDeliveries: number; newLeads?: number };
   brand: Brand;
   modelDefaults: Record<string, unknown>;

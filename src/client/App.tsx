@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, post, setCsrf } from "./api";
-import { AuthLayout, Login, Setup } from "./pages/Auth";
+import { AcceptLink, AuthLayout, Login, Setup } from "./pages/Auth";
 import { AssistantPage, type AssistantTab } from "./pages/Assistant";
 import { AssistantsPage } from "./pages/Assistants";
 import { ConnectionsPage } from "./pages/Connections";
@@ -10,7 +10,8 @@ import { HomePage } from "./pages/Home";
 import { LeadsPage } from "./pages/Leads";
 import { SettingsPage } from "./pages/Settings";
 import { useTheme, type ThemeChoice } from "./theme";
-import type { AgentSummary, Bootstrap, Brand } from "./types";
+import type { AgentSummary, Bootstrap, Brand, Role } from "./types";
+import { roleInfo } from "./pages/People";
 import { AgentAvatar, agentStatus, Alert, Button, errorMessage, Field, Icon, initialsOf, Segmented, Spinner, TextInput, ToastProvider } from "./ui";
 
 type Page = "home" | "leads" | "assistants" | "data" | "conversations" | "channels" | "settings";
@@ -27,6 +28,12 @@ const nav: Array<{ id: Page; label: string; short: string; icon: string }> = [
 const pages: Page[] = nav.map((item) => item.id);
 // Phone tab bar: six items; Data is reached from Home and from each assistant's Sources.
 const tabs = nav.filter((item) => item.id !== "data");
+// What each role sees. The server enforces the same split (src/worker/users.ts); this only keeps the screens tidy.
+const allowedPages: Record<Role, Page[]> = {
+  owner: pages,
+  manager: pages.filter((id) => id !== "channels"),
+  staff: ["home", "leads", "conversations", "settings"],
+};
 const assistantTabs: AssistantTab[] = ["test", "instructions", "sources", "followups", "behavior", "versions"];
 
 const defaultBrand: Brand = { name: "Assistant", logoUrl: "", primaryColor: "#007aff", supportUrl: "" };
@@ -67,6 +74,12 @@ function BrandTile({ brand }: { brand: Brand }) {
 function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bootstrap; reload: () => Promise<void>; logout: () => void; themeChoice: ThemeChoice; setThemeChoice: (choice: ThemeChoice) => void }) {
   const { page, params, go } = useRoute();
   const agents = data.agents;
+  const role: Role = data.me?.role ?? "owner";
+  const can = (id: Page) => allowedPages[role].includes(id);
+  // A link to a page this role can't open lands on Home.
+  useEffect(() => {
+    if (!can(page)) go("home");
+  }, [page, role]);
   // The builder reports unpublished changes as you edit, before the next bootstrap.
   const [drafts, setDrafts] = useState<Record<string, boolean>>({});
   useEffect(() => setDrafts({}), [data]);
@@ -81,7 +94,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
   useEffect(() => {
     document.title = `${openAgent?.name ?? nav.find((item) => item.id === page)?.label ?? ""} · ${data.brand.name}`;
   }, [page, openAgent?.name, data.brand.name]);
-  if (!agents.length) return <CreateAssistant brand={data.brand} onDone={reload} />;
+  if (!agents.length && role !== "staff") return <CreateAssistant brand={data.brand} onDone={reload} />;
   const statusOf = (agent: AgentSummary) => agentStatus(agent.active_version_id ? (agent.live_version ?? null) : null, drafts[agent.id] ?? Boolean(agent.unpublished));
   const count = (id: Page) => (id === "channels" ? failed : id === "leads" ? newLeads : 0);
   const hint = (id: Page) => (id === "channels" && failed > 0 ? `, ${failed} not delivered` : id === "leads" && newLeads > 0 ? `, ${newLeads} new` : "");
@@ -96,7 +109,7 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
           <BrandTile brand={data.brand} />
           <span className="ws-name spacer strong truncate">{data.brand.name}</span>
         </div>
-        {nav.map((item) => (
+        {nav.filter((item) => can(item.id)).map((item) => (
           <button
             type="button"
             key={item.id}
@@ -115,11 +128,13 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
             )}
           </button>
         ))}
-        <div className="nav-heading">
-          <span>Assistants</span>
-          <Button variant="ghost" size="sm" icon="plus" aria-label="New assistant" className="nav-add" onClick={() => go("assistants", "new")} />
-        </div>
-        {agents.map((agent) => {
+        {can("assistants") && (
+          <div className="nav-heading">
+            <span>Assistants</span>
+            <Button variant="ghost" size="sm" icon="plus" aria-label="New assistant" className="nav-add" onClick={() => go("assistants", "new")} />
+          </div>
+        )}
+        {can("assistants") && agents.map((agent) => {
           const status = statusOf(agent);
           return (
             <button
@@ -137,15 +152,17 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
             </button>
           );
         })}
-        <div className="account">
+        <button type="button" className="account" aria-label={`Your account: ${data.me?.name || data.me?.email || "Owner"}, ${roleInfo[role].label}`} title="Your account" onClick={() => go("settings")}>
           <span className="avatar" style={{ width: 28, height: 28, fontSize: 11 }} aria-hidden="true">
-            <Icon name="user" size={16} />
+            {data.me?.name || data.me?.email ? initialsOf(data.me.name || data.me.email) : <Icon name="user" size={16} />}
           </span>
           <span className="account-name spacer stack" style={{ gap: 0 }}>
-            <span className="medium truncate">Owner</span>
-            <span className="xs t3 truncate">{data.brand.name} workspace</span>
+            <span className="medium truncate">{data.me?.name || data.me?.email || "Owner"}</span>
+            <span className="xs t3 truncate">
+              {roleInfo[role].label} · {data.brand.name}
+            </span>
           </span>
-        </div>
+        </button>
       </nav>
       <main className={`content${flush ? " is-flush" : ""}`}>
         {page === "home" && (
@@ -155,10 +172,11 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
             connections={data.connections}
             tableCount={data.collections.filter((collection) => !collection.archived_at).length}
             refresh={reload}
+            role={role}
             go={(target, ...rest) => go(target as Page, ...rest)}
           />
         )}
-        {page === "leads" && <LeadsPage openId={params[0]} onOpen={(id) => (id ? go("leads", id) : go("leads"))} onOpenConversation={(id) => go("conversations", id)} onChanged={() => void reload()} />}
+        {page === "leads" && <LeadsPage role={role} openId={params[0]} onOpen={(id) => (id ? go("leads", id) : go("leads"))} onOpenConversation={(id) => go("conversations", id)} onChanged={() => void reload()} />}
         {page === "assistants" && !openAgent && params[0] !== "" && (
           <AssistantsPage
             agents={agents}
@@ -185,12 +203,12 @@ function Shell({ data, reload, logout, themeChoice, setThemeChoice }: { data: Bo
           />
         )}
         {page === "data" && <DataPage agents={agents} collections={data.collections} reload={reload} openCollectionId={params[0]} openRecordId={params[1]} onSelect={(id, recordId) => (id ? go("data", id, ...(recordId ? [recordId] : [])) : go("data"))} />}
-        {page === "conversations" && <ConversationsPage agents={agents} connections={data.connections} openId={params[0]} onOpen={(id) => (id ? go("conversations", id) : go("conversations"))} onOpenSettings={() => go("settings")} />}
+        {page === "conversations" && <ConversationsPage role={role} agents={agents} connections={data.connections} openId={params[0]} onOpen={(id) => (id ? go("conversations", id) : go("conversations"))} onOpenSettings={() => go("settings")} />}
         {page === "channels" && <ConnectionsPage agents={agents} connections={data.connections} reload={reload} onOpenAssistant={(id) => go("assistants", id, "versions")} />}
-        {page === "settings" && <SettingsPage zernio={data.connections.some((connection) => connection.type === "zernio" && connection.status === "active")} onManageChannels={() => go("channels")} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
+        {page === "settings" && <SettingsPage me={data.me} zernio={data.connections.some((connection) => connection.type === "zernio" && connection.status === "active")} onManageChannels={() => go("channels")} brand={data.brand} modelDefaults={data.modelDefaults} reload={reload} logout={logout} themeChoice={themeChoice} setThemeChoice={setThemeChoice} />}
       </main>
       <nav className="tabbar" aria-label="Main">
-        {tabs.map((item) => (
+        {tabs.filter((item) => can(item.id)).map((item) => (
           <button type="button" key={item.id} className="tab" aria-current={page === item.id ? "page" : undefined} aria-label={`${item.short}${hint(item.id)}`} onClick={() => go(item.id)}>
             <Icon name={item.icon} />
             <span>{item.short}</span>
@@ -267,7 +285,9 @@ function CreateAssistant({ brand, onDone }: { brand: Brand; onDone: () => Promis
 }
 
 export function App() {
-  const [state, setState] = useState<"loading" | "setup" | "login" | "ready">("loading");
+  const [state, setState] = useState<"loading" | "setup" | "login" | "link" | "ready">("loading");
+  // #/invite/<token>: an invite or a password link the owner sent. The token stays in the #fragment.
+  const [linkToken] = useState(() => window.location.hash.match(/^#\/invite\/([A-Za-z0-9_-]{20,200})$/)?.[1] ?? "");
   const [brand, setBrand] = useState<Brand>(defaultBrand);
   const [data, setData] = useState<Bootstrap | null>(null);
   const { theme, choice, setChoice } = useTheme();
@@ -293,6 +313,7 @@ export function App() {
         const status = await api<{ setupComplete: boolean; brand: Brand }>("/api/setup/status");
         setBrand({ ...defaultBrand, ...status.brand });
         if (!status.setupComplete) setState("setup");
+        else if (linkToken) setState("link");
         else await loadAdmin();
       } catch {
         setState("login");
@@ -309,6 +330,16 @@ export function App() {
       )}
       {state === "setup" && <Setup onDone={() => void loadAdmin()} />}
       {state === "login" && <Login brand={brand} onDone={() => void loadAdmin()} />}
+      {state === "link" && (
+        <AcceptLink
+          brand={brand}
+          token={linkToken}
+          onDone={() => {
+            window.history.replaceState(null, "", "#/home");
+            void loadAdmin();
+          }}
+        />
+      )}
       {state === "ready" && data && (
         <Shell
           data={data}

@@ -13,6 +13,7 @@ import { executeTool } from "./tools";
 import { markFixesPublished, registerFixRoutes, runCase } from "./fixes";
 import { deleteUnusedImages, ownImageNames, registerImageRoutes } from "./images";
 import { registerLeadRoutes } from "./leads";
+import { registerLinkRoutes, registerUserRoutes, requireRole } from "./users";
 import { clearSessionCookies, createSession, requireAdmin, setSessionCookies, type AuthVariables } from "./security/auth";
 import { constantTimeEqual, decryptCredential, encryptCredential, hashPassword, randomToken, sha256, verifyPassword } from "./security/crypto";
 
@@ -67,7 +68,7 @@ app.post("/api/setup", async (c) => {
   const password = await hashPassword(body.password);
   const adminId = id("admin");
   const statements = [
-    c.env.DB.prepare("INSERT INTO admins(id, email, password_hash, password_salt, password_iterations) VALUES(?,?,?,?,?)").bind(adminId, body.email.toLowerCase(), password.hash, password.salt, password.iterations),
+    c.env.DB.prepare("INSERT INTO admins(id, email, password_hash, password_salt, password_iterations, role) VALUES(?,?,?,?,?,'owner') ON CONFLICT(email) DO UPDATE SET password_hash=excluded.password_hash, password_salt=excluded.password_salt, password_iterations=excluded.password_iterations, role='owner'").bind(adminId, body.email.toLowerCase(), password.hash, password.salt, password.iterations),
     c.env.DB.prepare("UPDATE settings SET value_json = 'true', updated_at = datetime('now') WHERE key = 'setup_complete'"),
     c.env.DB.prepare("UPDATE settings SET value_json = ?, updated_at = datetime('now') WHERE key = 'brand'").bind(JSON.stringify(body.brand)),
   ];
@@ -83,7 +84,8 @@ app.post("/api/setup", async (c) => {
       .bind(JSON.stringify({ credentialId, gatewayId: body.gatewayId, accountId: body.accountId })));
   }
   await c.env.DB.batch(statements);
-  const session = await createSession(c.env.DB, adminId, Number(c.env.SESSION_TTL_SECONDS), c.env.SESSION_SIGNING_KEY);
+  const owner = await c.env.DB.prepare("SELECT id FROM admins WHERE email=?").bind(body.email.toLowerCase()).first<{ id: string }>();
+  const session = await createSession(c.env.DB, owner?.id ?? adminId, Number(c.env.SESSION_TTL_SECONDS), c.env.SESSION_SIGNING_KEY);
   setSessionCookies(c, session.sessionToken, session.csrfToken, Number(c.env.SESSION_TTL_SECONDS));
   return c.json({ ok: true, csrfToken: session.csrfToken }, 201);
 });
@@ -109,7 +111,11 @@ app.post("/api/auth/login", async (c) => {
   return c.json({ ok: true, csrfToken: session.csrfToken });
 });
 
+registerLinkRoutes(app);
 app.use("/api/admin/*", requireAdmin);
+// Every admin API call is checked against the caller's role (src/worker/users.ts).
+app.use("/api/admin/*", requireRole);
+registerUserRoutes(app);
 registerFixRoutes(app);
 registerImageRoutes(app);
 registerLeadRoutes(app);
@@ -140,7 +146,8 @@ app.get("/api/admin/bootstrap", async (c) => {
   const state = new Map(drafts.results.map((row) => [row.id, { live_version: row.version, unpublished: !row.snapshot_json || JSON.stringify(parseVersionSnapshot(JSON.parse(row.snapshot_json))) !== JSON.stringify(agentDraftSchema.parse(JSON.parse(row.draft_json))) }]));
   const list = (agents.results as Array<{ id: string }>).map((agent) => ({ ...agent, ...(state.get(agent.id) ?? { live_version: null, unpublished: true }) }));
   const first = list[0];
-  return c.json({ brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: list, collections: collections.results, connections: connections.results, attention: { unpublished: first?.unpublished ?? false, liveVersion: first?.live_version ?? null, failedDeliveries: failed?.count ?? 0, newLeads: newLeads?.count ?? 0 } });
+  const me = await c.env.DB.prepare("SELECT id,email,name,role FROM admins WHERE id=?").bind(c.get("adminId")).first();
+  return c.json({ me, brand: parseJson(brand?.value_json, {}), modelDefaults: parseJson(model?.value_json, {}), agents: list, collections: collections.results, connections: connections.results, attention: { unpublished: first?.unpublished ?? false, liveVersion: first?.live_version ?? null, failedDeliveries: failed?.count ?? 0, newLeads: newLeads?.count ?? 0 } });
 });
 
 app.patch("/api/admin/settings/brand", async (c) => {

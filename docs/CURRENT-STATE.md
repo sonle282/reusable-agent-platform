@@ -234,6 +234,20 @@ On Messenger (v10) the owner's long-running chat still got a shortened acetone a
 - Branch `fix/qa-repeat-full-2026-10-13` (not merged): `QA_RULE` in `src/shared/prompt.ts`, always in the runtime rules, says a matching Q&A entry is given whole in its wording every time it is asked, also on a repeat; earlier replies are not a template. LENGTH points to it.
 - Draft (live stays v10): new source "Hỏi đáp thường gặp (nguyên văn 13/10)" (`ks_b96d6ee1…`), the Drive sheet "Q&A" rows 10–44 word for word as `Q:`/`A:` pairs, except three rows aligned with chị Quý's confirmed rules (service fee: no amounts in chat; custom furniture 10–15 weeks after drawings; chair size: no file link yet). It replaces "Hỏi đáp thường gặp (13/10)" (`ks_adb5c968…`) in the draft only. Voice and the Q&A rule in the profile say to give the full Q&A answer again on a repeat.
 
+## Users, roles and accounts (2026-10-26)
+
+Owner request: manage the people who sign in (not leads) and each person's account. Decisions: roles Owner / Manager / Staff; people join through a one-time invite link (no email provider); "Your account" has name, email and password.
+
+- **Roles** (migration `0008_users.sql`: `admins.role`, `admins.name`, table `user_links`; existing admins became owners):
+  - Owner: everything, including the AI key, channels, settings, export, people, deleting an assistant and live lookups (tools).
+  - Manager: assistants (edit, publish, restore, Fix this answer), Data, customer data export/erase, lead export, delivery retry.
+  - Staff: Home, Leads (status, notes), Conversations (read, "Your team replies"), their own account.
+  - Enforced on the server by one rule list in `src/worker/users.ts` (`requiredRole`, middleware `requireRole` after `requireAdmin`); any admin API not listed needs an owner. `test/roles.test.ts` covers it. The client hides what a role can't use (nav, Home actions, Fix this answer, customer-data menu, lead export/delete).
+- **Invites and password links:** Settings › People › Invite makes a one-time link (`/#/invite/<token>`, 7 days, only a hash stored; a new link replaces the previous one) that the owner sends on Zalo/SMS; the person sets their own password and is signed in. ••• › Password link does the same for a forgotten password and signs that person out elsewhere. The token is in the #fragment and request bodies (`POST /api/links/check`, `/api/links/accept`), never in a logged URL.
+- **Your account** (Settings, every role): name (shown instead of the email), email (needs the current password), password (needs the current one; signs out other devices), sign out. The sidebar shows the name and role.
+- Guards: always at least one owner; you can't remove yourself or change your own role.
+- `npm run admin:reset` now removes only owners (managers and staff keep their accounts); setup turns an existing account with that email into the owner.
+
 ## Admin password reset and repo visibility (2026-10-26)
 
 - The owner forgot the admin password. `npm run admin:reset -- --confirm` (account-checked) reopened setup; the owner completed it with the same email and a new password. Data was untouched (checked before and after: 1 assistant live on v12, 73 products, 2 offers, 16 knowledge sources, 2 active channels, 371 conversations, 7 contacts, 3 saved keys). The first attempt failed with "Invalid bootstrap token" because a screenshot replaced the clipboard; a second run fixed it. The brand was restored afterwards in Settings (logo, `#172126`, support link `https://mrspainc.com`), since the wizard clears the support link and resets the color.

@@ -1,5 +1,6 @@
 // Operational recovery for a lost admin password.
-// Rotates BOOTSTRAP_TOKEN, removes the admin and its sessions, and reopens first-run setup.
+// Rotates BOOTSTRAP_TOKEN, removes the owners and every session, and reopens first-run setup.
+// Managers and staff keep their accounts (they sign in again); setup makes the new owner.
 // Agents, data, knowledge, connections, credentials and conversations are not touched.
 // The new token is copied to the clipboard and never printed.
 import { spawnSync } from "node:child_process";
@@ -25,7 +26,7 @@ if (copied.status !== 0) throw new Error("Could not copy the new bootstrap token
 wrangler(["secret", "put", "BOOTSTRAP_TOKEN"], token);
 console.log("BOOTSTRAP_TOKEN rotated (value copied to clipboard).");
 
-const sql = "DELETE FROM sessions; DELETE FROM login_attempts; DELETE FROM admins; UPDATE settings SET value_json='false', updated_at=datetime('now') WHERE key='setup_complete';";
+const sql = "DELETE FROM sessions; DELETE FROM login_attempts; DELETE FROM user_links WHERE used_at IS NULL; DELETE FROM admins WHERE role='owner'; UPDATE settings SET value_json='false', updated_at=datetime('now') WHERE key='setup_complete';";
 // With shell: true (Windows), arguments are joined into one command line and need explicit quoting.
 wrangler(["d1", "execute", "DB", "--remote", "--yes", "--command", process.platform === "win32" ? `"${sql}"` : sql]);
-console.log("Admin removed and setup reopened. Open the Worker URL and complete setup with the clipboard token now.");
+console.log("Owners removed and setup reopened. Open the Worker URL and complete setup with the clipboard token now.");

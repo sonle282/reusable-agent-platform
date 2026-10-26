@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { post, setCsrf } from "../api";
 import type { Brand } from "../types";
 import { Alert, Button, errorMessage, Field, Icon, initialsOf, LeadStatus, SettingRow, Steps, TextInput, TypingDots } from "../ui";
@@ -42,7 +42,7 @@ export function AuthLayout({ brand, children }: { brand: Brand; children: ReactN
   );
 }
 
-function PasswordField({ id, label, value, onChange, autoComplete, strength }: { id: string; label: string; value: string; onChange: (value: string) => void; autoComplete: string; strength?: boolean }) {
+export function PasswordField({ id, label, value, onChange, autoComplete, strength }: { id: string; label: string; value: string; onChange: (value: string) => void; autoComplete: string; strength?: boolean }) {
   const [shown, setShown] = useState(false);
   const score = value.length >= 16 ? 3 : value.length >= 12 ? 2 : value.length > 0 ? 1 : 0;
   const hint = value.length === 0 ? "At least 12 characters. A short sentence works well." : value.length < 12 ? `${12 - value.length} more characters` : "Good password";
@@ -200,6 +200,74 @@ export function Setup({ onDone }: { onDone: () => void }) {
             {step === 1 ? "Continue" : "Open the app"}
           </Button>
         </div>
+      </form>
+    </AuthLayout>
+  );
+}
+
+// Opening an invite or a reset link: the owner sent it (Zalo, SMS…); the person sets their own password here.
+export function AcceptLink({ brand, token, onDone }: { brand: Brand; token: string; onDone: () => void }) {
+  const [link, setLink] = useState<{ kind: "invite" | "reset"; email: string; name: string; role: string | null } | null>(null);
+  const [problem, setProblem] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    post<{ kind: "invite" | "reset"; email: string; name: string; role: string | null }>("/api/links/check", { token }).then(
+      (result) => {
+        setLink(result);
+        setName(result.name);
+      },
+      (caught) => setProblem(errorMessage(caught, "This link doesn't work")),
+    );
+  }, [token]);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const result = await post<{ csrfToken: string }>("/api/links/accept", { token, password, name: link?.kind === "invite" ? name.trim() : undefined });
+      setCsrf(result.csrfToken);
+      onDone();
+    } catch (caught) {
+      setError(errorMessage(caught, "Couldn't save your password"));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const invite = link?.kind === "invite";
+  return (
+    <AuthLayout brand={brand}>
+      <form className="auth-form" style={{ maxWidth: 420 }} onSubmit={submit} aria-labelledby="link-title">
+        <div className="stack" style={{ gap: 12 }}>
+          <h1 id="link-title" className="auth-title">
+            {problem ? "This link doesn't work" : invite ? `Join ${brand.name}` : "Set a new password"}
+          </h1>
+          <p className="auth-lead">
+            {problem
+              ? problem
+              : !link
+                ? "Checking the link…"
+                : invite
+                  ? `You were invited as ${link.role === "owner" ? "an owner" : link.role === "manager" ? "a manager" : "staff"}. You'll sign in with ${link.email}.`
+                  : `For ${link.email}. You'll be signed out on other devices.`}
+          </p>
+        </div>
+        {link && !problem && (
+          <>
+            {invite && (
+              <Field label="Your name" hint="Shown to your team instead of your email.">
+                <TextInput value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" data-autofocus />
+              </Field>
+            )}
+            <PasswordField id="link-password" label={invite ? "Password" : "New password"} value={password} onChange={setPassword} autoComplete="new-password" strength />
+            {error && <Alert tone="danger" title="Couldn't save" text={error} />}
+            <Button type="submit" block busy={busy} disabled={password.length < 12}>
+              {invite ? "Join and sign in" : "Save and sign in"}
+            </Button>
+          </>
+        )}
       </form>
     </AuthLayout>
   );

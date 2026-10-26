@@ -3,6 +3,7 @@ import { api, del, patch } from "../api";
 import { formatPhone } from "../../shared/contact";
 import { displayName, formatDate, parseDate } from "../format";
 import { platformKey, platformName } from "../platform";
+import type { Role } from "../types";
 import { AgentAvatar, Alert, AvatarWithChannel, Button, Chips, Dialog, Drawer, EmptyState, errorMessage, Field, Icon, LeadStatus as StatusPill, LoadError, PageHeader, Segmented, Skeleton, Table, TextArea, usePaged, useToast } from "../ui";
 
 export type LeadStatus = "new" | "called" | "won" | "not_fit";
@@ -38,7 +39,7 @@ const platformLabel = (value?: string | null) => (value === "generic_api" ? "Web
 
 const contactLine = (lead: Lead) => formatPhone(lead.phone) || lead.email || "";
 
-export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { openId?: string; onOpen: (id?: string) => void; onOpenConversation: (id: string) => void; onChanged: () => void }) {
+export function LeadsPage({ role = "owner", openId, onOpen, onOpenConversation, onChanged }: { role?: Role; openId?: string; onOpen: (id?: string) => void; onOpenConversation: (id: string) => void; onChanged: () => void }) {
   const toast = useToast();
   const [data, setData] = useState<LeadList | null>(null);
   const [error, setError] = useState("");
@@ -74,7 +75,8 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
         title="Leads"
         subtitle="People who left a phone number or email. Call the new ones first."
         actions={
-          data && data.counts.all > 0 ? (
+          // Exporting every lead's contact details needs a manager.
+          data && data.counts.all > 0 && role !== "staff" ? (
             <Button variant="outline" icon="download" onClick={() => void exportCsv()}>
               Export
             </Button>
@@ -178,6 +180,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
       )}
       {openId && (
         <LeadDrawer
+          canDelete={role !== "staff"}
           // A fresh panel per lead, so notes typed for one lead never show on another.
           key={openId}
           id={openId}
@@ -193,7 +196,7 @@ export function LeadsPage({ openId, onOpen, onOpenConversation, onChanged }: { o
   );
 }
 
-function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string; onClose: () => void; onOpenConversation: (id: string) => void; onChanged: () => Promise<void> }) {
+function LeadDrawer({ id, canDelete, onClose, onOpenConversation, onChanged }: { id: string; canDelete: boolean; onClose: () => void; onOpenConversation: (id: string) => void; onChanged: () => Promise<void> }) {
   const toast = useToast();
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [error, setError] = useState("");
@@ -232,9 +235,11 @@ function LeadDrawer({ id, onClose, onOpenConversation, onChanged }: { id: string
         footer={
           lead && (
             <>
-              <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
-                Delete lead
-              </Button>
+              {canDelete && (
+                <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
+                  Delete lead
+                </Button>
+              )}
               <span className="spacer" />
               <Button variant="outline" onClick={onClose}>
                 Close

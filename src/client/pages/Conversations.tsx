@@ -3,7 +3,7 @@ import { api, post } from "../api";
 import { displayName, formatDate, previewSnippet, timeSeparator } from "../format";
 import { useFixAnswer } from "../FixSheet";
 import { RichBubbles, parseRichMessage } from "../RichMessage";
-import type { AgentSummary, Connection, Conversation, TranscriptMessage } from "../types";
+import type { AgentSummary, Connection, Conversation, Role, TranscriptMessage } from "../types";
 
 // "Messenger via Zernio", "API" — how this chat reaches the customer.
 const channelLabel = (connection?: Connection) => {
@@ -20,7 +20,7 @@ const previewText = (value?: string) => previewSnippet(value, parseRichMessage);
 type Detail = { conversation: Conversation & { custom_json?: string | null }; messages: TranscriptMessage[] };
 
 // Full-height split: chats on the left, the thread on the right (customer as a gray bubble on the right, the assistant as plain text).
-export function ConversationsPage({ agents, connections, openId, onOpen, onOpenSettings }: { agents: AgentSummary[]; connections: Connection[]; openId?: string; onOpen: (id?: string) => void; onOpenSettings: () => void }) {
+export function ConversationsPage({ role = "owner", agents, connections, openId, onOpen, onOpenSettings }: { role?: Role; agents: AgentSummary[]; connections: Connection[]; openId?: string; onOpen: (id?: string) => void; onOpenSettings: () => void }) {
   const toast = useToast();
   const { startFix, fixSheet } = useFixAnswer({ onOpenSettings });
   // Each chat is answered by the assistant its channel pointed to when the chat started.
@@ -207,17 +207,18 @@ export function ConversationsPage({ agents, connections, openId, onOpen, onOpenS
                 <span className="medium">Your team replies</span>
                 <Switch label="Your team replies" checked={Boolean(selected.human_takeover)} disabled={switching} onChange={(enabled) => void setTakeover(selected, enabled)} />
               </label>
-              <Menu
-                label="Conversation actions"
-                size="md"
-                items={[
-                  { group: "Assistant" },
-                  { separator: true },
-                  { group: "Customer data" },
-                  { label: "Export", icon: "download", onSelect: () => void exportCustomer(selected) },
-                  { label: "Erase…", icon: "trash", destructive: true, onSelect: () => setErasing("ask") },
-                ]}
-              />
+              {/* Exporting or erasing a customer's data needs a manager. */}
+              {role !== "staff" && (
+                <Menu
+                  label="Conversation actions"
+                  size="md"
+                  items={[
+                    { group: "Customer data" },
+                    { label: "Export", icon: "download", onSelect: () => void exportCustomer(selected) },
+                    { label: "Erase…", icon: "trash", destructive: true, onSelect: () => setErasing("ask") },
+                  ]}
+                />
+              )}
             </div>
             {Boolean(selected.human_takeover) && (
               <div className="alert-box alert-info thread-alert" role="status">
@@ -262,6 +263,7 @@ export function ConversationsPage({ agents, connections, openId, onOpen, onOpenS
                             <button type="button" className="msg-action" aria-label="Copy reply" onClick={() => void copy(plainText(message.content))}>
                               <Icon name="copy" size={16} />
                             </button>
+                            {role !== "staff" && (
                             <button
                               type="button"
                               className="msg-action"
@@ -278,6 +280,7 @@ export function ConversationsPage({ agents, connections, openId, onOpen, onOpenS
                               <Icon name="wrench" size={16} />
                               Fix this answer
                             </button>
+                            )}
                           </div>
                         </div>
                       </MessageGroup>
