@@ -234,6 +234,11 @@ On Messenger (v10) the owner's long-running chat still got a shortened acetone a
 - Branch `fix/qa-repeat-full-2026-10-13` (not merged): `QA_RULE` in `src/shared/prompt.ts`, always in the runtime rules, says a matching Q&A entry is given whole in its wording every time it is asked, also on a repeat; earlier replies are not a template. LENGTH points to it.
 - Draft (live stays v10): new source "Hỏi đáp thường gặp (nguyên văn 13/10)" (`ks_b96d6ee1…`), the Drive sheet "Q&A" rows 10–44 word for word as `Q:`/`A:` pairs, except three rows aligned with chị Quý's confirmed rules (service fee: no amounts in chat; custom furniture 10–15 weeks after drawings; chair size: no file link yet). It replaces "Hỏi đáp thường gặp (13/10)" (`ks_adb5c968…`) in the draft only. Voice and the Q&A rule in the profile say to give the full Q&A answer again on a repeat.
 
+## Admin password reset and repo visibility (2026-10-26)
+
+- The owner forgot the admin password. `npm run admin:reset -- --confirm` (account-checked) reopened setup; the owner completed it with the same email and a new password. Data was untouched (checked before and after: 1 assistant live on v12, 73 products, 2 offers, 16 knowledge sources, 2 active channels, 371 conversations, 7 contacts, 3 saved keys). The first attempt failed with "Invalid bootstrap token" because a screenshot replaced the clipboard; a second run fixed it. The brand was restored afterwards in Settings (logo, `#172126`, support link `https://mrspainc.com`), since the wizard clears the support link and resets the color.
+- The repo had been switched to PRIVATE on 2026-10-14 by mistake; the owner asked for PUBLIC again and it was switched back on 2026-10-26. The first Workers Build after that (`4ba8e9e`, docs only) failed while the previous build (`2f708ce`) had succeeded and `npm run ci` passed locally; production kept running `2f708ce`'s code. The wrangler login can't read build logs (Forbidden), so the log has to be read in the Cloudflare dashboard.
+
 ## Production data and AI state (2026-10-10)
 
 Setup was re-run on 2026-10-10 with `npm run admin:reset` because the original admin password was unavailable; agents, data and knowledge were preserved. The bootstrap path is closed again.
